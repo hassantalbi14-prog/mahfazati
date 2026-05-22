@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { supabase } from './db.js';
 import { X, Home, CreditCard, Wallet, Target, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight, Menu, ChevronLeft, ChevronRight, Plus, Trash2, Cloud, Settings, Building2, Coins, Package, HandCoins, Download, Upload, Check, Camera } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -91,25 +92,50 @@ export default function App(){
   const iRef=useRef();
   const eiRef=useRef();
 
-  const[banks,setBanks]=useState(()=>{try{const d=localStorage.getItem("mhf_banks");return d?JSON.parse(d):IBK;}catch{return IBK;}});
-  const[cash,setCash]=useState(()=>{try{const d=localStorage.getItem("mhf_cash");return d?JSON.parse(d):ICS;}catch{return ICS;}});
-  const[assets,setAssets]=useState(()=>{try{const d=localStorage.getItem("mhf_assets");return d?JSON.parse(d):IAS;}catch{return IAS;}});
-  const[loans,setLoans]=useState(()=>{try{const d=localStorage.getItem("mhf_loans");return d?JSON.parse(d):ILN;}catch{return ILN;}});
-  const[cats,setCats]=useState(()=>{try{const d=localStorage.getItem("mhf_cats");return d?JSON.parse(d):IC;}catch{return IC;}});
-  const[txs,setTxs]=useState(()=>{try{const d=localStorage.getItem("mhf_txs");return d?JSON.parse(d):ITX;}catch{return ITX;}});
-  const[budgets,setBudgets]=useState(()=>{try{const d=localStorage.getItem("mhf_budgets");return d?JSON.parse(d):IBG;}catch{return IBG;}});
-  const [budgetSettings, setBudgetSettings] = useState(()=>{try{const d=localStorage.getItem("mhf_budget");return d?JSON.parse(d):{threshold:3000,allocations:[{id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:30},{id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20},{id:3,name:"الاستثمار",icon:"📈",color:"#10b981",pct:30},{id:4,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:20}]};}catch{return {threshold:3000,allocations:[{id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:30},{id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20},{id:3,name:"الاستثمار",icon:"📈",color:"#10b981",pct:30},{id:4,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:20}]};}});
+  const[banks,setBanks]=useState(IBK);
+  const[cash,setCash]=useState(ICS);
+  const[assets,setAssets]=useState(IAS);
+  const[loans,setLoans]=useState(ILN);
+  const[cats,setCats]=useState(IC);
+  const[txs,setTxs]=useState(ITX);
+  const[budgets,setBudgets]=useState(IBG);
+  const [budgetSettings, setBudgetSettings] = useState({threshold:3000,allocations:[{id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:30},{id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20},{id:3,name:"الاستثمار",icon:"📈",color:"#10b981",pct:30},{id:4,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:20}]});
   const [editAlloc, setEditAlloc] = useState(null);
 
-  // Auto-save to localStorage
-  useEffect(()=>{try{localStorage.setItem("mhf_banks",JSON.stringify(banks));}catch{}},[banks]);
-  useEffect(()=>{try{localStorage.setItem("mhf_cash",JSON.stringify(cash));}catch{}},[cash]);
-  useEffect(()=>{try{localStorage.setItem("mhf_assets",JSON.stringify(assets));}catch{}},[assets]);
-  useEffect(()=>{try{localStorage.setItem("mhf_loans",JSON.stringify(loans));}catch{}},[loans]);
-  useEffect(()=>{try{localStorage.setItem("mhf_cats",JSON.stringify(cats));}catch{}},[cats]);
-  useEffect(()=>{try{localStorage.setItem("mhf_txs",JSON.stringify(txs));}catch{}},[txs]);
-  useEffect(()=>{try{localStorage.setItem("mhf_budgets",JSON.stringify(budgets));}catch{}},[budgets]);
-  useEffect(()=>{try{localStorage.setItem("mhf_budget",JSON.stringify(budgetSettings));}catch{}},[budgetSettings]);
+  // ── Supabase sync ─────────────────────────────────────────────────────────
+  const saveToDb = async (table, data) => {
+    try {
+      await supabase.from(table).upsert({id:'main', data: JSON.stringify(data)});
+    } catch(e) {}
+  };
+  const loadFromDb = async (table, fallback, setter) => {
+    try {
+      const {data} = await supabase.from(table).select('data').eq('id','main').single();
+      if(data?.data) setter(JSON.parse(data.data));
+    } catch(e) {}
+  };
+
+  // Load from Supabase on startup
+  useEffect(()=>{
+    loadFromDb('banks', IBK, setBanks);
+    loadFromDb('cash_accounts', ICS, setCash);
+    loadFromDb('assets', IAS, setAssets);
+    loadFromDb('loans', ILN, setLoans);
+    loadFromDb('categories', IC, setCats);
+    loadFromDb('transactions', ITX, setTxs);
+    loadFromDb('settings', null, (d)=>{
+      if(d?.budgetSettings) setBudgetSettings(d.budgetSettings);
+    });
+  },[]);
+
+  // Save to Supabase on every change
+  useEffect(()=>{saveToDb('banks', banks);},[banks]);
+  useEffect(()=>{saveToDb('cash_accounts', cash);},[cash]);
+  useEffect(()=>{saveToDb('assets', assets);},[assets]);
+  useEffect(()=>{saveToDb('loans', loans);},[loans]);
+  useEffect(()=>{saveToDb('categories', cats);},[cats]);
+  useEffect(()=>{saveToDb('transactions', txs);},[txs]);
+  useEffect(()=>{saveToDb('settings', {budgetSettings});},[budgetSettings]);
 
   const allAcc=[
     ...banks.flatMap(b=>b.accounts.map(a=>({...a,bn:b.name,bid:b.id,key:`b-${b.id}-${a.id}`,ref:{k:"bank",bid:b.id,aid:a.id}}))),

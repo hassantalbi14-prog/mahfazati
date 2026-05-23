@@ -103,7 +103,17 @@ export default function App(){
   const [editAlloc, setEditAlloc] = useState(null);
 
   // ── Supabase sync ─────────────────────────────────────────────────────────
-  const saveToDb = async (table, data) => {
+  const saveToDb = async (key, data) => {
+    try {
+      await supabase.from('app_data').upsert({id:key, data: data});
+    } catch(e) {}
+  };
+  const loadFromDb = async (key, fallback, setter) => {
+    try {
+      const {data} = await supabase.from('app_data').select('data').eq('id',key).single();
+      if(data?.data) setter(data.data);
+    } catch(e) {}
+  };
     try {
       await supabase.from(table).upsert({id:'main', data: JSON.stringify(data)});
     } catch(e) {}

@@ -105,40 +105,6 @@ export default function App(){
   const [budgetSettings, setBudgetSettings] = useState({threshold:3000,allocations:[{id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:30},{id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20},{id:3,name:"الاستثمار",icon:"📈",color:"#10b981",pct:30},{id:4,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:20}]});
   const [editAlloc, setEditAlloc] = useState(null);
 
-  // ── Supabase sync ─────────────────────────────────────────────────────────
-  const saveToDb = async (key, data) => {
-    try {
-      await supabase.from('app_data').upsert({id: key, data: JSON.stringify(data)});
-    } catch(e) { console.log('save error:', e); }
-  };
-  const loadFromDb = async (key, fallback, setter) => {
-    try {
-      const {data, error} = await supabase.from('app_data').select('data').eq('id', key).single();
-      if(data?.data) setter(JSON.parse(data.data));
-    } catch(e) { console.log('load error:', e); }
-  };
-
-  // Load from Supabase on startup
-  useEffect(()=>{
-    loadFromDb('banks', IBK, setBanks);
-    loadFromDb('cash_accounts', ICS, setCash);
-    loadFromDb('assets', IAS, setAssets);
-    loadFromDb('loans', ILN, setLoans);
-    loadFromDb('categories', IC, setCats);
-    loadFromDb('transactions', ITX, setTxs);
-    loadFromDb('settings', null, (d)=>{
-      if(d?.budgetSettings) setBudgetSettings(d.budgetSettings);
-    });
-  },[]);
-
-  // Save to Supabase on every change
-  useEffect(()=>{saveToDb('banks', banks);},[banks]);
-  useEffect(()=>{saveToDb('cash_accounts', cash);},[cash]);
-  useEffect(()=>{saveToDb('assets', assets);},[assets]);
-  useEffect(()=>{saveToDb('loans', loans);},[loans]);
-  useEffect(()=>{saveToDb('categories', cats);},[cats]);
-  useEffect(()=>{saveToDb('transactions', txs);},[txs]);
-  useEffect(()=>{saveToDb('settings', {budgetSettings});},[budgetSettings]);
 
   const allAcc=[
     ...banks.flatMap(b=>b.accounts.map(a=>({...a,bn:b.name,bid:b.id,key:`b-${b.id}-${a.id}`,ref:{k:"bank",bid:b.id,aid:a.id}}))),

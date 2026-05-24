@@ -108,6 +108,7 @@ export default function App(){
   const[budgets,setBudgets]=useState(IBG);
   const [budgetSettings, setBudgetSettings] = useState({threshold:3000,allocations:[{id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:30},{id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20},{id:3,name:"الاستثمار",icon:"📈",color:"#10b981",pct:30},{id:4,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:20}]});
   const [editAlloc, setEditAlloc] = useState(null);
+  const loaded = useRef(false);
 
   // Load from Supabase on startup
   useEffect(()=>{
@@ -119,18 +120,19 @@ export default function App(){
       const ct = await _load('cats'); if(ct) setCats(ct);
       const tx = await _load('txs'); if(tx) setTxs(tx);
       const bs = await _load('budgetSettings'); if(bs) setBudgetSettings(bs);
+      loaded.current = true;
     };
     loadAll();
   },[]);
 
-  // Save on every change
-  useEffect(()=>{_save('banks',banks);},[banks]);
-  useEffect(()=>{_save('cash',cash);},[cash]);
-  useEffect(()=>{_save('assets',assets);},[assets]);
-  useEffect(()=>{_save('loans',loans);},[loans]);
-  useEffect(()=>{_save('cats',cats);},[cats]);
-  useEffect(()=>{_save('txs',txs);},[txs]);
-  useEffect(()=>{_save('budgetSettings',budgetSettings);},[budgetSettings]);
+  // Save on every change — only after initial load
+  useEffect(()=>{if(loaded.current)_save('banks',banks);},[banks]);
+  useEffect(()=>{if(loaded.current)_save('cash',cash);},[cash]);
+  useEffect(()=>{if(loaded.current)_save('assets',assets);},[assets]);
+  useEffect(()=>{if(loaded.current)_save('loans',loans);},[loans]);
+  useEffect(()=>{if(loaded.current)_save('cats',cats);},[cats]);
+  useEffect(()=>{if(loaded.current)_save('txs',txs);},[txs]);
+  useEffect(()=>{if(loaded.current)_save('budgetSettings',budgetSettings);},[budgetSettings]);
 
 
   const allAcc=[

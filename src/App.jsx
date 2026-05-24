@@ -1,4 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createClient } from '@supabase/supabase-js';
+const _sb = createClient('https://fgcxhsqflbgpmjqoipol.supabase.co','sb_publishable_OiS-RS4qaOtmkuWop1f5AA_Nk8mOGXP');
+const _save = async(k,v)=>{ try{ await _sb.from('app_data').upsert({id:k,data:JSON.stringify(v)}); }catch(e){} };
+const _load = async(k)=>{ try{ const{data}=await _sb.from('app_data').select('data').eq('id',k).single(); return data?.data?JSON.parse(data.data):null; }catch(e){return null;} };
 import { X, Home, CreditCard, Wallet, Target, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight, Menu, ChevronLeft, ChevronRight, Plus, Trash2, Cloud, Settings, Building2, Coins, Package, HandCoins, Download, Upload, Check, Camera } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -104,6 +108,29 @@ export default function App(){
   const[budgets,setBudgets]=useState(IBG);
   const [budgetSettings, setBudgetSettings] = useState({threshold:3000,allocations:[{id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:30},{id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20},{id:3,name:"الاستثمار",icon:"📈",color:"#10b981",pct:30},{id:4,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:20}]});
   const [editAlloc, setEditAlloc] = useState(null);
+
+  // Load from Supabase on startup
+  useEffect(()=>{
+    const loadAll = async () => {
+      const b = await _load('banks'); if(b) setBanks(b);
+      const c = await _load('cash'); if(c) setCash(c);
+      const a = await _load('assets'); if(a) setAssets(a);
+      const l = await _load('loans'); if(l) setLoans(l);
+      const ct = await _load('cats'); if(ct) setCats(ct);
+      const tx = await _load('txs'); if(tx) setTxs(tx);
+      const bs = await _load('budgetSettings'); if(bs) setBudgetSettings(bs);
+    };
+    loadAll();
+  },[]);
+
+  // Save on every change
+  useEffect(()=>{_save('banks',banks);},[banks]);
+  useEffect(()=>{_save('cash',cash);},[cash]);
+  useEffect(()=>{_save('assets',assets);},[assets]);
+  useEffect(()=>{_save('loans',loans);},[loans]);
+  useEffect(()=>{_save('cats',cats);},[cats]);
+  useEffect(()=>{_save('txs',txs);},[txs]);
+  useEffect(()=>{_save('budgetSettings',budgetSettings);},[budgetSettings]);
 
 
   const allAcc=[

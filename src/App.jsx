@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createClient } from '@supabase/supabase-js';
 const _sb = createClient('https://fgcxhsqflbgpmjqoipol.supabase.co','sb_publishable_OiS-RS4qaOtmkuWop1f5AA_Nk8mOGXP');
-const _save = async(k,v)=>{ try{ await _sb.from('app_data').upsert({id:k,data:JSON.stringify(v)}); }catch(e){} };
-const _load = async(k)=>{ try{ const{data}=await _sb.from('app_data').select('data').eq('id',k).single(); return data?.data?JSON.parse(data.data):null; }catch(e){return null;} };
+const _save = async(k,v)=>{ try{ const r=await _sb.from('app_data').upsert({id:k,data:JSON.stringify(v)}); console.log('saved',k,r.error||'ok'); }catch(e){console.log('save err',k,e);} };
+const _load = async(k)=>{ try{ const{data,error}=await _sb.from('app_data').select('data').eq('id',k).single(); console.log('load',k,error||'ok'); return data?.data?JSON.parse(data.data):null; }catch(e){console.log('load err',k,e);return null;} };
 import { X, Home, CreditCard, Wallet, Target, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight, Menu, ChevronLeft, ChevronRight, Plus, Trash2, Cloud, Settings, Building2, Coins, Package, HandCoins, Download, Upload, Check, Camera } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 

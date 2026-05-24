@@ -175,6 +175,28 @@ export default function App(){
     if(ref.k==="cash")setCash(p=>p.map(c=>c.id===ref.cid?{...c,balance:c.balance+d}:c));
   };
 
+  const doTransfer=()=>{
+    if(!form.amount||!form.fromKey||!form.toKey||form.fromKey===form.toKey)return;
+    const amt=parseFloat(form.amount);
+    const from=allAcc.find(a=>a.key===form.fromKey);
+    const to=allAcc.find(a=>a.key===form.toKey);
+    if(!from||!to)return;
+    // Deduct from source
+    if(from.ref.k==="bank")setBanks(p=>p.map(b=>b.id===from.ref.bid?{...b,accounts:b.accounts.map(a=>a.id===from.ref.aid?{...a,balance:a.balance-amt}:a)}:b));
+    if(from.ref.k==="cash")setCash(p=>p.map(c=>c.id===from.ref.cid?{...c,balance:c.balance-amt}:c));
+    // Add to destination
+    if(to.ref.k==="bank")setBanks(p=>p.map(b=>b.id===to.ref.bid?{...b,accounts:b.accounts.map(a=>a.id===to.ref.aid?{...a,balance:a.balance+amt}:a)}:b));
+    if(to.ref.k==="cash")setCash(p=>p.map(c=>c.id===to.ref.cid?{...c,balance:c.balance+amt}:c));
+    // Log as two transactions
+    const now=new Date().toISOString().split("T")[0];
+    setTxs(p=>[
+      {id:uid(),type:"expense",amount:amt,catId:null,subId:null,desc:`تحويل إلى ${to.name}`,date:now,pm:"تحويل",ref:from.ref},
+      {id:uid(),type:"income",amount:amt,catId:null,subId:null,desc:`تحويل من ${from.name}`,date:now,pm:"تحويل",ref:to.ref},
+      ...p
+    ]);
+    cm();
+  };
+
   const addTx=()=>{
     if(!form.amount||!form.catId||!form.akey)return;
     const acc=allAcc.find(a=>a.key===form.akey);if(!acc)return;
@@ -496,6 +518,7 @@ export default function App(){
           <div style={{display:"flex",gap:8}}>
             <button style={{...S.btn("#ef4444"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>om("addTx",{txType:"expense"})}>+ مصروف</button>
             <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>om("addTx",{txType:"income"})}>+ دخل</button>
+            <button style={{...S.btn("#6366f1"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>om("transfer")}>⇄ تحويل</button>
           </div>
           <div style={S.card}>
             <div style={{...S.row,marginBottom:12}}><span style={{fontWeight:700}}>آخر المعاملات</span><button style={{background:"none",border:"none",color:"#10b981",fontSize:12,cursor:"pointer",fontFamily:"Cairo"}} onClick={()=>setPage("transactions")}>عرض الكل ←</button></div>
@@ -795,6 +818,7 @@ export default function App(){
                 {modal==="addAst"&&"إضافة ممتلك"}
                 {modal==="edAst"&&"تعديل الممتلك"}
                 {modal==="addLoan"&&"إضافة سلف/قرض"}
+                {modal==="transfer"&&"تحويل بين الحسابات"}
                 {modal==="addBudget"&&"إضافة ميزانية"}
                 {modal==="addSaving"&&"هدف ادخار جديد"}
                 {modal==="dep"&&"إضافة للادخار"}
@@ -885,6 +909,32 @@ export default function App(){
                 setErr("✅ تم تغيير كلمة السر");
                 setTimeout(()=>setErr(null),3000);
               }}>حفظ كلمة السر الجديدة</button>
+            </div>}
+
+            {modal==="transfer"&&<div style={S.col}>
+              <div style={{padding:"10px 14px",background:"#6366f122",borderRadius:10,fontSize:14,color:"#6366f1",fontWeight:700,textAlign:"center"}}>⇄ تحويل بين الحسابات</div>
+              <div>
+                <div style={{fontSize:12,color:"#475569",marginBottom:6}}>من حساب:</div>
+                <select style={S.sel} value={form.fromKey||""} onChange={e=>F("fromKey",e.target.value)}>
+                  <option value="">اختر الحساب المصدر</option>
+                  {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
+                </select>
+              </div>
+              <div style={{textAlign:"center",fontSize:24,color:"#6366f1"}}>↓</div>
+              <div>
+                <div style={{fontSize:12,color:"#475569",marginBottom:6}}>إلى حساب:</div>
+                <select style={S.sel} value={form.toKey||""} onChange={e=>F("toKey",e.target.value)}>
+                  <option value="">اختر الحساب الوجهة</option>
+                  {allAcc.filter(a=>a.key!==form.fromKey).map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
+                </select>
+              </div>
+              <input style={S.inp} placeholder="المبلغ" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
+              {form.fromKey&&form.toKey&&form.amount&&(
+                <div style={{padding:"10px 14px",background:"#6366f115",borderRadius:10,fontSize:13,color:"#6366f1",textAlign:"center"}}>
+                  تحويل <strong>{fmt(parseFloat(form.amount||0))}</strong> من <strong>{allAcc.find(a=>a.key===form.fromKey)?.name}</strong> إلى <strong>{allAcc.find(a=>a.key===form.toKey)?.name}</strong>
+                </div>
+              )}
+              <button style={S.btn("#6366f1")} onClick={doTransfer}>تأكيد التحويل ⇄</button>
             </div>}
 
             {modal==="addBudget"&&<div style={S.col}><select style={S.sel} value={form.catId||""} onChange={e=>F("catId",e.target.value)}><option value="">اختر تصنيف النفقات</option>{cats.expense.map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}</select><input style={S.inp} placeholder="الحد الأقصى" type="number" value={form.limit||""} onChange={e=>F("limit",e.target.value)}/><button style={S.btn()} onClick={addBudget}>حفظ</button></div>}

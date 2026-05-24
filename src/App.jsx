@@ -245,8 +245,38 @@ export default function App(){
     setCd(null);
   };
 
-  const expData=()=>{const d=JSON.stringify({banks,cash,assets,loans,cats,txs,budgets,savings},null,2);const b=new Blob([d],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="محفظتي.json";a.click();URL.revokeObjectURL(u);setBkMsg("تم التحميل ✅");setTimeout(()=>setBkMsg(null),3000);};
-  const impData=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.banks)setBanks(d.banks);if(d.cash)setCash(d.cash);if(d.assets)setAssets(d.assets);if(d.loans)setLoans(d.loans);if(d.cats)setCats(d.cats);if(d.txs)setTxs(d.txs);if(d.budgets)setBudgets(d.budgets);if(d.savings)setSavings(d.savings);setBkMsg("تم الاستيراد ✅");}catch{setBkMsg("خطأ ❌");}setTimeout(()=>setBkMsg(null),3000);};r.readAsText(file);e.target.value="";};
+  const expData=()=>{
+    const d=JSON.stringify({banks,cash,assets,loans,cats,txs,budgetSettings},null,2);
+    const b=new Blob([d],{type:"application/json"});
+    const u=URL.createObjectURL(b);
+    const a=document.createElement("a");
+    a.href=u;
+    a.download="محفظتي-"+new Date().toISOString().split("T")[0]+".json";
+    a.click();
+    URL.revokeObjectURL(u);
+    setBkMsg("تم التحميل ✅");
+    setTimeout(()=>setBkMsg(null),3000);
+  };
+  const impData=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(d.banks)setBanks(d.banks);
+        if(d.cash)setCash(d.cash);
+        if(d.assets)setAssets(d.assets);
+        if(d.loans)setLoans(d.loans);
+        if(d.cats)setCats(d.cats);
+        if(d.txs)setTxs(d.txs);
+        if(d.budgetSettings)setBudgetSettings(d.budgetSettings);
+        setBkMsg("تم الاستيراد ✅");
+      }catch{setBkMsg("خطأ في الملف ❌");}
+      setTimeout(()=>setBkMsg(null),3000);
+    };
+    r.readAsText(file);
+    e.target.value="";
+  };
 
   // ── Login check ──────────────────────────────────────────────────────────
   if(!isAuth) return (

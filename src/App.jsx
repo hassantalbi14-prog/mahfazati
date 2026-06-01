@@ -26,6 +26,7 @@ const ISV=[];
 const S={
   card:{background:"#ffffff",borderRadius:16,padding:16,border:"1px solid #e2e8f0"},
   inp:{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 14px",color:"#1e293b",fontFamily:"Cairo",fontSize:14,width:"100%",outline:"none"},
+  num:{background:"#f8fafc",border:"2px solid #e2e8f0",borderRadius:12,padding:"14px 16px",color:"#1e293b",fontFamily:"Cairo",fontSize:22,fontWeight:900,width:"100%",outline:"none",textAlign:"center",letterSpacing:1},
   sel:{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 14px",color:"#1e293b",fontFamily:"Cairo",fontSize:14,width:"100%",outline:"none"},
   btn:(bg="#10b981",full=true)=>({background:bg,color:"white",border:"none",padding:"11px 18px",borderRadius:12,fontFamily:"Cairo",fontSize:14,fontWeight:700,cursor:"pointer",...(full?{width:"100%"}:{})}),
   row:{display:"flex",alignItems:"center",justifyContent:"space-between"},
@@ -128,8 +129,8 @@ export default function App(){
   const totAst=assets.reduce((s,a)=>s+(a.value||0),0);
   const totGiv=loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+l.remaining,0);
   const totOwd=loans.filter(l=>l.kind==="أخذت").reduce((s,l)=>s+l.remaining,0);
-  const mInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
-  const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
+  const mInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
+  const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
 
   const gc=(tp,id)=>cats[tp]?.find(c=>c.id===id);
   const gs=(tp,cid,sid)=>gc(tp,cid)?.subs?.find(s=>s.id===sid);
@@ -642,13 +643,22 @@ export default function App(){
 
           {/* Budget Widget */}
           {(()=>{
-            const threshold = budgetSettings.threshold;
-            const expAlloc = budgetSettings.allocations.find(a=>a.name==="المصاريف");
-            const expPct = expAlloc?.pct||30;
-            const budgetForExp = mInc<=threshold ? mInc : threshold + (mInc-threshold)*(expPct/100);
-            const remaining = budgetForExp - mExp;
-            const pct = budgetForExp>0 ? Math.min((mExp/budgetForExp)*100,100) : 0;
-            const color = pct>90?"#ef4444":pct>70?"#f59e0b":"#10b981";
+            const allMonths=[...new Set(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل").map(t=>t.date.slice(0,7)))];
+            const totInc=txs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
+            const totExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.creditPaid===false).reduce((s,t)=>s+t.amount,0);
+            const threshold=budgetSettings.threshold;
+            const expAlloc=budgetSettings.allocations.find(a=>a.name==="المصاريف");
+            const expPct=expAlloc?.pct||30;
+            // Total budget = sum across all months
+            const totBudget=allMonths.reduce((s,m)=>{
+              const mI=txs.filter(t=>t.type==="income"&&t.date.startsWith(m)&&!t.isTransfer&&t.pm!=="تحويل").reduce((ss,t)=>ss+t.amount,0);
+              return s+(mI<=threshold?mI:threshold+(mI-threshold)*(expPct/100));
+            },0);
+            const totExpReal=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
+            const remaining=totBudget-totExpReal;
+            const pct=totBudget>0?Math.min((totExpReal/totBudget)*100,100):0;
+            const color=pct>90?"#ef4444":pct>70?"#f59e0b":"#10b981";
+            if(totBudget===0) return null;
             return(
               <div style={{...S.card,cursor:"pointer"}} onClick={()=>setPage("budget")}>
                 <div style={{...S.row,marginBottom:10}}>
@@ -656,7 +666,7 @@ export default function App(){
                     <div style={{width:38,height:38,borderRadius:10,background:"#10b98122",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🛒</div>
                     <div>
                       <div style={{fontWeight:700,fontSize:14}}>ميزانية المصاريف</div>
-                      <div style={{fontSize:11,color:"#94a3b8"}}>الشهر الحالي</div>
+                      <div style={{fontSize:11,color:"#94a3b8"}}>إجمالي كلي</div>
                     </div>
                   </div>
                   <div style={{textAlign:"left"}}>
@@ -668,10 +678,9 @@ export default function App(){
                   <div className="pfill" style={{width:pct+"%",background:color}}/>
                 </div>
                 <div style={{...S.row,marginTop:6}}>
-                  <span style={{fontSize:11,color:"#94a3b8"}}>مصروف: {fmt(mExp)}</span>
-                  <span style={{fontSize:11,color:"#94a3b8"}}>الميزانية: {fmt(budgetForExp)}</span>
+                  <span style={{fontSize:11,color:"#94a3b8"}}>مصروف: {fmt(totExpReal)}</span>
+                  <span style={{fontSize:11,color:"#94a3b8"}}>الميزانية: {fmt(totBudget)}</span>
                 </div>
-                {remaining<0&&<div style={{marginTop:8,padding:"6px 10px",background:"#ef444415",borderRadius:8,fontSize:12,color:"#ef4444",fontWeight:700,textAlign:"center"}}>⚠️ تجاوزت الميزانية بـ {fmt(Math.abs(remaining))}</div>}
               </div>
             );
           })()}
@@ -1463,7 +1472,7 @@ export default function App(){
               <div style={{padding:"8px 14px",background:form.txType==="income"?"#10b98122":"#ef444422",borderRadius:10,marginBottom:4,textAlign:"center",fontWeight:700,fontSize:14,color:form.txType==="income"?"#10b981":"#ef4444"}}>
                 {modal==="addTx"?(form.txType==="income"?"🟢 إضافة دخل":"🔴 إضافة مصروف"):"✏️ تعديل المعاملة"}
               </div>
-              <input style={S.inp} placeholder="المبلغ" type="number" value={modal==="addTx"?form.amount||"":ei?.amount||""} onChange={e=>modal==="addTx"?F("amount",e.target.value):setEi(p=>({...p,amount:e.target.value}))}/>
+              <input style={S.num} placeholder="0.00" type="number" value={modal==="addTx"?form.amount||"":ei?.amount||""} onChange={e=>modal==="addTx"?F("amount",e.target.value):setEi(p=>({...p,amount:e.target.value}))}  step="0.01"/>
               <select style={S.sel} value={modal==="addTx"?form.catId||"":ei?.catId||""} onChange={e=>{if(modal==="addTx"){F("catId",e.target.value);F("subId","");}else setEi(p=>({...p,catId:e.target.value,subId:""}));}}>
                 <option value="">اختر التصنيف</option>
                 {cats[modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense")].map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}

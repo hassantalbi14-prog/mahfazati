@@ -225,7 +225,20 @@ export default function App(){
   const edBAcc=(bid,aid,d)=>setBanks(p=>p.map(b=>b.id===bid?{...b,accounts:b.accounts.map(a=>a.id===aid?{...a,...d}:a)}:b));
   const addCash=()=>{if(!form.name)return;setCash(p=>[...p,{id:uid(),type:form.type||"نقدية",name:form.name,balance:parseFloat(form.bal||0),color:form.color||"#f59e0b"}]);cm();};
   const addAst=()=>{if(!form.name)return;setAssets(p=>[...p,{id:uid(),type:form.type||"أخرى",name:form.name,value:0,note:form.val||"",color:form.color||"#14b8a6"}]);cm();};
-  const addLoan=()=>{if(!form.person||!form.amount)return;setLoans(p=>[...p,{id:uid(),kind:form.kind||"أعطيت",person:form.person,amount:parseFloat(form.amount),remaining:parseFloat(form.amount),date:form.date||new Date().toISOString().split("T")[0],note:form.note||"",wi:!!form.wi,interest:parseFloat(form.irate||0),inst:!!form.inst,minst:parseFloat(form.minst||0)}]);cm();};
+  const addLoan=()=>{
+    if(!form.person||!form.amount)return;
+    const amt=parseFloat(form.amount);
+    // Affect account balance
+    if(form.akey){
+      const acc=allAcc.find(a=>a.key===form.akey);
+      if(acc){
+        // أعطيت → اقتطع من الحساب | أخذت → أضف للحساب
+        updBal(acc.ref,amt,form.kind==="أعطيت"?"expense":"income","add");
+      }
+    }
+    setLoans(p=>[...p,{id:uid(),kind:form.kind||"أعطيت",person:form.person,amount:amt,remaining:amt,date:form.date||new Date().toISOString().split("T")[0],note:form.note||"",wi:!!form.wi,interest:parseFloat(form.irate||0),inst:!!form.inst,minst:parseFloat(form.minst||0),akey:form.akey||null}]);
+    cm();
+  };
   const payLoan=(id,v)=>setLoans(p=>p.map(l=>l.id===id?{...l,remaining:Math.max(0,l.remaining-parseFloat(v||0))}:l));
 
   const addMCat=(ct)=>{if(!form.cn)return;if(cats[ct].some(c=>c.name===form.cn)){showErr("⛔ التصنيف موجود");return;}setCats(p=>({...p,[ct]:[...p[ct],{id:uid(),name:form.cn,icon:form.em||"📌",color:form.color||"#10b981",ci:form.ci||null,subs:[]}]}));cm();};
@@ -1345,23 +1358,86 @@ export default function App(){
           );})}
         </>}
 
-        {page==="reports"&&<>
-          <span style={{fontWeight:700,fontSize:16}}>التقارير</span>
-          <div style={{display:"flex",gap:10}}>
-            <div style={{...S.card,flex:1,textAlign:"center"}}><div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>معدل الادخار</div><div style={{fontSize:22,fontWeight:900,color:"#10b981"}}>{mInc>0?(((mInc-mExp)/mInc)*100).toFixed(0):0}%</div></div>
-            <div style={{...S.card,flex:1,textAlign:"center"}}><div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>أكبر مصروف</div><div style={{fontSize:13,fontWeight:700,color:"#f59e0b"}}>{[...pie].sort((a,b)=>b.value-a.value)[0]?.name||"—"}</div></div>
-          </div>
-          <div style={S.card}>
-            <div style={{fontWeight:700,marginBottom:12,fontSize:14}}>📊 الدخل مقابل المصاريف</div>
-            <ResponsiveContainer width="100%" height={160}>
-              <BarChart data={chart} barSize={12}><XAxis dataKey="lbl" tick={{fill:"#94a3b8",fontSize:11,fontFamily:"Cairo"}} axisLine={false} tickLine={false}/><YAxis hide/><Tooltip contentStyle={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:8,fontFamily:"Cairo",fontSize:12}} formatter={v=>[v.toLocaleString("ar-MA")+" د.م"]}/><Bar dataKey="inc" fill="#10b981" radius={[4,4,0,0]} name="الدخل"/><Bar dataKey="exp" fill="#ef4444" radius={[4,4,0,0]} name="المصاريف"/></BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={S.card}>
-            <div style={{fontWeight:700,marginBottom:12,fontSize:14}}>🍩 المصاريف حسب التصنيف</div>
-            {pie.length>0?<><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={pie} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value">{pie.map((_,i)=><Cell key={i} fill={PAL[i%PAL.length]}/>)}</Pie><Tooltip contentStyle={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:8,fontFamily:"Cairo",fontSize:12}} formatter={v=>[v.toLocaleString("ar-MA")+" د.م"]}/></PieChart></ResponsiveContainer><div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center"}}>{pie.map((d,i)=><span key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#64748b"}}><span style={{width:8,height:8,borderRadius:"50%",background:PAL[i%PAL.length],display:"inline-block"}}/>{d.name}</span>)}</div></>:<div style={{textAlign:"center",color:"#94a3b8",padding:20}}>لا توجد بيانات</div>}
-          </div>
-        </>}
+        {page==="reports"&&(()=>{
+          const years=[...new Set(txs.map(t=>t.date.slice(0,4)))].sort().reverse();
+          const selYear=ovExp.repYear||(years[0]||new Date().getFullYear().toString());
+          const yTxs=txs.filter(t=>t.date.startsWith(selYear));
+          const yInc=yTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
+          const yExp=yTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
+          const ySave=yInc-yExp;
+          // Monthly chart for selected year
+          const months=Array.from({length:12},(_,i)=>{
+            const m=`${selYear}-${String(i+1).padStart(2,"0")}`;
+            const mTxs=yTxs.filter(t=>t.date.startsWith(m));
+            return{lbl:["ي","ف","م","أ","م","يو","يو","أ","س","أ","ن","د"][i],inc:mTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0),exp:mTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0)};
+          });
+          const yPie=cats.expense.map(c=>({name:c.name,value:yTxs.filter(t=>t.type==="expense"&&t.catId===c.id).reduce((s,t)=>s+t.amount,0)})).filter(d=>d.value>0);
+
+          return <>
+            <div style={{...S.row,marginBottom:4}}>
+              <span style={{fontWeight:700,fontSize:16}}>التقارير</span>
+              <select style={{...S.sel,width:"auto",padding:"6px 12px",fontSize:13}} value={selYear} onChange={e=>setOvExp(p=>({...p,repYear:e.target.value}))}>
+                {years.length===0?<option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>:years.map(y=><option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+
+            {/* ملخص السنة */}
+            <div style={{...S.card,background:"linear-gradient(135deg,#10b98115,#10b98105)",border:"1px solid #10b98133"}}>
+              <div style={{fontSize:12,color:"#64748b",marginBottom:10,fontWeight:700}}>📅 ملخص {selYear}</div>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <div style={{flex:1,textAlign:"center",background:"#10b98110",borderRadius:10,padding:"10px 4px"}}>
+                  <div style={{fontSize:10,color:"#10b981"}}>إجمالي الدخل</div>
+                  <div style={{fontSize:15,fontWeight:900,color:"#10b981"}}>{fmt(yInc)}</div>
+                </div>
+                <div style={{flex:1,textAlign:"center",background:"#ef444410",borderRadius:10,padding:"10px 4px"}}>
+                  <div style={{fontSize:10,color:"#ef4444"}}>إجمالي المصاريف</div>
+                  <div style={{fontSize:15,fontWeight:900,color:"#ef4444"}}>{fmt(yExp)}</div>
+                </div>
+                <div style={{flex:1,textAlign:"center",background:ySave>=0?"#6366f110":"#ef444410",borderRadius:10,padding:"10px 4px"}}>
+                  <div style={{fontSize:10,color:ySave>=0?"#6366f1":"#ef4444"}}>التوفير</div>
+                  <div style={{fontSize:15,fontWeight:900,color:ySave>=0?"#6366f1":"#ef4444"}}>{fmt(Math.abs(ySave))}</div>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <div style={{flex:1,textAlign:"center",background:"#f1f5f9",borderRadius:10,padding:"8px 4px"}}>
+                  <div style={{fontSize:10,color:"#64748b"}}>معدل الادخار</div>
+                  <div style={{fontSize:14,fontWeight:900,color:"#1e293b"}}>{yInc>0?(((yInc-yExp)/yInc)*100).toFixed(0):0}%</div>
+                </div>
+                <div style={{flex:1,textAlign:"center",background:"#f1f5f9",borderRadius:10,padding:"8px 4px"}}>
+                  <div style={{fontSize:10,color:"#64748b"}}>عدد المعاملات</div>
+                  <div style={{fontSize:14,fontWeight:900,color:"#1e293b"}}>{yTxs.length}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* رسم بياني شهري */}
+            <div style={S.card}>
+              <div style={{fontWeight:700,marginBottom:12,fontSize:14}}>📊 الدخل مقابل المصاريف — {selYear}</div>
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={months} barSize={12}>
+                  <XAxis dataKey="lbl" tick={{fill:"#94a3b8",fontSize:11,fontFamily:"Cairo"}} axisLine={false} tickLine={false}/>
+                  <YAxis hide/>
+                  <Tooltip contentStyle={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:8,fontFamily:"Cairo",fontSize:12}} formatter={v=>[v.toLocaleString("ar-MA")+" د.م"]}/>
+                  <Bar dataKey="inc" fill="#10b981" radius={[4,4,0,0]} name="الدخل"/>
+                  <Bar dataKey="exp" fill="#ef4444" radius={[4,4,0,0]} name="المصاريف"/>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* المصاريف حسب التصنيف */}
+            <div style={S.card}>
+              <div style={{fontWeight:700,marginBottom:12,fontSize:14}}>🍩 المصاريف حسب التصنيف — {selYear}</div>
+              {yPie.length>0?<>
+                <ResponsiveContainer width="100%" height={150}>
+                  <PieChart><Pie data={yPie} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value">{yPie.map((_,i)=><Cell key={i} fill={PAL[i%PAL.length]}/>)}</Pie><Tooltip contentStyle={{background:"#ffffff",border:"1px solid #e2e8f0",borderRadius:8,fontFamily:"Cairo",fontSize:12}} formatter={v=>[v.toLocaleString("ar-MA")+" د.م"]}/></PieChart>
+                </ResponsiveContainer>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center"}}>
+                  {yPie.map((d,i)=><span key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#64748b"}}><span style={{width:8,height:8,borderRadius:"50%",background:PAL[i%PAL.length],display:"inline-block"}}/>{d.name} — {fmt(d.value)}</span>)}
+                </div>
+              </>:<div style={{textAlign:"center",color:"#94a3b8",padding:20}}>لا توجد بيانات لـ {selYear}</div>}
+            </div>
+          </>;
+        })()}
       </div>
 
       {/* BOTTOM NAV */}
@@ -1454,6 +1530,13 @@ export default function App(){
               <div style={{display:"flex",gap:8}}>{["أعطيت","أخذت"].map(k=><button key={k} onClick={()=>F("kind",k)} style={{flex:1,padding:10,border:"2px solid",borderColor:form.kind===k?(k==="أعطيت"?"#10b981":"#ef4444"):"#e2e8f0",borderRadius:10,background:form.kind===k?(k==="أعطيت"?"#10b98122":"#ef444422"):"transparent",color:form.kind===k?(k==="أعطيت"?"#10b981":"#ef4444"):"#94a3b8",fontFamily:"Cairo",fontWeight:700,cursor:"pointer",fontSize:13}}>{k}</button>)}</div>
               <input style={S.inp} placeholder="الشخص / الجهة" value={form.person||""} onChange={e=>F("person",e.target.value)}/>
               <input style={S.inp} placeholder="المبلغ" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
+              <select style={S.sel} value={form.akey||""} onChange={e=>F("akey",e.target.value)}>
+                <option value="">اختر الحساب (اختياري)</option>
+                {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
+              </select>
+              <div style={{fontSize:11,color:"#94a3b8",marginTop:-4}}>
+                {form.kind==="أعطيت"?"سيتقطع المبلغ من الحساب":"سيضاف المبلغ للحساب"}
+              </div>
               <input style={S.inp} placeholder="ملاحظة" value={form.note||""} onChange={e=>F("note",e.target.value)}/>
               <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
               <div style={{display:"flex",gap:16}}>

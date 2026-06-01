@@ -189,7 +189,8 @@ export default function App(){
     }
     const tx={id:uid(),type:form.txType||"expense",amount:amt,catId:parseInt(form.catId),subId:form.subId?parseInt(form.subId):null,desc:form.desc||"",date:form.date||new Date().toISOString().split("T")[0],pm:form.pm||"نقدي",ref:acc.ref};
     setTxs(p=>[tx,...p]);
-    updBal(acc.ref,tx.amount,tx.type,"add");
+    // لا تقطع من الحساب إذا الدفع بالكريدي
+    if(tx.pm!=="كريدي") updBal(acc.ref,tx.amount,tx.type,"add");
     cm();
   };
   const delTx=(id)=>{
@@ -227,16 +228,11 @@ export default function App(){
   const addAst=()=>{if(!form.name)return;setAssets(p=>[...p,{id:uid(),type:form.type||"أخرى",name:form.name,value:0,note:form.val||"",color:form.color||"#14b8a6"}]);cm();};
   const addLoan=()=>{
     if(!form.person||!form.amount)return;
+    if(!form.akey){showErr("⛔ خاصك تختار الحساب");return;}
     const amt=parseFloat(form.amount);
-    // Affect account balance
-    if(form.akey){
-      const acc=allAcc.find(a=>a.key===form.akey);
-      if(acc){
-        // أعطيت → اقتطع من الحساب | أخذت → أضف للحساب
-        updBal(acc.ref,amt,form.kind==="أعطيت"?"expense":"income","add");
-      }
-    }
-    setLoans(p=>[...p,{id:uid(),kind:form.kind||"أعطيت",person:form.person,amount:amt,remaining:amt,date:form.date||new Date().toISOString().split("T")[0],note:form.note||"",wi:!!form.wi,interest:parseFloat(form.irate||0),inst:!!form.inst,minst:parseFloat(form.minst||0),akey:form.akey||null}]);
+    const acc=allAcc.find(a=>a.key===form.akey);
+    if(acc) updBal(acc.ref,amt,form.kind==="أعطيت"?"expense":"income","add");
+    setLoans(p=>[...p,{id:uid(),kind:form.kind||"أعطيت",person:form.person,amount:amt,remaining:amt,date:form.date||new Date().toISOString().split("T")[0],note:form.note||"",wi:!!form.wi,interest:parseFloat(form.irate||0),inst:!!form.inst,minst:parseFloat(form.minst||0),akey:form.akey}]);
     cm();
   };
   const payLoan=(id,v)=>setLoans(p=>p.map(l=>l.id===id?{...l,remaining:Math.max(0,l.remaining-parseFloat(v||0))}:l));
@@ -330,7 +326,7 @@ export default function App(){
 
   const PmBtns=({val,onChange})=>(
     <div style={{display:"flex",gap:8}}>
-      <button onClick={()=>onChange("نقدي")} style={{flex:1,padding:10,border:"2px solid",borderColor:"#10b981",borderRadius:10,background:"#10b98122",color:"#10b981",fontFamily:"Cairo",fontWeight:700,cursor:"pointer",fontSize:13}}>💵 نقدي</button>
+      {["نقدي","كريدي"].map(m=><button key={m} onClick={()=>onChange(m)} style={{flex:1,padding:10,border:"2px solid",borderColor:val===m?(m==="نقدي"?"#10b981":"#f59e0b"):"#e2e8f0",borderRadius:10,background:val===m?(m==="نقدي"?"#10b98122":"#f59e0b22"):"transparent",color:val===m?(m==="نقدي"?"#10b981":"#f59e0b"):"#94a3b8",fontFamily:"Cairo",fontWeight:700,cursor:"pointer",fontSize:13}}>{m==="نقدي"?"💵 نقدي":"💳 كريدي"}</button>)}
     </div>
   );
 
@@ -1106,26 +1102,13 @@ export default function App(){
               <div style={{...S.card,textAlign:"center",background:"#f59e0b10",border:"1px solid #f59e0b33"}}>
                 <div style={{fontSize:12,color:"#f59e0b",marginBottom:4,fontWeight:700}}>إجمالي الكريدي غير المخلص</div>
                 <div style={{fontSize:28,fontWeight:900,color:"#f59e0b"}}>{fmt(creditTotal)}</div>
-                <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{creditTxs.length} معاملة</div>
+                <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{creditTxs.length} معاملة · يتجمع من المصاريف بالكريدي</div>
               </div>
-
-              {/* نموذج إضافة كريدي */}
-              <div style={S.card}>
-                <div style={{fontWeight:700,fontSize:14,color:"#1e293b",marginBottom:10}}>💳 إضافة شراء بالكريدي</div>
-                <input style={{...S.inp,marginBottom:8}} placeholder="وصف الشراء" value={ovExp.crDesc||""} onChange={e=>setOvExp(p=>({...p,crDesc:e.target.value}))}/>
-                <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ" value={ovExp.crAmt||""} onChange={e=>setOvExp(p=>({...p,crAmt:e.target.value}))}/>
-                <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.crDate||new Date().toISOString().split("T")[0]} onChange={e=>setOvExp(p=>({...p,crDate:e.target.value}))}/>
-                <button style={{...S.btn("#f59e0b"),padding:"11px"}} onClick={()=>{
-                  if(!ovExp.crAmt||!ovExp.crDesc){return;}
-                  setTxs(p=>[{id:uid(),type:"expense",amount:parseFloat(ovExp.crAmt),catId:null,subId:null,desc:ovExp.crDesc,date:ovExp.crDate||new Date().toISOString().split("T")[0],pm:"كريدي",ref:null,creditPaid:false},...p]);
-                  setOvExp(p=>({...p,crDesc:"",crAmt:"",crDate:""}));
-                }}>+ إضافة</button>
-              </div>
-
               {creditTxs.length===0?
                 <div style={{...S.card,textAlign:"center",padding:30}}>
                   <div style={{fontSize:30,marginBottom:8}}>✅</div>
                   <div style={{color:"#94a3b8"}}>ما كاين ديون كريدي</div>
+                  <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>من لي تدير مصروف بـ "كريدي" كيطلع هنا</div>
                 </div>:
                 creditTxs.map(t=>(
                   <div key={t.id} style={S.card}>
@@ -1138,20 +1121,22 @@ export default function App(){
                     </div>
                     {ovExp[`pay_${t.id}`]?
                       <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                        <select style={S.sel} value={ovExp[`pacc_${t.id}`]||""} onChange={e=>setOvExp(p=>({...p,[`pacc_${t.id}`]:e.target.value}))}>
-                          <option value="">اختر الحساب اللي خلصتي منه</option>
+                        <select style={{...S.sel,border:`2px solid ${ovExp[`payErr_${t.id}`]?"#ef4444":"#e2e8f0"}`}} value={ovExp[`pacc_${t.id}`]||""} onChange={e=>setOvExp(p=>({...p,[`pacc_${t.id}`]:e.target.value,[`payErr_${t.id}`]:false}))}>
+                          <option value="">⚠️ اختر الحساب (إجباري)</option>
                           {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
                         </select>
+                        {ovExp[`payErr_${t.id}`]&&<div style={{color:"#ef4444",fontSize:12}}>⛔ خاصك تختار الحساب</div>}
                         <button style={{...S.btn("#10b981"),padding:"10px",fontSize:13}} onClick={()=>{
+                          if(!ovExp[`pacc_${t.id}`]){setOvExp(p=>({...p,[`payErr_${t.id}`]:true}));return;}
                           const acc=allAcc.find(a=>a.key===ovExp[`pacc_${t.id}`]);
-                          if(!acc){return;}
+                          if(!acc)return;
                           updBal(acc.ref,t.amount,"expense","add");
                           setTxs(p=>p.map(x=>x.id===t.id?{...x,creditPaid:true,ref:acc.ref}:x));
                           setOvExp(p=>({...p,[`pay_${t.id}`]:false,[`pacc_${t.id}`]:""}));
                         }}>✓ تأكيد الخلاص</button>
                         <button style={{background:"none",border:"none",color:"#94a3b8",fontFamily:"Cairo",fontSize:12,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`pay_${t.id}`]:false}))}>إلغاء</button>
                       </div>:
-                      <button style={{...S.btn("#10b981"),padding:"10px",fontSize:13}} onClick={()=>setOvExp(p=>({...p,[`pay_${t.id}`]:true}))}>
+                      <button style={{...S.btn("#f59e0b"),padding:"10px",fontSize:13}} onClick={()=>setOvExp(p=>({...p,[`pay_${t.id}`]:true}))}>
                         💳 خلصت — اختر الحساب
                       </button>
                     }
@@ -1530,12 +1515,12 @@ export default function App(){
               <div style={{display:"flex",gap:8}}>{["أعطيت","أخذت"].map(k=><button key={k} onClick={()=>F("kind",k)} style={{flex:1,padding:10,border:"2px solid",borderColor:form.kind===k?(k==="أعطيت"?"#10b981":"#ef4444"):"#e2e8f0",borderRadius:10,background:form.kind===k?(k==="أعطيت"?"#10b98122":"#ef444422"):"transparent",color:form.kind===k?(k==="أعطيت"?"#10b981":"#ef4444"):"#94a3b8",fontFamily:"Cairo",fontWeight:700,cursor:"pointer",fontSize:13}}>{k}</button>)}</div>
               <input style={S.inp} placeholder="الشخص / الجهة" value={form.person||""} onChange={e=>F("person",e.target.value)}/>
               <input style={S.inp} placeholder="المبلغ" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
-              <select style={S.sel} value={form.akey||""} onChange={e=>F("akey",e.target.value)}>
-                <option value="">اختر الحساب (اختياري)</option>
+              <select style={{...S.sel,border:"2px solid #6366f1"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}>
+                <option value="">⚠️ اختر الحساب (إجباري)</option>
                 {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
               </select>
-              <div style={{fontSize:11,color:"#94a3b8",marginTop:-4}}>
-                {form.kind==="أعطيت"?"سيتقطع المبلغ من الحساب":"سيضاف المبلغ للحساب"}
+              <div style={{fontSize:11,color:"#6366f1",marginTop:-4,fontWeight:600}}>
+                {form.kind==="أعطيت"?"↓ سيتقطع المبلغ من الحساب":"↑ سيضاف المبلغ للحساب"}
               </div>
               <input style={S.inp} placeholder="ملاحظة" value={form.note||""} onChange={e=>F("note",e.target.value)}/>
               <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>

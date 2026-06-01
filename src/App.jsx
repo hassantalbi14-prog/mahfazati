@@ -13,32 +13,15 @@ const uid=()=>Date.now()+Math.floor(Math.random()*9999);
 const EE=["🍔","🚗","🏠","💊","🎓","👗","🎮","📱","💡","🛒","✈️","🎵","🍕","⚽","📚","💈","🧴","🐾","🎁","🏋️","🌿","🏥","💻","🎨","🔧"];
 const IE=["💼","💻","🏠","🚕","📦","🎨","🎓","💹","🤝","🏭","📊","🎵","🛍️","🌐","✍️","💰","🏆","🎯","🔑","📝"];
 
-const IC={expense:[
-  {id:1,name:"أكل",icon:"🍔",color:"#ef4444",ci:null,subs:[{id:11,name:"مطعم"},{id:12,name:"تسوق"},{id:13,name:"قهوة"}]},
-  {id:2,name:"نقل",icon:"🚗",color:"#f59e0b",ci:null,subs:[{id:21,name:"بنزين"},{id:22,name:"تاكسي"},{id:23,name:"صيانة"}]},
-  {id:3,name:"سكن",icon:"🏠",color:"#14b8a6",ci:null,subs:[{id:31,name:"كراء"},{id:32,name:"فواتير"},{id:33,name:"أثاث"}]},
-  {id:4,name:"صحة",icon:"💊",color:"#6366f1",ci:null,subs:[{id:41,name:"دواء"},{id:42,name:"طبيب"}]},
-  {id:5,name:"ترفيه",icon:"🎮",color:"#8b5cf6",ci:null,subs:[{id:51,name:"سينما"},{id:52,name:"اشتراكات"}]},
-],income:[
-  {id:101,name:"راتب",icon:"💼",color:"#10b981",ci:null,subs:[{id:1011,name:"راتب أساسي"},{id:1012,name:"علاوة"},{id:1013,name:"مكافأة"}]},
-  {id:102,name:"عمل حر",icon:"💻",color:"#6366f1",ci:null,subs:[{id:1021,name:"مشروع"},{id:1022,name:"استشارة"}]},
-  {id:103,name:"استثمار",icon:"📈",color:"#f59e0b",ci:null,subs:[{id:1031,name:"أرباح"},{id:1032,name:"فوائد"}]},
-  {id:104,name:"إيجار",icon:"🏠",color:"#14b8a6",ci:null,subs:[{id:1041,name:"إيجار شهري"}]},
-]};
+const IC={expense:[],income:[]};
 
-const IBK=[{id:1,name:"CIH Bank",address:"شارع محمد الخامس",accounts:[{id:11,type:"جاري",name:"الحساب الجاري",balance:12000,color:"#10b981"},{id:12,type:"توفير",name:"حساب التوفير",balance:3000,color:"#6366f1"}]}];
-const ICS=[{id:1,type:"نقدية يومية",name:"المحفظة",balance:1500,color:"#f59e0b"}];
-const IAS=[{id:1,type:"عقار",name:"الشقة",value:450000,color:"#14b8a6"},{id:2,type:"سيارة",name:"سيارة شخصية",value:80000,color:"#8b5cf6"}];
-const ILN=[{id:1,kind:"أعطيت",person:"محمد",amount:2000,remaining:1500,date:"2026-03-01",note:"سلفة",wi:false,inst:false},{id:2,kind:"أخذت",person:"البنك",amount:50000,remaining:42000,date:"2025-01-01",note:"قرض سيارة",wi:true,interest:4.5,inst:true,minst:1200}];
-const ITX=[
-  {id:1,type:"income",amount:8000,catId:101,subId:1011,desc:"راتب ماي",date:"2026-05-01",pm:"نقدي",ref:{k:"bank",bid:1,aid:11}},
-  {id:2,type:"expense",amount:1200,catId:3,subId:31,desc:"كراء",date:"2026-05-02",pm:"نقدي",ref:{k:"bank",bid:1,aid:11}},
-  {id:3,type:"expense",amount:450,catId:1,subId:12,desc:"تسوق الأكل",date:"2026-05-05",pm:"نقدي",ref:{k:"cash",cid:1}},
-  {id:4,type:"income",amount:1500,catId:102,subId:1021,desc:"مشروع freelance",date:"2026-05-10",pm:"نقدي",ref:{k:"bank",bid:1,aid:12}},
-  {id:5,type:"expense",amount:350,catId:3,subId:32,desc:"كهرباء وماء",date:"2026-05-12",pm:"كريدي",ref:{k:"cash",cid:1}},
-];
-const IBG=[{id:1,catId:1,limit:800,month:MONTH},{id:2,catId:2,limit:400,month:MONTH},{id:3,catId:3,limit:1500,month:MONTH}];
-const ISV=[{id:1,name:"سيارة جديدة",target:80000,saved:12000,color:"#6366f1",icon:"🚗"},{id:2,name:"عطلة صيف",target:15000,saved:6500,color:"#f97316",icon:"✈️"}];
+const IBK=[];
+const ICS=[];
+const IAS=[];
+const ILN=[];
+const ITX=[];
+const IBG=[];
+const ISV=[];
 
 const S={
   card:{background:"#ffffff",borderRadius:16,padding:16,border:"1px solid #e2e8f0"},
@@ -226,8 +209,14 @@ export default function App(){
   };
 
   const resetData=()=>{
+    setBanks([]);
+    setCash([]);
+    setAssets([]);
+    setLoans([]);
+    setCats({expense:[],income:[]});
     setTxs([]);
-    setBkMsg("✅ تم مسح المعاملات");
+    setBudgetSettings({threshold:3000,allocations:[{id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:30},{id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20},{id:3,name:"الاستثمار",icon:"📈",color:"#10b981",pct:30},{id:4,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:20}]});
+    setBkMsg("✅ تم إعادة الضبط الكامل");
     setTimeout(()=>setBkMsg(null),3000);
   };
 
@@ -571,8 +560,8 @@ export default function App(){
             <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"white",marginBottom:8}}>📤 تصدير</div><button style={S.btn("#10b981")} onClick={expData}>تحميل النسخة</button></div>
             <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"white",marginBottom:8}}>📥 استيراد</div><button style={S.btn("#6366f1")} onClick={()=>fRef.current.click()}>اختر ملف JSON</button></div>
             <div style={{...S.card,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}>
-              <div style={{fontWeight:600,color:"#ef4444",marginBottom:8}}>🗑️ إعادة ضبط المعاملات</div>
-              <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:8}}>كتمسح غير المعاملات — البنوك والتصنيفات تبقاو</div>
+              <div style={{fontWeight:600,color:"#ef4444",marginBottom:8}}>🗑️ إعادة ضبط كامل</div>
+              <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:8}}>كتمسح كل البيانات وترجع للبيانات الافتراضية</div>
               <input style={{...S.inp,marginBottom:8}} type="password" placeholder="كلمة السر للتأكيد" value={resetCode} onChange={e=>{setResetCode(e.target.value);setResetErr(false);}}/>
               {resetErr&&<div style={{color:"#ef4444",fontSize:12,marginBottom:6}}>❌ كلمة السر غلط</div>}
               <button style={S.btn("#ef4444")} onClick={()=>{

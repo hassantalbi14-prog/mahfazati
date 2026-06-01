@@ -128,8 +128,8 @@ export default function App(){
   const totAst=assets.reduce((s,a)=>s+(a.value||0),0);
   const totGiv=loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+l.remaining,0);
   const totOwd=loans.filter(l=>l.kind==="أخذت").reduce((s,l)=>s+l.remaining,0);
-  const mInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)).reduce((s,t)=>s+t.amount,0);
-  const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)).reduce((s,t)=>s+t.amount,0);
+  const mInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
+  const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
 
   const gc=(tp,id)=>cats[tp]?.find(c=>c.id===id);
   const gs=(tp,cid,sid)=>gc(tp,cid)?.subs?.find(s=>s.id===sid);
@@ -169,8 +169,8 @@ export default function App(){
     // Log as two transactions
     const now=new Date().toISOString().split("T")[0];
     setTxs(p=>[
-      {id:uid(),type:"expense",amount:amt,catId:null,subId:null,desc:`تحويل إلى ${to.name}`,date:now,pm:"تحويل",ref:from.ref},
-      {id:uid(),type:"income",amount:amt,catId:null,subId:null,desc:`تحويل من ${from.name}`,date:now,pm:"تحويل",ref:to.ref},
+      {id:uid(),type:"expense",amount:amt,catId:null,subId:null,desc:`تحويل إلى ${to.name}`,date:now,pm:"تحويل",ref:from.ref,isTransfer:true},
+      {id:uid(),type:"income",amount:amt,catId:null,subId:null,desc:`تحويل من ${from.name}`,date:now,pm:"تحويل",ref:to.ref,isTransfer:true},
       ...p
     ]);
     cm();
@@ -179,8 +179,9 @@ export default function App(){
   const addTx=()=>{
     if(!form.amount){showErr("⛔ أدخل المبلغ");return;}
     if(!form.catId){showErr("⛔ اختر التصنيف");return;}
-    if(!form.akey){showErr("⛔ اختر الحساب");return;}
-    const acc=allAcc.find(a=>a.key===form.akey);if(!acc)return;
+    if(form.pm!=="كريدي"&&!form.akey){showErr("⛔ اختر الحساب");return;}
+    const acc=form.akey?allAcc.find(a=>a.key===form.akey):null;
+    if(form.pm!=="كريدي"&&!acc)return;
     const amt=parseFloat(form.amount);
     if(isNaN(amt)||amt<=0){showErr("⛔ المبلغ غير صحيح");return;}
     // Check balance for expense
@@ -1468,7 +1469,7 @@ export default function App(){
                 {cats[modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense")].map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}
               </select>
               {(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx")F("subId",e.target.value);else setEi(p=>({...p,subId:e.target.value}));}}><option value="">الفرع (اختياري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
-              {modal==="addTx"&&<select style={S.sel} value={form.akey||""} onChange={e=>F("akey",e.target.value)}><option value="">اختر الحساب</option>{allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name}</option>)}</select>}
+              {modal==="addTx"&&(form.pm||"نقدي")!=="كريدي"&&<select style={{...S.sel,border:"2px solid #6366f1"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}><option value="">⚠️ اختر الحساب (إجباري)</option>{allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}</select>}
               <input style={S.inp} placeholder="الوصف" value={modal==="addTx"?form.desc||"":ei?.desc||""} onChange={e=>modal==="addTx"?F("desc",e.target.value):setEi(p=>({...p,desc:e.target.value}))}/>
               <input style={S.inp} type="date" value={modal==="addTx"?form.date||new Date().toISOString().split("T")[0]:ei?.date||""} onChange={e=>modal==="addTx"?F("date",e.target.value):setEi(p=>({...p,date:e.target.value}))}/>
               <PmBtns val={modal==="addTx"?form.pm||"نقدي":ei?.pm||"نقدي"} onChange={v=>modal==="addTx"?F("pm",v):setEi(p=>({...p,pm:v}))}/>

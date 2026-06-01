@@ -139,7 +139,7 @@ export default function App(){
 
   const expByCat=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)).reduce((acc,t)=>{const c=gc("expense",t.catId);const k=c?.name||"أخرى";acc[k]=(acc[k]||0)+t.amount;return acc;},{});
   const pie=Object.entries(expByCat).map(([name,value])=>({name,value}));
-  const chart=Array.from({length:6},(_,i)=>{const d=new Date(2026,4-i,1);const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return{lbl:d.toLocaleString("ar-MA",{month:"short"}),inc:txs.filter(t=>t.type==="income"&&t.date.startsWith(k)).reduce((s,t)=>s+t.amount,0),exp:txs.filter(t=>t.type==="expense"&&t.date.startsWith(k)).reduce((s,t)=>s+t.amount,0)};}).reverse();
+  const chart=Array.from({length:6},(_,i)=>{const d=new Date(2026,4-i,1);const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return{lbl:d.toLocaleString("ar-MA",{month:"short"}),inc:txs.filter(t=>t.type==="income"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0),exp:txs.filter(t=>t.type==="expense"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0)};}).reverse();
 
   const om=(t,x={})=>{setForm(x);setModal(t);};
   const cm=()=>{setModal(null);setForm({});};
@@ -1226,8 +1226,8 @@ export default function App(){
           const threshold = budgetSettings.threshold;
           const allMonths = [...new Set(txs.map(t=>t.date.slice(0,7)))].sort().reverse();
           const monthData = allMonths.map(m=>{
-            const inc = txs.filter(t=>t.type==="income"&&t.date.startsWith(m)).reduce((s,t)=>s+t.amount,0);
-            const exp = txs.filter(t=>t.type==="expense"&&t.date.startsWith(m)).reduce((s,t)=>s+t.amount,0);
+            const inc = txs.filter(t=>t.type==="income"&&t.date.startsWith(m)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
+            const exp = txs.filter(t=>t.type==="expense"&&t.date.startsWith(m)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
             const surplus = inc > threshold ? inc - threshold : 0;
             const expBudget = inc <= threshold ? inc : threshold + surplus*(budgetSettings.allocations.find(a=>a.name==="المصاريف")?.pct||30)/100;
             return {m, inc, exp, surplus, expBudget,
@@ -1357,14 +1357,14 @@ export default function App(){
           const years=[...new Set(txs.map(t=>t.date.slice(0,4)))].sort().reverse();
           const selYear=ovExp.repYear||(years[0]||new Date().getFullYear().toString());
           const yTxs=txs.filter(t=>t.date.startsWith(selYear));
-          const yInc=yTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-          const yExp=yTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
+          const yInc=yTxs.filter(t=>t.type==="income"&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
+          const yExp=yTxs.filter(t=>t.type==="expense"&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
           const ySave=yInc-yExp;
           // Monthly chart for selected year
           const months=Array.from({length:12},(_,i)=>{
             const m=`${selYear}-${String(i+1).padStart(2,"0")}`;
             const mTxs=yTxs.filter(t=>t.date.startsWith(m));
-            return{lbl:["ي","ف","م","أ","م","يو","يو","أ","س","أ","ن","د"][i],inc:mTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0),exp:mTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0)};
+            return{lbl:["ي","ف","م","أ","م","يو","يو","أ","س","أ","ن","د"][i],inc:mTxs.filter(t=>t.type==="income"&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0),exp:mTxs.filter(t=>t.type==="expense"&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0)};
           });
           const yPie=cats.expense.map(c=>({name:c.name,value:yTxs.filter(t=>t.type==="expense"&&t.catId===c.id).reduce((s,t)=>s+t.amount,0)})).filter(d=>d.value>0);
 

@@ -310,7 +310,7 @@ export default function App(){
     </div>
   );
 
-  const NAV=[{id:"dashboard",icon:<Home size={18}/>,lbl:"الرئيسية"},{id:"transactions",icon:<Wallet size={18}/>,lbl:"المعاملات"},{id:"debts",icon:<HandCoins size={18}/>,lbl:"الديون"},{id:"budget",icon:<Target size={18}/>,lbl:"الميزانية"},{id:"reports",icon:<BarChart3 size={18}/>,lbl:"التقارير"}];
+  const NAV=[{id:"dashboard",icon:<Home size={18}/>,lbl:"الرئيسية"},{id:"transactions",icon:<Wallet size={18}/>,lbl:"المعاملات"},{id:"debts",icon:<HandCoins size={18}/>,lbl:"الديون"},{id:"budget",icon:<Target size={18}/>,lbl:"الميزانية"},{id:"settings",icon:<Settings size={18}/>,lbl:"الإعدادات"}];
   const Ico=({src,fb,sz=20})=>src?<img src={src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:sz}}>{fb}</span>;
   const Dot=({color})=><div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>;
   const Btn=({label,onClick,bg="#e2e8f0",color="#64748b",style={}})=><button onClick={onClick} style={{background:bg,border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color,fontSize:11,fontFamily:"Cairo",...style}}>{label}</button>;
@@ -322,38 +322,56 @@ export default function App(){
   );
 
   const CatSection=({catType})=>{
-    const isE=catType==="expense";const ac=isE?"#ef4444":"#10b981";
+    const isE=catType==="expense";
     return <>
-      <div className="mi" onClick={()=>setDp("settings")}><ChevronRight size={16}/> رجوع</div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px",borderBottom:"1px solid rgba(255,255,255,.1)"}}>
-        <span style={{fontWeight:700,fontSize:15,color:"white"}}>{isE?"🔴 النفقات":"🟢 الدخل"}</span>
-        <button style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",color:"white",fontFamily:"Cairo",fontSize:12,fontWeight:700}} onClick={()=>om("addMCat",{catType})}><Plus size={13}/> إضافة</button>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 14px",borderBottom:"1px solid rgba(255,255,255,.12)"}}>
+        <span style={{fontWeight:800,fontSize:17,color:"white"}}>{isE?"تصنيفات النفقات":"تصنيفات الدخل"}</span>
+        <button onClick={()=>setDp("settings")} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"white",cursor:"pointer",fontFamily:"Cairo",fontSize:12}}>← رجوع</button>
+      </div>
+      <div style={{padding:"10px 14px"}}>
+        <button style={{...S.btn(isE?"#ef4444":"#10b981"),padding:"11px"}} onClick={()=>om("addMCat",{catType})}>+ إضافة تصنيف جديد</button>
       </div>
       {cats[catType].map(cat=>(
-        <div key={cat.id}>
-          <div className="fch">
-            <div style={{width:38,height:38,borderRadius:8,background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}>
+        <div key={cat.id} style={{borderBottom:"1px solid rgba(255,255,255,.07)"}}>
+          {/* Main category row */}
+          <div style={{display:"flex",alignItems:"center",padding:"16px 14px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`cat_${cat.id}`]:!p[`cat_${cat.id}`]}))}>
+            <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,255,255,.12)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",fontSize:22,marginLeft:14,flexShrink:0}}>
               <Ico src={cat.ci} fb={cat.icon}/>
             </div>
-            <span style={{flex:1,fontWeight:700,fontSize:14,color:"white"}}>{cat.name}</span>
-            <Btn label="تعديل" bg="rgba(255,255,255,.15)" color="white" onClick={e=>{e.stopPropagation();setEi({...cat,catType});om("edMCat");}}/>
-            <button style={{background:"rgba(239,68,68,.2)",border:"none",borderRadius:6,padding:"3px 6px",cursor:"pointer",marginRight:4}} onClick={e=>{e.stopPropagation();ask("mcat",cat.id,cat.name,catType);}}><Trash2 size={11} color="#fca5a5"/></button>
+            <span style={{flex:1,fontWeight:800,fontSize:16,color:"white"}}>{cat.name}</span>
+            <div style={{display:"flex",gap:8,opacity:ovExp[`del_cat_${cat.id}`]?1:0,transition:"opacity .2s"}} onClick={e=>e.stopPropagation()}>
+              <button style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:8,padding:"5px 10px",cursor:"pointer",color:"white",fontSize:12,fontFamily:"Cairo"}} onClick={()=>{setEi({...cat,catType});om("edMCat");}}>تعديل</button>
+              <button style={{background:"rgba(239,68,68,.25)",border:"none",borderRadius:8,padding:"5px 8px",cursor:"pointer",color:"#fca5a5",fontSize:12,fontFamily:"Cairo"}} onClick={()=>ask("mcat",cat.id,cat.name,catType)}>حذف</button>
+            </div>
+            <div style={{width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={e=>{e.stopPropagation();setOvExp(p=>({...p,[`del_cat_${cat.id}`]:!p[`del_cat_${cat.id}`]}));}}>
+              <span style={{fontSize:18,color:"rgba(255,255,255,.3)"}}>⋯</span>
+            </div>
+            <span style={{color:"rgba(255,255,255,.35)",fontSize:15}}>{ovExp[`cat_${cat.id}`]?"▲":"▼"}</span>
           </div>
-          {cat.subs.map(s=>{
-            const used=txs.some(t=>t.subId===s.id);
-            return <div key={s.id} className="fsi">
-              <Dot color="rgba(255,255,255,.35)"/>
-              <span style={{flex:1,fontSize:14,color:"rgba(255,255,255,.85)"}}>{s.name}</span>
-              {used&&<span style={{fontSize:10,color:"#fcd34d"}}>●</span>}
-              <Btn label="تعديل" bg="rgba(255,255,255,.12)" color="white" style={{marginLeft:4}} onClick={()=>{setEi({...s,catType,catId:cat.id});om("edSCat");}}/>
-              <button style={{background:"rgba(239,68,68,.2)",border:"none",borderRadius:6,padding:"3px 6px",cursor:"pointer",marginRight:3}} onClick={()=>ask("scat",s.id,s.name,{ct:catType,cid:cat.id})}><Trash2 size={11} color="#fca5a5"/></button>
-            </div>;
-          })}
-          <div style={{padding:"6px 14px",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
-            <button style={{background:"rgba(255,255,255,.06)",border:"1px dashed rgba(255,255,255,.2)",borderRadius:8,padding:"7px 14px",cursor:"pointer",color:"rgba(255,255,255,.55)",fontSize:12,fontFamily:"Cairo",width:"100%"}} onClick={()=>om("addSCat",{catType,catId:cat.id,catName:cat.name})}>+ إضافة فرع لـ {cat.name}</button>
-          </div>
+          {/* Sub categories */}
+          {ovExp[`cat_${cat.id}`]&&<>
+            {cat.subs.map(s=>{
+              const used=txs.some(t=>t.subId===s.id);
+              return <div key={s.id} style={{display:"flex",alignItems:"center",padding:"13px 14px 13px 28px",borderBottom:"1px solid rgba(255,255,255,.04)"}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:"rgba(255,255,255,.3)",marginLeft:12,flexShrink:0}}/>
+                <span style={{flex:1,fontSize:15,color:"rgba(255,255,255,.85)"}}>{s.name}</span>
+                {used&&<span style={{fontSize:10,color:"#fcd34d",marginLeft:6}}>●</span>}
+                <div style={{display:"flex",gap:8,opacity:ovExp[`del_sub_${s.id}`]?1:0,transition:"opacity .2s"}} onClick={e=>e.stopPropagation()}>
+                  <button style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"white",fontSize:11,fontFamily:"Cairo"}} onClick={()=>{setEi({...s,catType,catId:cat.id});om("edSCat");}}>تعديل</button>
+                  <button style={{background:"rgba(239,68,68,.2)",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"#fca5a5",fontSize:11,fontFamily:"Cairo"}} onClick={()=>ask("scat",s.id,s.name,{ct:catType,cid:cat.id})}>حذف</button>
+                </div>
+                <div style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`del_sub_${s.id}`]:!p[`del_sub_${s.id}`]}))}>
+                  <span style={{fontSize:16,color:"rgba(255,255,255,.25)"}}>⋯</span>
+                </div>
+              </div>;
+            })}
+            <div style={{padding:"8px 14px 10px 28px"}}>
+              <button style={{background:"rgba(255,255,255,.06)",border:"1px dashed rgba(255,255,255,.2)",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"rgba(255,255,255,.5)",fontSize:13,fontFamily:"Cairo",width:"100%"}} onClick={()=>om("addSCat",{catType,catId:cat.id,catName:cat.name})}>+ إضافة فرع</button>
+            </div>
+          </>}
         </div>
       ))}
+      {cats[catType].length===0&&<div style={{textAlign:"center",padding:30,color:"rgba(255,255,255,.3)",fontSize:14}}>لا توجد تصنيفات — أضف تصنيفاً</div>}
     </>;
   };
 
@@ -385,7 +403,7 @@ export default function App(){
             <button onClick={()=>setDrw(false)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 8px",color:"white",cursor:"pointer"}}><X size={18}/></button>
           </div>
           {dp===null&&<>
-            <div className="mi" onClick={()=>setDp("settings")}><Settings size={18}/> الإعدادات <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
+            <div className="mi" onClick={()=>{setDrw(false);setPage("settings");}}><Settings size={18}/> الإعدادات <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
             <div className="mi" onClick={()=>setDp("cloud")}><Cloud size={18}/> السحابة <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
             <div className="mi" onClick={()=>om("changePw")}><span style={{fontSize:18}}>🔑</span> تغيير كلمة السر <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
             <div className="mi" onClick={()=>{sessionStorage.removeItem("mhf_auth");setIsAuth(false);setDrw(false);}} style={{color:"#ef4444"}}><span style={{fontSize:18}}>🚪</span> تسجيل خروج</div>
@@ -400,7 +418,7 @@ export default function App(){
               {id:"banks",icon:"🏦",label:"البنوك"},
               {id:"cash",icon:"💵",label:"الكاش"},
               {id:"assets",icon:"🏠",label:"الممتلكات"},
-              {id:"loans",icon:"🤝",label:"السلف والقروض"},
+              
             ].map(item=>(
               <div key={item.id} style={{display:"flex",alignItems:"center",padding:"14px",borderBottom:"1px solid rgba(255,255,255,.07)",cursor:"pointer"}} onClick={()=>setDp(item.id)}>
                 <div style={{width:42,height:42,borderRadius:12,background:"rgba(255,255,255,.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
@@ -750,11 +768,191 @@ export default function App(){
           )}
         </>}
 
-        {page==="debts"&&<>
+        {page==="settings"&&<>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+            <span style={{fontWeight:800,fontSize:18}}>الإعدادات</span>
+            <button onClick={()=>setPage("dashboard")} style={{background:"#1e2548",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#f1f5f9",fontFamily:"Cairo",fontSize:13}}>← رجوع</button>
+          </div>
+
+          {/* الأموال والممتلكات */}
+          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#94a3b8",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الأموال والممتلكات</div>
+            {[
+              {id:"banks",icon:"🏦",label:"البنوك"},
+              {id:"cash",icon:"💵",label:"الكاش"},
+              {id:"assets",icon:"🏠",label:"الممتلكات"},
+            ].map((item,i,arr)=>(
+              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #e2e8f0":"none"}} onClick={()=>setDp(item.id)}>
+                <div style={{width:42,height:42,borderRadius:12,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
+                <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1e293b"}}>{item.label}</span>
+                <ChevronLeft size={18} color="#94a3b8"/>
+              </div>
+            ))}
+          </div>
+
+          {/* التصنيفات */}
+          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#94a3b8",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>التصنيفات</div>
+            {[
+              {id:"expCat",icon:"🔴",label:"تصنيفات النفقات",count:`${cats.expense.length} تصنيف`},
+              {id:"incCat",icon:"🟢",label:"تصنيفات الدخل",count:`${cats.income.length} تصنيف`},
+            ].map((item,i,arr)=>(
+              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #e2e8f0":"none"}} onClick={()=>setDp(item.id)}>
+                <div style={{width:42,height:42,borderRadius:12,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:16,fontWeight:700,color:"#1e293b"}}>{item.label}</div>
+                  <div style={{fontSize:12,color:"#94a3b8"}}>{item.count}</div>
+                </div>
+                <ChevronLeft size={18} color="#94a3b8"/>
+              </div>
+            ))}
+          </div>
+
+          {/* الحساب */}
+          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#94a3b8",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الحساب</div>
+            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>om("changePw")}>
+              <div style={{width:42,height:42,borderRadius:12,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🔑</div>
+              <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1e293b"}}>تغيير كلمة السر</span>
+              <ChevronLeft size={18} color="#94a3b8"/>
+            </div>
+            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>setDp("cloud")}>
+              <div style={{width:42,height:42,borderRadius:12,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>☁️</div>
+              <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1e293b"}}>النسخ الاحتياطي</span>
+              <ChevronLeft size={18} color="#94a3b8"/>
+            </div>
+            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>{sessionStorage.removeItem("mhf_auth");setIsAuth(false);}}>
+              <div style={{width:42,height:42,borderRadius:12,background:"#fff0f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🚪</div>
+              <span style={{flex:1,fontSize:16,fontWeight:700,color:"#ef4444"}}>تسجيل خروج</span>
+              <ChevronLeft size={18} color="#94a3b8"/>
+            </div>
+          </div>
+
+          {/* Sub pages rendered inside settings page */}
+          {dp&&["banks","cash","assets","expCat","incCat","cloud"].includes(dp)&&(
+            <div style={{position:"fixed",inset:0,background:"linear-gradient(160deg,#0c0f1e,#0e1428)",zIndex:100,overflowY:"auto",padding:"20px 20px 90px"}}>
+              <style>{`@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');`}</style>
+              <div dir="rtl" style={{fontFamily:"Cairo",color:"#f1f5f9",display:"flex",flexDirection:"column",gap:14}}>
+                {dp==="banks"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"white"}}>البنوك</span>
+                    <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"white",cursor:"pointer",fontFamily:"Cairo",fontSize:12}}>← رجوع</button>
+                  </div>
+                  <button style={{...S.btn("#10b981"),padding:"13px"}} onClick={()=>om("addBank")}>+ إضافة بنك جديد</button>
+                  {banks.map(b=>(
+                    <div key={b.id} style={{background:"#1a1d27",borderRadius:14,overflow:"hidden",border:"1px solid #1e2548"}}>
+                      <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:ovExp[`bk_${b.id}`]?"1px solid #1e2548":"none"}} onClick={()=>setOvExp(p=>({...p,[`bk_${b.id}`]:!p[`bk_${b.id}`]}))}>
+                        <div style={{width:44,height:44,borderRadius:12,background:"rgba(255,255,255,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14}}>🏦</div>
+                        <span style={{flex:1,fontSize:16,fontWeight:800,color:"white"}}>{b.name}</span>
+                        <div style={{display:"flex",gap:8,opacity:ovExp[`del_bank_${b.id}`]?1:0,transition:"opacity .2s",marginLeft:8}} onClick={e=>e.stopPropagation()}>
+                          <button style={{background:"rgba(239,68,68,.25)",border:"none",borderRadius:8,padding:"5px 10px",cursor:"pointer",color:"#fca5a5",fontSize:12,fontFamily:"Cairo"}} onClick={()=>ask("bank",b.id,b.name)}>حذف</button>
+                        </div>
+                        <div style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={e=>{e.stopPropagation();setOvExp(p=>({...p,[`del_bank_${b.id}`]:!p[`del_bank_${b.id}`]}));}}>
+                          <span style={{fontSize:18,color:"rgba(255,255,255,.3)"}}>⋯</span>
+                        </div>
+                      </div>
+                      {ovExp[`bk_${b.id}`]&&<>
+                        {b.accounts.map(a=>(
+                          <div key={a.id} style={{display:"flex",alignItems:"center",padding:"14px 16px",borderBottom:"1px solid #1e2548"}}>
+                            <div style={{width:8,height:8,borderRadius:"50%",background:a.color,marginLeft:14}}/>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:15,fontWeight:700,color:"white"}}>{a.name}</div>
+                              <div style={{fontSize:12,color:"#475569"}}>{a.type}</div>
+                            </div>
+                            <div style={{display:"flex",gap:8,opacity:ovExp[`del_acc_${a.id}`]?1:0,transition:"opacity .2s"}}>
+                              <button style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color:"white",fontSize:11,fontFamily:"Cairo"}} onClick={()=>{setSelBk(b.id);setEi({...a,_bid:b.id});om("edBAcc");}}>تعديل</button>
+                              <button style={{background:"rgba(239,68,68,.2)",border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color:"#fca5a5",fontSize:11,fontFamily:"Cairo"}} onClick={()=>ask("bacc",a.id,a.name,b.id)}>حذف</button>
+                            </div>
+                            <div style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`del_acc_${a.id}`]:!p[`del_acc_${a.id}`]}))}>
+                              <span style={{fontSize:18,color:"rgba(255,255,255,.3)"}}>⋯</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div style={{padding:"10px 16px"}}>
+                          <button style={{...S.btn("#6366f1"),padding:"10px"}} onClick={()=>{setSelBk(b.id);om("addBAcc");}}>+ إضافة حساب</button>
+                        </div>
+                      </>}
+                    </div>
+                  ))}
+                  {banks.length===0&&<div style={{textAlign:"center",padding:40,color:"#475569"}}>لا توجد بنوك</div>}
+                </>}
+
+                {dp==="cash"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"white"}}>الكاش</span>
+                    <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"white",cursor:"pointer",fontFamily:"Cairo",fontSize:12}}>← رجوع</button>
+                  </div>
+                  <button style={{...S.btn("#f59e0b"),padding:"13px"}} onClick={()=>om("addCash")}>+ إضافة محفظة جديدة</button>
+                  {cash.map(c=>(
+                    <div key={c.id} style={{display:"flex",alignItems:"center",padding:"16px",background:"#1a1d27",borderRadius:14,border:"1px solid #1e2548"}}>
+                      <div style={{width:44,height:44,borderRadius:12,background:"rgba(255,255,255,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14}}>💵</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:16,fontWeight:800,color:"white"}}>{c.name}</div>
+                        <div style={{fontSize:12,color:"#475569"}}>{c.type}</div>
+                      </div>
+                      <div style={{display:"flex",gap:8,opacity:ovExp[`del_c_${c.id}`]?1:0,transition:"opacity .2s"}}>
+                        <button style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color:"white",fontSize:11,fontFamily:"Cairo"}} onClick={()=>{setEi(c);om("edCash");}}>تعديل</button>
+                        <button style={{background:"rgba(239,68,68,.2)",border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color:"#fca5a5",fontSize:11,fontFamily:"Cairo"}} onClick={()=>ask("cash",c.id,c.name)}>حذف</button>
+                      </div>
+                      <div style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`del_c_${c.id}`]:!p[`del_c_${c.id}`]}))}>
+                        <span style={{fontSize:18,color:"rgba(255,255,255,.3)"}}>⋯</span>
+                      </div>
+                    </div>
+                  ))}
+                  {cash.length===0&&<div style={{textAlign:"center",padding:40,color:"#475569"}}>لا توجد محافظ</div>}
+                </>}
+
+                {dp==="assets"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"white"}}>الممتلكات</span>
+                    <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"white",cursor:"pointer",fontFamily:"Cairo",fontSize:12}}>← رجوع</button>
+                  </div>
+                  <button style={{...S.btn("#14b8a6"),padding:"13px"}} onClick={()=>om("addAst")}>+ إضافة ممتلك جديد</button>
+                  {assets.map(a=>(
+                    <div key={a.id} style={{display:"flex",alignItems:"center",padding:"16px",background:"#1a1d27",borderRadius:14,border:"1px solid #1e2548"}}>
+                      <div style={{width:44,height:44,borderRadius:12,background:"rgba(255,255,255,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14}}>🏠</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:16,fontWeight:800,color:"white"}}>{a.name}</div>
+                        <div style={{fontSize:12,color:"#475569"}}>{a.type}{a.note?` · ${a.note}`:""}</div>
+                      </div>
+                      <div style={{display:"flex",gap:8,opacity:ovExp[`del_a_${a.id}`]?1:0,transition:"opacity .2s"}}>
+                        <button style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color:"white",fontSize:11,fontFamily:"Cairo"}} onClick={()=>{setEi(a);om("edAst");}}>تعديل</button>
+                        <button style={{background:"rgba(239,68,68,.2)",border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color:"#fca5a5",fontSize:11,fontFamily:"Cairo"}} onClick={()=>ask("ast",a.id,a.name)}>حذف</button>
+                      </div>
+                      <div style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`del_a_${a.id}`]:!p[`del_a_${a.id}`]}))}>
+                        <span style={{fontSize:18,color:"rgba(255,255,255,.3)"}}>⋯</span>
+                      </div>
+                    </div>
+                  ))}
+                  {assets.length===0&&<div style={{textAlign:"center",padding:40,color:"#475569"}}>لا توجد ممتلكات</div>}
+                </>}
+
+                {dp==="expCat"&&<CatSection catType="expense"/>}
+                {dp==="incCat"&&<CatSection catType="income"/>}
+
+                {dp==="cloud"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"white"}}>النسخ الاحتياطي</span>
+                    <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"white",cursor:"pointer",fontFamily:"Cairo",fontSize:12}}>← رجوع</button>
+                  </div>
+                  {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",fontSize:13,color:"#10b981"}}>{bkMsg}</div>}
+                  <button style={{...S.btn("#10b981"),padding:"13px"}} onClick={expData}>📤 تحميل نسخة احتياطية</button>
+                  <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>fRef.current.click()}>📥 استيراد من ملف</button>
+                  <div style={{background:"#1a1d27",borderRadius:14,padding:16,border:"1px solid #ef444433"}}>
+                    <div style={{fontWeight:700,color:"#ef4444",marginBottom:8,fontSize:15}}>🗑️ إعادة ضبط كامل</div>
+                    <div style={{fontSize:12,color:"#475569",marginBottom:12}}>كتمسح كل البيانات بما فيها البنوك والتصنيفات</div>
+                    <input style={{...S.inp,marginBottom:8}} type="password" placeholder="كلمة السر للتأكيد" value={resetCode} onChange={e=>{setResetCode(e.target.value);setResetErr(false);}}/>
+                    {resetErr&&<div style={{color:"#ef4444",fontSize:12,marginBottom:6}}>❌ كلمة السر غلط</div>}
+                    <button style={S.btn("#ef4444")} onClick={()=>{if(resetCode!==appPassword){setResetErr(true);return;}resetData();setResetCode("");}}>تأكيد إعادة الضبط</button>
+                  </div>
+                </>}
+              </div>
+            </div>
+          )}
+        </>}
           <span style={{fontWeight:700,fontSize:16}}>💰 الديون والسلف</span>
 
-          {/* السلف */}
-          <div style={S.card}>
+        {page==="debts"&&<>
             <div style={{...S.row,marginBottom:12}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:20}}>🤝</span>

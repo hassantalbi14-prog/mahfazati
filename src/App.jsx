@@ -310,7 +310,7 @@ export default function App(){
     </div>
   );
 
-  const NAV=[{id:"dashboard",icon:<Home size={18}/>,lbl:"الرئيسية"},{id:"transactions",icon:<Wallet size={18}/>,lbl:"المعاملات"},{id:"debts",icon:<HandCoins size={18}/>,lbl:"الديون"},{id:"budget",icon:<Target size={18}/>,lbl:"الميزانية"},{id:"settings",icon:<Settings size={18}/>,lbl:"الإعدادات"}];
+  const NAV=[{id:"dashboard",icon:<Home size={18}/>,lbl:"الرئيسية"},{id:"transactions",icon:<Wallet size={18}/>,lbl:"المعاملات"},{id:"budget",icon:<Target size={18}/>,lbl:"الميزانية"},{id:"reports",icon:<BarChart3 size={18}/>,lbl:"التقارير"},{id:"settings",icon:<Settings size={18}/>,lbl:"الإعدادات"}];
   const Ico=({src,fb,sz=20})=>src?<img src={src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:sz}}>{fb}</span>;
   const Dot=({color})=><div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>;
   const Btn=({label,onClick,bg="#e2e8f0",color="#64748b",style={}})=><button onClick={onClick} style={{background:bg,border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color,fontSize:11,fontFamily:"Cairo",...style}}>{label}</button>;
@@ -671,7 +671,39 @@ export default function App(){
             <button style={{...S.btn("#6366f1"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>om("transfer")}>⇄ تحويل</button>
           </div>
           <div style={S.card}>
-            <div style={{...S.row,marginBottom:12}}><span style={{fontWeight:700}}>آخر المعاملات</span><button style={{background:"none",border:"none",color:"#10b981",fontSize:12,cursor:"pointer",fontFamily:"Cairo"}} onClick={()=>setPage("transactions")}>عرض الكل ←</button></div>
+            {/* widget الديون والسلف */}
+          {(()=>{
+            const creditTxs=txs.filter(t=>t.pm==="كريدي"&&t.type==="expense"&&!t.creditPaid);
+            const creditTotal=creditTxs.reduce((s,t)=>s+t.amount,0);
+            const salafGiven=loans.filter(l=>!l.wi&&l.kind==="أعطيت").reduce((s,l)=>s+l.remaining,0);
+            const salafTaken=loans.filter(l=>!l.wi&&l.kind==="أخذت").reduce((s,l)=>s+l.remaining,0);
+            const qorudh=loans.filter(l=>l.wi).reduce((s,l)=>s+l.remaining,0);
+            if(creditTotal===0&&salafGiven===0&&salafTaken===0&&qorudh===0) return null;
+            return(
+              <div style={{...S.card,cursor:"pointer",padding:0,overflow:"hidden"}} onClick={()=>setPage("debts")}>
+                <div style={{padding:"12px 16px",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <span style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>💰 الديون والسلف</span>
+                  <span style={{fontSize:12,color:"#10b981"}}>عرض الكل ←</span>
+                </div>
+                <div style={{display:"flex",padding:"12px 16px",gap:8}}>
+                  {salafGiven>0&&<div style={{flex:1,textAlign:"center",background:"#10b98110",borderRadius:10,padding:"8px 4px"}}>
+                    <div style={{fontSize:10,color:"#10b981",fontWeight:700}}>سلفت</div>
+                    <div style={{fontSize:14,fontWeight:900,color:"#10b981"}}>{fmt(salafGiven)}</div>
+                  </div>}
+                  {(salafTaken+qorudh)>0&&<div style={{flex:1,textAlign:"center",background:"#ef444410",borderRadius:10,padding:"8px 4px"}}>
+                    <div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>عليّ</div>
+                    <div style={{fontSize:14,fontWeight:900,color:"#ef4444"}}>{fmt(salafTaken+qorudh)}</div>
+                  </div>}
+                  {creditTotal>0&&<div style={{flex:1,textAlign:"center",background:"#f59e0b10",borderRadius:10,padding:"8px 4px"}}>
+                    <div style={{fontSize:10,color:"#f59e0b",fontWeight:700}}>كريدي</div>
+                    <div style={{fontSize:14,fontWeight:900,color:"#f59e0b"}}>{fmt(creditTotal)}</div>
+                  </div>}
+                </div>
+              </div>
+            );
+          })()}
+
+          <div style={{...S.row,marginBottom:12}}><span style={{fontWeight:700}}>آخر المعاملات</span><button style={{background:"none",border:"none",color:"#10b981",fontSize:12,cursor:"pointer",fontFamily:"Cairo"}} onClick={()=>setPage("transactions")}>عرض الكل ←</button></div>
             {txs.slice(0,5).map(t=>{const{cn,sn,ic,hi}=tl(t);return(
               <div key={t.id} className="tx">
                 <div style={{width:38,height:38,borderRadius:10,background:t.type==="income"?"#10b98122":"#ef444422",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}><Ico src={hi?ic:null} fb={ic} sz={18}/></div>

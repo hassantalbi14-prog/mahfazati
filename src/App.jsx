@@ -951,116 +951,176 @@ export default function App(){
           )}
         </>}
 
-        {page==="debts"&&<>
-          <span style={{fontWeight:700,fontSize:16}}>💰 الديون والسلف</span>
+        {page==="debts"&&(()=>{
+          const creditTxs=txs.filter(t=>t.pm==="كريدي"&&t.type==="expense"&&!t.creditPaid);
+          const creditTotal=creditTxs.reduce((s,t)=>s+t.amount,0);
+          const salafGiven=loans.filter(l=>!l.wi&&l.kind==="أعطيت");
+          const salafTaken=loans.filter(l=>!l.wi&&l.kind==="أخذت");
+          const qorudh=loans.filter(l=>l.wi);
+          const totSalaf=salafGiven.reduce((s,l)=>s+l.remaining,0);
+          const totDain=salafTaken.reduce((s,l)=>s+l.remaining,0)+qorudh.reduce((s,l)=>s+l.remaining,0);
 
-          <div style={S.card}>
-            <div style={{...S.row,marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:20}}>🤝</span>
-                <span style={{fontWeight:700,fontSize:15,color:"#1e293b"}}>السلف</span>
-              </div>
-              <button style={{...S.btn(),width:"auto",padding:"6px 12px",fontSize:12}} onClick={()=>om("addLoan",{kind:"أعطيت"})}>+ سلفة</button>
+          // Sub page inside debts
+          if(ovExp.debtPage) return <>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontWeight:800,fontSize:17}}>
+                {ovExp.debtPage==="salaf"&&"🤝 السلف"}
+                {ovExp.debtPage==="qorudh"&&"🏦 الكريدي الكبير"}
+                {ovExp.debtPage==="credit"&&"💳 الكريدي الصغير"}
+              </span>
+              <button style={{...S.btn("#1e2548",false),padding:"7px 12px",fontSize:12}} onClick={()=>setOvExp(p=>({...p,debtPage:null}))}>← رجوع</button>
             </div>
-            <div style={{display:"flex",gap:8,marginBottom:12}}>
-              <div style={{flex:1,textAlign:"center",background:"#10b98110",borderRadius:10,padding:"10px 4px",border:"1px solid #10b98133"}}>
-                <div style={{fontSize:10,color:"#10b981",fontWeight:700}}>أعطيت</div>
-                <div style={{fontSize:16,fontWeight:900,color:"#10b981"}}>{fmt(loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+l.remaining,0))}</div>
-                <div style={{fontSize:10,color:"#94a3b8"}}>{loans.filter(l=>l.kind==="أعطيت").length} شخص</div>
-              </div>
-              <div style={{flex:1,textAlign:"center",background:"#ef444410",borderRadius:10,padding:"10px 4px",border:"1px solid #ef444433"}}>
-                <div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>عندي دَين</div>
-                <div style={{fontSize:16,fontWeight:900,color:"#ef4444"}}>{fmt(loans.filter(l=>l.kind==="أخذت").reduce((s,l)=>s+l.remaining,0))}</div>
-                <div style={{fontSize:10,color:"#94a3b8"}}>{loans.filter(l=>l.kind==="أخذت").length} جهة</div>
-              </div>
-            </div>
-            {loans.filter(l=>!l.wi).map(l=>(
-              <div key={l.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #e2e8f0"}}>
-                <div style={{width:36,height:36,borderRadius:10,background:l.kind==="أعطيت"?"#10b98115":"#ef444415",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{l.kind==="أعطيت"?"↑":"↓"}</div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>{l.person}</div>
-                  <div style={{fontSize:11,color:"#94a3b8"}}>{l.date} · {l.note||l.kind}</div>
-                </div>
-                <div style={{textAlign:"left"}}>
-                  <div style={{fontSize:14,fontWeight:900,color:l.kind==="أعطيت"?"#10b981":"#ef4444"}}>{fmt(l.remaining)}</div>
-                  {l.remaining<l.amount&&<div style={{fontSize:10,color:"#94a3b8"}}>من {fmt(l.amount)}</div>}
-                </div>
-                <button style={{background:"#10b98115",border:"1px solid #10b98133",borderRadius:8,padding:"4px 8px",cursor:"pointer",color:"#10b981",fontSize:11,fontFamily:"Cairo"}} onClick={()=>{setEi(l);om("returnLoan");}}>رجع</button>
-              </div>
-            ))}
-            {loans.filter(l=>!l.wi).length===0&&<div style={{textAlign:"center",color:"#94a3b8",fontSize:13,padding:16}}>لا توجد سلف</div>}
-          </div>
 
-          {/* القروض الكبيرة */}
-          <div style={S.card}>
-            <div style={{...S.row,marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:20}}>🏦</span>
-                <span style={{fontWeight:700,fontSize:15,color:"#1e293b"}}>القروض الكبيرة</span>
+            {/* السلف */}
+            {ovExp.debtPage==="salaf"&&<>
+              <div style={{display:"flex",gap:8}}>
+                <div style={{flex:1,textAlign:"center",background:"#10b98110",borderRadius:12,padding:"12px 6px",border:"1px solid #10b98133"}}>
+                  <div style={{fontSize:11,color:"#10b981",fontWeight:700}}>سلفت</div>
+                  <div style={{fontSize:18,fontWeight:900,color:"#10b981"}}>{fmt(totSalaf)}</div>
+                  <div style={{fontSize:11,color:"#94a3b8"}}>{salafGiven.length} شخص</div>
+                </div>
+                <div style={{flex:1,textAlign:"center",background:"#ef444410",borderRadius:12,padding:"12px 6px",border:"1px solid #ef444433"}}>
+                  <div style={{fontSize:11,color:"#ef4444",fontWeight:700}}>عندي دَين</div>
+                  <div style={{fontSize:18,fontWeight:900,color:"#ef4444"}}>{fmt(totDain-qorudh.reduce((s,l)=>s+l.remaining,0))}</div>
+                  <div style={{fontSize:11,color:"#94a3b8"}}>{salafTaken.length} شخص</div>
+                </div>
               </div>
-              <button style={{...S.btn("#6366f1"),width:"auto",padding:"6px 12px",fontSize:12}} onClick={()=>om("addLoan",{kind:"أخذت",wi:true})}>+ قرض</button>
-            </div>
-            {loans.filter(l=>l.wi).map(l=>{
-              const pct=Math.min(((l.amount-l.remaining)/l.amount)*100,100);
-              return(
-                <div key={l.id} style={{padding:"12px 0",borderBottom:"1px solid #e2e8f0"}}>
-                  <div style={{...S.row,marginBottom:6}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>{l.person}</div>
-                      <div style={{fontSize:11,color:"#94a3b8"}}>فائدة {l.interest}% {l.inst?`· قسط ${fmt(l.minst)}/شهر`:""}</div>
+              <div style={{display:"flex",gap:8}}>
+                <button style={{...S.btn("#10b981"),flex:1,padding:"11px"}} onClick={()=>om("addLoan",{kind:"أعطيت"})}>+ سلفت لحد</button>
+                <button style={{...S.btn("#ef4444"),flex:1,padding:"11px"}} onClick={()=>om("addLoan",{kind:"أخذت"})}>+ أخذت سلفة</button>
+              </div>
+              {[...salafGiven,...salafTaken].map(l=>(
+                <div key={l.id} style={S.card}>
+                  <div style={{...S.row,marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:38,height:38,borderRadius:10,background:l.kind==="أعطيت"?"#10b98115":"#ef444415",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{l.kind==="أعطيت"?"↑":"↓"}</div>
+                      <div>
+                        <div style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{l.person}</div>
+                        <div style={{fontSize:11,color:"#94a3b8"}}>{l.date}{l.note?` · ${l.note}`:""}</div>
+                      </div>
                     </div>
                     <div style={{textAlign:"left"}}>
-                      <div style={{fontSize:14,fontWeight:900,color:"#ef4444"}}>{fmt(l.remaining)}</div>
-                      <div style={{fontSize:10,color:"#94a3b8"}}>من {fmt(l.amount)}</div>
+                      <div style={{fontSize:16,fontWeight:900,color:l.kind==="أعطيت"?"#10b981":"#ef4444"}}>{fmt(l.remaining)}</div>
+                      {l.remaining<l.amount&&<div style={{fontSize:10,color:"#94a3b8"}}>من {fmt(l.amount)}</div>}
                     </div>
                   </div>
-                  <div className="pbar"><div className="pfill" style={{width:pct+"%",background:"#10b981"}}/></div>
-                  <div style={{...S.row,marginTop:4}}>
-                    <span style={{fontSize:10,color:"#94a3b8"}}>مسدد {pct.toFixed(0)}%</span>
-                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                      <input id={`lp${l.id}`} type="number" placeholder="سداد..." style={{...S.inp,width:100,padding:"4px 8px",fontSize:11}}/>
-                      <button style={{...S.btn("#10b981",false),padding:"4px 10px",fontSize:11}} onClick={()=>{const el=document.getElementById(`lp${l.id}`);if(el?.value){setLoans(p=>p.map(x=>x.id===l.id?{...x,remaining:Math.max(0,x.remaining-parseFloat(el.value))}:x));el.value="";}}}> سدد</button>
-                    </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button style={{...S.btn("#10b981"),flex:1,padding:"9px",fontSize:12}} onClick={()=>{setEi(l);om("returnLoan");}}>
+                      {l.kind==="أعطيت"?"✓ خلصني":"✓ خلصته"}
+                    </button>
+                    <button style={{background:"#ef444415",border:"1px solid #ef444433",borderRadius:10,padding:"9px 12px",cursor:"pointer"}} onClick={()=>ask("loan",l.id,l.person)}><Trash2 size={14} color="#ef4444"/></button>
                   </div>
                 </div>
-              );
-            })}
-            {loans.filter(l=>l.wi).length===0&&<div style={{textAlign:"center",color:"#94a3b8",fontSize:13,padding:16}}>لا توجد قروض</div>}
-          </div>
+              ))}
+              {salafGiven.length===0&&salafTaken.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#94a3b8"}}>لا توجد سلف</div>}
+            </>}
 
-          {/* ديون الكريدي */}
-          {(()=>{
-            const creditTxs=txs.filter(t=>t.pm==="كريدي"&&t.type==="expense"&&!t.creditPaid);
-            const total=creditTxs.reduce((s,t)=>s+t.amount,0);
-            return(
-              <div style={S.card}>
-                <div style={{...S.row,marginBottom:12}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:20}}>💳</span>
-                    <span style={{fontWeight:700,fontSize:15,color:"#1e293b"}}>ديون الكريدي</span>
+            {/* الكريدي الكبير */}
+            {ovExp.debtPage==="qorudh"&&<>
+              <button style={{...S.btn("#6366f1"),padding:"12px"}} onClick={()=>om("addLoan",{kind:"أخذت",wi:true})}>+ إضافة قرض جديد</button>
+              {qorudh.map(l=>{
+                const pct=Math.min(((l.amount-l.remaining)/l.amount)*100,100);
+                return(
+                  <div key={l.id} style={S.card}>
+                    <div style={{...S.row,marginBottom:10}}>
+                      <div>
+                        <div style={{fontSize:15,fontWeight:700,color:"#1e293b"}}>{l.person}</div>
+                        <div style={{fontSize:12,color:"#94a3b8"}}>فائدة {l.interest}%{l.inst?` · قسط ${fmt(l.minst)}/شهر`:""}</div>
+                      </div>
+                      <div style={{textAlign:"left"}}>
+                        <div style={{fontSize:17,fontWeight:900,color:"#ef4444"}}>{fmt(l.remaining)}</div>
+                        <div style={{fontSize:11,color:"#94a3b8"}}>من {fmt(l.amount)}</div>
+                      </div>
+                    </div>
+                    <div className="pbar" style={{marginBottom:6}}><div className="pfill" style={{width:pct+"%",background:"#10b981"}}/></div>
+                    <div style={{...S.row,marginBottom:10}}>
+                      <span style={{fontSize:11,color:"#94a3b8"}}>مسدد {pct.toFixed(0)}%</span>
+                      <span style={{fontSize:11,color:"#94a3b8"}}>متبقي {fmt(l.remaining)}</span>
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <input id={`lp${l.id}`} type="number" placeholder="مبلغ السداد..." style={{...S.inp,flex:1,padding:"9px 12px"}}/>
+                      <button style={{...S.btn("#10b981",false),padding:"9px 14px"}} onClick={()=>{const el=document.getElementById(`lp${l.id}`);if(el?.value){setLoans(p=>p.map(x=>x.id===l.id?{...x,remaining:Math.max(0,x.remaining-parseFloat(el.value))}:x));el.value="";}}}> سدد</button>
+                      <button style={{background:"#ef444415",border:"1px solid #ef444433",borderRadius:10,padding:"9px 12px",cursor:"pointer"}} onClick={()=>ask("loan",l.id,l.person)}><Trash2 size={14} color="#ef4444"/></button>
+                    </div>
                   </div>
-                  <span style={{fontSize:16,fontWeight:900,color:"#f59e0b"}}>{fmt(total)}</span>
-                </div>
-                {creditTxs.length===0?
-                  <div style={{textAlign:"center",color:"#94a3b8",fontSize:13,padding:16}}>✅ ما كاين ديون كريدي</div>:
-                  creditTxs.map(t=>{
-                    const{cn}=tl(t);
-                    return(
-                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #e2e8f0"}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:13,fontWeight:600,color:"#1e293b"}}>{t.desc||cn}</div>
+                );
+              })}
+              {qorudh.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#94a3b8"}}>لا توجد قروض</div>}
+            </>}
+
+            {/* الكريدي الصغير */}
+            {ovExp.debtPage==="credit"&&<>
+              <div style={{...S.card,textAlign:"center",background:"#f59e0b10",border:"1px solid #f59e0b33"}}>
+                <div style={{fontSize:12,color:"#f59e0b",marginBottom:4,fontWeight:700}}>إجمالي الكريدي غير المخلص</div>
+                <div style={{fontSize:28,fontWeight:900,color:"#f59e0b"}}>{fmt(creditTotal)}</div>
+                <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{creditTxs.length} معاملة</div>
+              </div>
+              {creditTxs.length===0?
+                <div style={{...S.card,textAlign:"center",padding:30}}>
+                  <div style={{fontSize:30,marginBottom:8}}>✅</div>
+                  <div style={{color:"#94a3b8"}}>ما كاين ديون كريدي</div>
+                </div>:
+                creditTxs.map(t=>{
+                  const{cn}=tl(t);
+                  return(
+                    <div key={t.id} style={S.card}>
+                      <div style={{...S.row,marginBottom:8}}>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{t.desc||cn}</div>
                           <div style={{fontSize:11,color:"#94a3b8"}}>{t.date}</div>
                         </div>
-                        <span style={{fontSize:14,fontWeight:700,color:"#f59e0b"}}>{fmt(t.amount)}</span>
-                        <button style={{background:"#10b98115",border:"1px solid #10b98133",borderRadius:8,padding:"4px 8px",cursor:"pointer",color:"#10b981",fontSize:11,fontFamily:"Cairo"}} onClick={()=>setTxs(p=>p.map(x=>x.id===t.id?{...x,creditPaid:true}:x))}>خلصت ✓</button>
+                        <div style={{fontSize:17,fontWeight:900,color:"#f59e0b"}}>{fmt(t.amount)}</div>
                       </div>
-                    );
-                  })
-                }
+                      <button style={{...S.btn("#10b981"),padding:"10px",fontSize:13}} onClick={()=>setTxs(p=>p.map(x=>x.id===t.id?{...x,creditPaid:true}:x))}>
+                        ✓ خلصت هاد الكريدي
+                      </button>
+                    </div>
+                  );
+                })
+              }
+            </>}
+          </>;
+
+          // Dashboard الرئيسي
+          return <>
+            <span style={{fontWeight:800,fontSize:18}}>💰 الديون والسلف</span>
+
+            {/* ملخص */}
+            <div style={{display:"flex",gap:10}}>
+              <div style={{flex:1,textAlign:"center",...S.card,background:"#ef444410",border:"1px solid #ef444433",padding:"14px 8px"}}>
+                <div style={{fontSize:11,color:"#ef4444",fontWeight:700}}>عندي دَين</div>
+                <div style={{fontSize:20,fontWeight:900,color:"#ef4444"}}>{fmt(totDain)}</div>
               </div>
-            );
-          })()}
-        </>}
+              <div style={{flex:1,textAlign:"center",...S.card,background:"#10b98110",border:"1px solid #10b98133",padding:"14px 8px"}}>
+                <div style={{fontSize:11,color:"#10b981",fontWeight:700}}>سلفت</div>
+                <div style={{fontSize:20,fontWeight:900,color:"#10b981"}}>{fmt(totSalaf)}</div>
+              </div>
+              <div style={{flex:1,textAlign:"center",...S.card,background:"#f59e0b10",border:"1px solid #f59e0b33",padding:"14px 8px"}}>
+                <div style={{fontSize:11,color:"#f59e0b",fontWeight:700}}>كريدي</div>
+                <div style={{fontSize:20,fontWeight:900,color:"#f59e0b"}}>{fmt(creditTotal)}</div>
+              </div>
+            </div>
+
+            {/* 3 بطاقات للدخول */}
+            {[
+              {key:"salaf",icon:"🤝",title:"السلف",sub:"اللي سلفت واللي عندك دَين عند حد",color:"#10b981",count:`${salafGiven.length+salafTaken.length} سلفة`},
+              {key:"qorudh",icon:"🏦",title:"الكريدي الكبير",sub:"قروض بنكية أو عند أشخاص",color:"#6366f1",count:`${qorudh.length} قرض`},
+              {key:"credit",icon:"💳",title:"الكريدي الصغير",sub:"مشتريات بالكريدي لم تُخلص",color:"#f59e0b",count:`${creditTxs.length} معاملة · ${fmt(creditTotal)}`},
+            ].map(item=>(
+              <div key={item.key} style={{...S.card,cursor:"pointer",padding:0,overflow:"hidden"}} onClick={()=>setOvExp(p=>({...p,debtPage:item.key}))}>
+                <div style={{display:"flex",alignItems:"center",padding:"16px"}}>
+                  <div style={{width:50,height:50,borderRadius:14,background:item.color+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,marginLeft:14,flexShrink:0}}>{item.icon}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:16,fontWeight:800,color:"#1e293b"}}>{item.title}</div>
+                    <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>{item.sub}</div>
+                    <div style={{fontSize:12,fontWeight:700,color:item.color,marginTop:4}}>{item.count}</div>
+                  </div>
+                  <ChevronLeft size={20} color="#94a3b8"/>
+                </div>
+              </div>
+            ))}
+          </>;
+        })()}
 
         {page==="transactions"&&<>
           <div style={{...S.row}}><span style={{fontWeight:700,fontSize:16}}>المعاملات</span><button style={{...S.btn(),width:"auto",padding:"8px 14px",fontSize:13}} onClick={()=>om("addTx",{txType:"expense"})}>+ جديد</button></div>

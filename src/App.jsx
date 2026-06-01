@@ -317,7 +317,7 @@ export default function App(){
 
   const PmBtns=({val,onChange})=>(
     <div style={{display:"flex",gap:8}}>
-      {["نقدي","كريدي"].map(m=><button key={m} onClick={()=>onChange(m)} style={{flex:1,padding:10,border:"2px solid",borderColor:val===m?(m==="نقدي"?"#10b981":"#f59e0b"):"#e2e8f0",borderRadius:10,background:val===m?(m==="نقدي"?"#10b98122":"#f59e0b22"):"transparent",color:val===m?(m==="نقدي"?"#10b981":"#f59e0b"):"#94a3b8",fontFamily:"Cairo",fontWeight:700,cursor:"pointer",fontSize:13}}>{m==="نقدي"?"💵 نقدي":"💳 كريدي"}</button>)}
+      <button onClick={()=>onChange("نقدي")} style={{flex:1,padding:10,border:"2px solid",borderColor:"#10b981",borderRadius:10,background:"#10b98122",color:"#10b981",fontFamily:"Cairo",fontWeight:700,cursor:"pointer",fontSize:13}}>💵 نقدي</button>
     </div>
   );
 
@@ -678,7 +678,15 @@ export default function App(){
             const salafGiven=loans.filter(l=>!l.wi&&l.kind==="أعطيت").reduce((s,l)=>s+l.remaining,0);
             const salafTaken=loans.filter(l=>!l.wi&&l.kind==="أخذت").reduce((s,l)=>s+l.remaining,0);
             const qorudh=loans.filter(l=>l.wi).reduce((s,l)=>s+l.remaining,0);
-            if(creditTotal===0&&salafGiven===0&&salafTaken===0&&qorudh===0) return null;
+            if(creditTotal===0&&salafGiven===0&&salafTaken===0&&qorudh===0) return(
+              <div style={{...S.card,cursor:"pointer"}} onClick={()=>setPage("debts")}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <span style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>💰 الديون والسلف</span>
+                  <span style={{fontSize:12,color:"#10b981"}}>عرض ←</span>
+                </div>
+                <div style={{fontSize:12,color:"#94a3b8",marginTop:6}}>لا توجد ديون أو سلف حالياً ✅</div>
+              </div>
+            );
             return(
               <div style={{...S.card,cursor:"pointer",padding:0,overflow:"hidden"}} onClick={()=>setPage("debts")}>
                 <div style={{padding:"12px 16px",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -1087,28 +1095,55 @@ export default function App(){
                 <div style={{fontSize:28,fontWeight:900,color:"#f59e0b"}}>{fmt(creditTotal)}</div>
                 <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{creditTxs.length} معاملة</div>
               </div>
+
+              {/* نموذج إضافة كريدي */}
+              <div style={S.card}>
+                <div style={{fontWeight:700,fontSize:14,color:"#1e293b",marginBottom:10}}>💳 إضافة شراء بالكريدي</div>
+                <input style={{...S.inp,marginBottom:8}} placeholder="وصف الشراء" value={ovExp.crDesc||""} onChange={e=>setOvExp(p=>({...p,crDesc:e.target.value}))}/>
+                <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ" value={ovExp.crAmt||""} onChange={e=>setOvExp(p=>({...p,crAmt:e.target.value}))}/>
+                <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.crDate||new Date().toISOString().split("T")[0]} onChange={e=>setOvExp(p=>({...p,crDate:e.target.value}))}/>
+                <button style={{...S.btn("#f59e0b"),padding:"11px"}} onClick={()=>{
+                  if(!ovExp.crAmt||!ovExp.crDesc){return;}
+                  setTxs(p=>[{id:uid(),type:"expense",amount:parseFloat(ovExp.crAmt),catId:null,subId:null,desc:ovExp.crDesc,date:ovExp.crDate||new Date().toISOString().split("T")[0],pm:"كريدي",ref:null,creditPaid:false},...p]);
+                  setOvExp(p=>({...p,crDesc:"",crAmt:"",crDate:""}));
+                }}>+ إضافة</button>
+              </div>
+
               {creditTxs.length===0?
                 <div style={{...S.card,textAlign:"center",padding:30}}>
                   <div style={{fontSize:30,marginBottom:8}}>✅</div>
                   <div style={{color:"#94a3b8"}}>ما كاين ديون كريدي</div>
                 </div>:
-                creditTxs.map(t=>{
-                  const{cn}=tl(t);
-                  return(
-                    <div key={t.id} style={S.card}>
-                      <div style={{...S.row,marginBottom:8}}>
-                        <div>
-                          <div style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{t.desc||cn}</div>
-                          <div style={{fontSize:11,color:"#94a3b8"}}>{t.date}</div>
-                        </div>
-                        <div style={{fontSize:17,fontWeight:900,color:"#f59e0b"}}>{fmt(t.amount)}</div>
+                creditTxs.map(t=>(
+                  <div key={t.id} style={S.card}>
+                    <div style={{...S.row,marginBottom:10}}>
+                      <div>
+                        <div style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{t.desc}</div>
+                        <div style={{fontSize:11,color:"#94a3b8"}}>{t.date}</div>
                       </div>
-                      <button style={{...S.btn("#10b981"),padding:"10px",fontSize:13}} onClick={()=>setTxs(p=>p.map(x=>x.id===t.id?{...x,creditPaid:true}:x))}>
-                        ✓ خلصت هاد الكريدي
-                      </button>
+                      <div style={{fontSize:17,fontWeight:900,color:"#f59e0b"}}>{fmt(t.amount)}</div>
                     </div>
-                  );
-                })
+                    {ovExp[`pay_${t.id}`]?
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        <select style={S.sel} value={ovExp[`pacc_${t.id}`]||""} onChange={e=>setOvExp(p=>({...p,[`pacc_${t.id}`]:e.target.value}))}>
+                          <option value="">اختر الحساب اللي خلصتي منه</option>
+                          {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
+                        </select>
+                        <button style={{...S.btn("#10b981"),padding:"10px",fontSize:13}} onClick={()=>{
+                          const acc=allAcc.find(a=>a.key===ovExp[`pacc_${t.id}`]);
+                          if(!acc){return;}
+                          updBal(acc.ref,t.amount,"expense","add");
+                          setTxs(p=>p.map(x=>x.id===t.id?{...x,creditPaid:true,ref:acc.ref}:x));
+                          setOvExp(p=>({...p,[`pay_${t.id}`]:false,[`pacc_${t.id}`]:""}));
+                        }}>✓ تأكيد الخلاص</button>
+                        <button style={{background:"none",border:"none",color:"#94a3b8",fontFamily:"Cairo",fontSize:12,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`pay_${t.id}`]:false}))}>إلغاء</button>
+                      </div>:
+                      <button style={{...S.btn("#10b981"),padding:"10px",fontSize:13}} onClick={()=>setOvExp(p=>({...p,[`pay_${t.id}`]:true}))}>
+                        💳 خلصت — اختر الحساب
+                      </button>
+                    }
+                  </div>
+                ))
               }
             </>}
           </>;

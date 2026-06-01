@@ -950,9 +950,11 @@ export default function App(){
             </div>
           )}
         </>}
-          <span style={{fontWeight:700,fontSize:16}}>💰 الديون والسلف</span>
 
         {page==="debts"&&<>
+          <span style={{fontWeight:700,fontSize:16}}>💰 الديون والسلف</span>
+
+          <div style={S.card}>
             <div style={{...S.row,marginBottom:12}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:20}}>🤝</span>

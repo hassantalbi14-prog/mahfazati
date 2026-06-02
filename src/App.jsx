@@ -168,7 +168,7 @@ export default function App(){
     if(to.ref.k==="bank")setBanks(p=>p.map(b=>b.id===to.ref.bid?{...b,accounts:b.accounts.map(a=>a.id===to.ref.aid?{...a,balance:a.balance+amt}:a)}:b));
     if(to.ref.k==="cash")setCash(p=>p.map(c=>c.id===to.ref.cid?{...c,balance:c.balance+amt}:c));
     // Log as two transactions
-    const now=new Date().toISOString().split("T")[0];
+    const now=form.transferDate||new Date().toISOString().split("T")[0];
     setTxs(p=>[
       {id:uid(),type:"expense",amount:amt,catId:null,subId:null,desc:`تحويل إلى ${to.name}`,date:now,pm:"تحويل",ref:from.ref,isTransfer:true},
       {id:uid(),type:"income",amount:amt,catId:null,subId:null,desc:`تحويل من ${from.name}`,date:now,pm:"تحويل",ref:to.ref,isTransfer:true},
@@ -764,12 +764,14 @@ export default function App(){
           <div style={{background:"linear-gradient(135deg,#e2e8f0,#e2e8f0)",borderRadius:18,padding:20,border:"1px solid #cbd5e1",textAlign:"center"}}>
             <div style={{fontSize:11,color:"#64748b",marginBottom:6}}>صافي الثروة الكلية</div>
             <div style={{fontSize:34,fontWeight:900,color:"#10b981"}}>{fmt(totBal+totAst-totOwd)}</div>
-            <div style={{display:"flex",justifyContent:"center",gap:16,marginTop:12}}>
-              <div><div style={{fontSize:10,color:"#64748b"}}>السيولة</div><div style={{fontSize:14,fontWeight:700}}>{fmt(totBal)}</div></div>
+            <div style={{display:"flex",justifyContent:"center",gap:12,marginTop:12,flexWrap:"wrap"}}>
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#64748b"}}>البنوك</div><div style={{fontSize:13,fontWeight:700,color:"#10b981"}}>{fmt(banks.flatMap(b=>b.accounts).reduce((s,a)=>s+a.balance,0))}</div></div>
               <div style={{width:1,background:"#cbd5e1"}}/>
-              <div><div style={{fontSize:10,color:"#64748b"}}>الممتلكات</div><div style={{fontSize:14,fontWeight:700,color:"#14b8a6"}}>{fmt(totAst)}</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#64748b"}}>الكاش</div><div style={{fontSize:13,fontWeight:700,color:"#f59e0b"}}>{fmt(cash.reduce((s,c)=>s+c.balance,0))}</div></div>
               <div style={{width:1,background:"#cbd5e1"}}/>
-              <div><div style={{fontSize:10,color:"#64748b"}}>الديون</div><div style={{fontSize:14,fontWeight:700,color:"#ef4444"}}>{fmt(totOwd)}</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#64748b"}}>الممتلكات</div><div style={{fontSize:13,fontWeight:700,color:"#14b8a6"}}>{fmt(totAst)}</div></div>
+              <div style={{width:1,background:"#cbd5e1"}}/>
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#64748b"}}>الديون</div><div style={{fontSize:13,fontWeight:700,color:"#ef4444"}}>-{fmt(totOwd)}</div></div>
             </div>
           </div>
 
@@ -807,18 +809,6 @@ export default function App(){
               </div>
             ))}
           </AccCard>
-
-          {txs.some(t=>t.pm==="كريدي")&&(()=>{const ct=txs.filter(t=>t.pm==="كريدي");const tot=ct.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);return(
-            <AccCard sec="credit" icon="💳" label="معاملات الكريدي" color="#f59e0b" amount={tot} count={`${ct.length} معاملة`}>
-              {ct.map(t=>{const{cn,ic,hi,sn}=tl(t);return(
-                <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px",background:"#1e293b",borderRadius:10,marginBottom:5,border:"1px solid #f59e0b33"}}>
-                  <div style={{width:34,height:34,borderRadius:8,background:t.type==="income"?"#10b98122":"#ef444422",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,overflow:"hidden",flexShrink:0}}><Ico src={hi?ic:null} fb={ic} sz={16}/></div>
-                  <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{t.desc||cn}</div><div style={{fontSize:11,color:"#94a3b8"}}>{t.date}{sn&&` • ${sn}`}</div></div>
-                  <span style={{fontSize:14,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
-                </div>
-              );})}
-            </AccCard>
-          );})()}
 
           {loans.length>0&&(
             <AccCard sec="loans" icon="🤝" label="السلف والقروض" color="#8b5cf6" amount={totGiv+totOwd} count={`${loans.length} سلفة/قرض`}>
@@ -1490,9 +1480,10 @@ export default function App(){
               </select>
               {(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx")F("subId",e.target.value);else setEi(p=>({...p,subId:e.target.value}));}}><option value="">الفرع (اختياري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
               {modal==="addTx"&&(form.pm||"نقدي")!=="كريدي"&&<select style={{...S.sel,border:"2px solid #6366f1"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}><option value="">⚠️ اختر الحساب (إجباري)</option>{allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}</select>}
+              {modal==="addTx"&&(form.txType||"expense")==="income"&&<select style={{...S.sel,border:"2px solid #10b981"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}><option value="">⚠️ اختر الحساب (إجباري)</option>{allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}</select>}
               <input style={S.inp} placeholder="الوصف" value={modal==="addTx"?form.desc||"":ei?.desc||""} onChange={e=>modal==="addTx"?F("desc",e.target.value):setEi(p=>({...p,desc:e.target.value}))}/>
               <input style={S.inp} type="date" value={modal==="addTx"?form.date||new Date().toISOString().split("T")[0]:ei?.date||""} onChange={e=>modal==="addTx"?F("date",e.target.value):setEi(p=>({...p,date:e.target.value}))}/>
-              <PmBtns val={modal==="addTx"?form.pm||"نقدي":ei?.pm||"نقدي"} onChange={v=>modal==="addTx"?F("pm",v):setEi(p=>({...p,pm:v}))}/>
+              {(modal==="addTx"?(form.txType||"expense"):ei?.type)==="expense"&&<PmBtns val={modal==="addTx"?form.pm||"نقدي":ei?.pm||"نقدي"} onChange={v=>modal==="addTx"?F("pm",v):setEi(p=>({...p,pm:v}))}/>}
               <button style={S.btn(modal==="addTx"?"#10b981":"#6366f1")} onClick={modal==="addTx"?addTx:saveTxEdit}>حفظ</button>
             </div>}
 
@@ -1589,6 +1580,7 @@ export default function App(){
                 </select>
               </div>
               <input style={S.inp} placeholder="المبلغ" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
+              <input style={S.inp} type="date" value={form.transferDate||new Date().toISOString().split("T")[0]} onChange={e=>F("transferDate",e.target.value)}/>
               {form.fromKey&&form.toKey&&form.amount&&(
                 <div style={{padding:"10px 14px",background:"#6366f115",borderRadius:10,fontSize:13,color:"#6366f1",textAlign:"center"}}>
                   تحويل <strong>{fmt(parseFloat(form.amount||0))}</strong> من <strong>{allAcc.find(a=>a.key===form.fromKey)?.name}</strong> إلى <strong>{allAcc.find(a=>a.key===form.toKey)?.name}</strong>
@@ -1610,6 +1602,7 @@ export default function App(){
                 {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
               </select>
               <input style={S.inp} placeholder="ملاحظة" value={form.astNote||""} onChange={e=>F("astNote",e.target.value)}/>
+              <input style={S.inp} type="date" value={form.astDate||new Date().toISOString().split("T")[0]} onChange={e=>F("astDate",e.target.value)}/>
               <button style={S.btn("#14b8a6")} onClick={()=>{
                 if(!form.astName||!form.astAmt||!form.akey){showErr("⛔ أكمل البيانات");return;}
                 const amt=parseFloat(form.astAmt);

@@ -130,7 +130,7 @@ export default function App(){
   const totGiv=loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+l.remaining,0);
   const totOwd=loans.filter(l=>l.kind==="أخذت").reduce((s,l)=>s+l.remaining,0);
   const mInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
-  const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
+  const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
 
   const gc=(tp,id)=>cats[tp]?.find(c=>c.id===id);
   const gs=(tp,cid,sid)=>gc(tp,cid)?.subs?.find(s=>s.id===sid);
@@ -139,7 +139,7 @@ export default function App(){
 
   const expByCat=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)).reduce((acc,t)=>{const c=gc("expense",t.catId);const k=c?.name||"أخرى";acc[k]=(acc[k]||0)+t.amount;return acc;},{});
   const pie=Object.entries(expByCat).map(([name,value])=>({name,value}));
-  const chart=Array.from({length:6},(_,i)=>{const d=new Date(2026,4-i,1);const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return{lbl:d.toLocaleString("ar-MA",{month:"short"}),inc:txs.filter(t=>t.type==="income"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0),exp:txs.filter(t=>t.type==="expense"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0)};}).reverse();
+  const chart=Array.from({length:6},(_,i)=>{const d=new Date(2026,4-i,1);const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return{lbl:d.toLocaleString("ar-MA",{month:"short"}),inc:txs.filter(t=>t.type==="income"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0),exp:txs.filter(t=>t.type==="expense"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer&&!t.isAsset).reduce((s,t)=>s+t.amount,0)};}).reverse();
 
   const om=(t,x={})=>{setForm(x);setModal(t);};
   const cm=()=>{setModal(null);setForm({});};
@@ -185,14 +185,26 @@ export default function App(){
     if(form.pm!=="كريدي"&&!acc)return;
     const amt=parseFloat(form.amount);
     if(isNaN(amt)||amt<=0){showErr("⛔ المبلغ غير صحيح");return;}
-    // Check balance for expense
-    if((form.txType||"expense")==="expense"&&amt>(acc.balance||0)){
+    // تحقق من الرصيد للمصاريف النقدية
+    if((form.txType||"expense")==="expense"&&form.pm!=="كريدي"&&acc&&amt>(acc.balance||0)){
       showErr("⛔ الرصيد غير كافي — الرصيد المتاح: "+fmt(acc.balance||0));return;
     }
-    const tx={id:uid(),type:form.txType||"expense",amount:amt,catId:parseInt(form.catId),subId:form.subId?parseInt(form.subId):null,desc:form.desc||"",date:form.date||new Date().toISOString().split("T")[0],pm:form.pm||"نقدي",ref:acc.ref};
+    // تحقق من الميزانية للمصاريف
+    if((form.txType||"expense")==="expense"){
+      const threshold=budgetSettings.threshold;
+      const expAlloc=budgetSettings.allocations.find(a=>a.name==="المصاريف");
+      const expPct=expAlloc?.pct||30;
+      const curMonthInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
+      const curMonthExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+      const budget=curMonthInc<=threshold?curMonthInc:threshold+(curMonthInc-threshold)*(expPct/100);
+      if(budget>0&&(curMonthExp+amt)>budget){
+        showErr(`⚠️ تجاوزت ميزانية الشهر — الباقي: ${fmt(Math.max(0,budget-curMonthExp))}`);
+        // لا نوقف العملية، غير تحذير
+      }
+    }
+    const tx={id:uid(),type:form.txType||"expense",amount:amt,catId:parseInt(form.catId),subId:form.subId?parseInt(form.subId):null,desc:form.desc||"",date:form.date||new Date().toISOString().split("T")[0],pm:form.pm||"نقدي",ref:acc?.ref||null};
     setTxs(p=>[tx,...p]);
-    // لا تقطع من الحساب إذا الدفع بالكريدي
-    if(tx.pm!=="كريدي") updBal(acc.ref,tx.amount,tx.type,"add");
+    if(tx.pm!=="كريدي"&&acc) updBal(acc.ref,tx.amount,tx.type,"add");
     cm();
   };
   const delTx=(id)=>{
@@ -645,7 +657,7 @@ export default function App(){
           {(()=>{
             const allMonths=[...new Set(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل").map(t=>t.date.slice(0,7)))];
             const totInc=txs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
-            const totExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.creditPaid===false).reduce((s,t)=>s+t.amount,0);
+            const totExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
             const threshold=budgetSettings.threshold;
             const expAlloc=budgetSettings.allocations.find(a=>a.name==="المصاريف");
             const expPct=expAlloc?.pct||30;
@@ -654,7 +666,7 @@ export default function App(){
               const mI=txs.filter(t=>t.type==="income"&&t.date.startsWith(m)&&!t.isTransfer&&t.pm!=="تحويل").reduce((ss,t)=>ss+t.amount,0);
               return s+(mI<=threshold?mI:threshold+(mI-threshold)*(expPct/100));
             },0);
-            const totExpReal=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
+            const totExpReal=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
             const remaining=totBudget-totExpReal;
             const pct=totBudget>0?Math.min((totExpReal/totBudget)*100,100):0;
             const color=pct>90?"#ef4444":pct>70?"#f59e0b":"#10b981";
@@ -684,10 +696,11 @@ export default function App(){
               </div>
             );
           })()}
-          <div style={{display:"flex",gap:8}}>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <button style={{...S.btn("#ef4444"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>om("addTx",{txType:"expense"})}>+ مصروف</button>
             <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>om("addTx",{txType:"income"})}>+ دخل</button>
             <button style={{...S.btn("#6366f1"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>om("transfer")}>⇄ تحويل</button>
+            <button style={{...S.btn("#14b8a6"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>om("buyAsset")}>🏠 ممتلك</button>
           </div>
           <div style={S.card}>
             {/* widget الديون والسلف */}
@@ -720,10 +733,6 @@ export default function App(){
                   {(salafTaken+qorudh)>0&&<div style={{flex:1,textAlign:"center",background:"#ef444410",borderRadius:10,padding:"8px 4px"}}>
                     <div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>عليّ</div>
                     <div style={{fontSize:14,fontWeight:900,color:"#ef4444"}}>{fmt(salafTaken+qorudh)}</div>
-                  </div>}
-                  {creditTotal>0&&<div style={{flex:1,textAlign:"center",background:"#f59e0b10",borderRadius:10,padding:"8px 4px"}}>
-                    <div style={{fontSize:10,color:"#f59e0b",fontWeight:700}}>كريدي</div>
-                    <div style={{fontSize:14,fontWeight:900,color:"#f59e0b"}}>{fmt(creditTotal)}</div>
                   </div>}
                 </div>
               </div>
@@ -1140,6 +1149,7 @@ export default function App(){
                           if(!ovExp[`pacc_${t.id}`]){setOvExp(p=>({...p,[`payErr_${t.id}`]:true}));return;}
                           const acc=allAcc.find(a=>a.key===ovExp[`pacc_${t.id}`]);
                           if(!acc)return;
+                          if(t.amount>(acc.balance||0)){showErr("⛔ الرصيد غير كافي — الرصيد المتاح: "+fmt(acc.balance||0));return;}
                           updBal(acc.ref,t.amount,"expense","add");
                           setTxs(p=>p.map(x=>x.id===t.id?{...x,creditPaid:true,ref:acc.ref}:x));
                           setOvExp(p=>({...p,[`pay_${t.id}`]:false,[`pacc_${t.id}`]:""}));
@@ -1227,7 +1237,7 @@ export default function App(){
           const allMonths = [...new Set(txs.map(t=>t.date.slice(0,7)))].sort().reverse();
           const monthData = allMonths.map(m=>{
             const inc = txs.filter(t=>t.type==="income"&&t.date.startsWith(m)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
-            const exp = txs.filter(t=>t.type==="expense"&&t.date.startsWith(m)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
+            const exp = txs.filter(t=>t.type==="expense"&&t.date.startsWith(m)&&t.pm!=="تحميل"&&!t.isTransfer&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
             const surplus = inc > threshold ? inc - threshold : 0;
             const expBudget = inc <= threshold ? inc : threshold + surplus*(budgetSettings.allocations.find(a=>a.name==="المصاريف")?.pct||30)/100;
             return {m, inc, exp, surplus, expBudget,
@@ -1358,13 +1368,13 @@ export default function App(){
           const selYear=ovExp.repYear||(years[0]||new Date().getFullYear().toString());
           const yTxs=txs.filter(t=>t.date.startsWith(selYear));
           const yInc=yTxs.filter(t=>t.type==="income"&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
-          const yExp=yTxs.filter(t=>t.type==="expense"&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
+          const yExp=yTxs.filter(t=>t.type==="expense"&&t.pm!=="تحويل"&&!t.isTransfer&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
           const ySave=yInc-yExp;
           // Monthly chart for selected year
           const months=Array.from({length:12},(_,i)=>{
             const m=`${selYear}-${String(i+1).padStart(2,"0")}`;
             const mTxs=yTxs.filter(t=>t.date.startsWith(m));
-            return{lbl:["ي","ف","م","أ","م","يو","يو","أ","س","أ","ن","د"][i],inc:mTxs.filter(t=>t.type==="income"&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0),exp:mTxs.filter(t=>t.type==="expense"&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0)};
+            return{lbl:["ي","ف","م","أ","م","يو","يو","أ","س","أ","ن","د"][i],inc:mTxs.filter(t=>t.type==="income"&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0),exp:mTxs.filter(t=>t.type==="expense"&&t.pm!=="تحويل"&&!t.isTransfer&&!t.isAsset).reduce((s,t)=>s+t.amount,0)};
           });
           const yPie=cats.expense.map(c=>({name:c.name,value:yTxs.filter(t=>t.type==="expense"&&t.catId===c.id).reduce((s,t)=>s+t.amount,0)})).filter(d=>d.value>0);
 
@@ -1461,6 +1471,7 @@ export default function App(){
                 {modal==="edAst"&&"تعديل الممتلك"}
                 {modal==="addLoan"&&"إضافة سلف/قرض"}
                 {modal==="transfer"&&"تحويل بين الحسابات"}
+                {modal==="buyAsset"&&"🏠 شراء ممتلك"}
                 {modal==="addBudget"&&"إضافة ميزانية"}
                 {modal==="addSaving"&&"هدف ادخار جديد"}
                 {modal==="dep"&&"إضافة للادخار"}
@@ -1584,6 +1595,32 @@ export default function App(){
                 </div>
               )}
               <button style={S.btn("#6366f1")} onClick={doTransfer}>تأكيد التحويل ⇄</button>
+            </div>}
+
+            {modal==="buyAsset"&&<div style={S.col}>
+              <div style={{padding:"10px 14px",background:"#14b8a615",borderRadius:10,fontSize:13,color:"#14b8a6",fontWeight:700,textAlign:"center"}}>🏠 شراء ممتلك — لن يحسب في المصاريف</div>
+              <input style={S.inp} placeholder="اسم الممتلك" value={form.astName||""} onChange={e=>F("astName",e.target.value)}/>
+              <select style={S.sel} value={form.astType||""} onChange={e=>F("astType",e.target.value)}>
+                <option value="">نوع الممتلك</option>
+                {["عقار","سيارة","ذهب","أرض","معدات","أخرى"].map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+              <input style={S.num} placeholder="0.00" type="number" step="0.01" value={form.astAmt||""} onChange={e=>F("astAmt",e.target.value)}/>
+              <select style={{...S.sel,border:"2px solid #14b8a6"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}>
+                <option value="">⚠️ اختر الحساب (إجباري)</option>
+                {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
+              </select>
+              <input style={S.inp} placeholder="ملاحظة" value={form.astNote||""} onChange={e=>F("astNote",e.target.value)}/>
+              <button style={S.btn("#14b8a6")} onClick={()=>{
+                if(!form.astName||!form.astAmt||!form.akey){showErr("⛔ أكمل البيانات");return;}
+                const amt=parseFloat(form.astAmt);
+                const acc=allAcc.find(a=>a.key===form.akey);
+                if(!acc){showErr("⛔ اختر الحساب");return;}
+                if(amt>(acc.balance||0)){showErr("⛔ الرصيد غير كافي — الرصيد المتاح: "+fmt(acc.balance||0));return;}
+                updBal(acc.ref,amt,"expense","add");
+                setAssets(p=>[...p,{id:uid(),type:form.astType||"أخرى",name:form.astName,value:amt,note:form.astNote||"",color:"#14b8a6"}]);
+                setTxs(p=>[{id:uid(),type:"expense",amount:amt,catId:null,subId:null,desc:`شراء ممتلك: ${form.astName}`,date:new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref,isAsset:true},...p]);
+                cm();
+              }}>تأكيد الشراء 🏠</button>
             </div>}
 
             {modal==="returnLoan"&&ei&&<div style={S.col}>

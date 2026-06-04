@@ -1562,7 +1562,7 @@ export default function App(){
               </div>:<div style={{...S.card,textAlign:"center",padding:30,color:"#94a3b8"}}>لا توجد بيانات صحية في هاد الفترة</div>}
             </>}
           </>;
-        })()
+        })()}
       </div>
 
       {/* BOTTOM NAV */}
@@ -1837,7 +1837,7 @@ export default function App(){
                 if(invalid){showErr("⛔ مجموع النسب خاص يكون 100% في كل شريحة");return;}
                 cm();setErr("✅ تم حفظ الإعدادات");setTimeout(()=>setErr(null),3000);
               }}>حفظ الإعدادات ✅</button>
-            </div>
+            </div>}
             {modal==="addSaving"&&<div style={S.col}>
               <input style={S.inp} placeholder="اسم الهدف" value={form.name||""} onChange={e=>F("name",e.target.value)}/>
               <input style={S.inp} placeholder="المبلغ المستهدف" type="number" value={form.target||""} onChange={e=>F("target",e.target.value)}/>

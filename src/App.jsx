@@ -789,22 +789,32 @@ export default function App(){
               <div style={{width:1,background:"#cbd5e1"}}/>
               <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#64748b"}}>الممتلكات</div><div style={{fontSize:13,fontWeight:700,color:"#14b8a6"}}>{fmt(totAst)}</div></div>
               <div style={{width:1,background:"#cbd5e1"}}/>
-              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#64748b"}}>الديون</div><div style={{fontSize:13,fontWeight:700,color:"#ef4444"}}>-{fmt(totOwd)}</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#64748b"}}>السلف والقروض</div><div style={{fontSize:13,fontWeight:700,color:totOwd>0?"#ef4444":totGiv>0?"#10b981":"#94a3b8"}}>{totOwd>0?"-"+fmt(totOwd):totGiv>0?"+"+fmt(totGiv):fmt(0)}</div></div>
             </div>
           </div>
           <AccCard sec="banks" icon="🏦" label="البنوك" color="#10b981" amount={banks.flatMap(b=>b.accounts).reduce((s,a)=>s+a.balance,0)} count={`${banks.length} بنك · ${banks.reduce((s,b)=>s+b.accounts.length,0)} حساب`}>
             {banks.map(b=>(
-              <div key={b.id} style={{marginBottom:10}}>
-                <div style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"#1e293b",borderRadius:8,marginBottom:6}}>
-                  <span style={{fontSize:12,color:"#64748b",fontWeight:700}}>🏦 {b.name}</span>
-                  <span style={{fontSize:13,fontWeight:800,color:"#10b981"}}>{fmt(b.accounts.reduce((s,a)=>s+a.balance,0))}</span>
-                </div>
-                {b.accounts.map(a=>(
-                  <div key={a.id} className="acc-row">
-                    <div style={{display:"flex",alignItems:"center",gap:8}}><Dot color={a.color}/><div><div style={{fontSize:13,fontWeight:600}}>{a.name}</div><div style={{fontSize:11,color:"#94a3b8"}}>{a.type}</div></div></div>
-                    <span style={{fontSize:15,fontWeight:800,color:a.color}}>{fmt(a.balance)}</span>
+              <div key={b.id} style={{marginBottom:8}}>
+                {/* بنك — كليك يفتح حساباته */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:"#1e293b",borderRadius:10,cursor:"pointer",border:"1px solid #334155"}} onClick={()=>setOvExp(p=>({...p,[`bk_ov_${b.id}`]:!p[`bk_ov_${b.id}`]}))}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:18}}>🏦</span>
+                    <span style={{fontSize:14,fontWeight:700,color:"white"}}>{b.name}</span>
                   </div>
-                ))}
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:14,fontWeight:800,color:"#10b981"}}>{fmt(b.accounts.reduce((s,a)=>s+a.balance,0))}</span>
+                    <span style={{color:"#94a3b8",fontSize:16,transform:ovExp[`bk_ov_${b.id}`]?"rotate(90deg)":"none",transition:"transform .2s"}}>›</span>
+                  </div>
+                </div>
+                {/* حسابات البنك */}
+                {ovExp[`bk_ov_${b.id}`]&&<div style={{marginTop:4,paddingRight:12}}>
+                  {b.accounts.map(a=>(
+                    <div key={a.id} className="acc-row" style={{marginBottom:4}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}><Dot color={a.color}/><div><div style={{fontSize:13,fontWeight:600}}>{a.name}</div><div style={{fontSize:11,color:"#94a3b8"}}>{a.type}</div></div></div>
+                      <span style={{fontSize:14,fontWeight:800,color:a.color}}>{fmt(a.balance)}</span>
+                    </div>
+                  ))}
+                </div>}
               </div>
             ))}
           </AccCard>
@@ -1180,18 +1190,21 @@ export default function App(){
           const allMonths=[...new Set(txs.map(t=>t.date.slice(0,7)))].sort().reverse();
           const monthData=allMonths.map(m=>{
             const inc=txs.filter(t=>t.type==="income"&&t.date.startsWith(m)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
-            const exp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(m)&&t.pm!=="تحميل"&&!t.isTransfer&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-            const surplus=inc>threshold?inc-threshold:0;
-            const expBudget=inc<=threshold?inc:threshold+surplus*(budgetSettings.allocations.find(a=>a.name==="المصاريف")?.pct||30)/100;
+            const exp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(m)&&t.pm!=="تحويل"&&!t.isTransfer&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+            // حساب الفائض حسب الشريحة
+            const tranche=budgetSettings.tranches?.find(tr=>inc>=tr.min&&inc<=tr.max)||budgetSettings.tranches?.[budgetSettings.tranches.length-1];
+            const expPct=tranche?((tranche.pcts[1]||0)/100):0.6;
+            const surplus=inc>0?inc*(1-expPct):0;
+            const expBudget=inc*expPct;
             return{m,inc,exp,surplus,expBudget,
-              allocs:budgetSettings.allocations.map(a=>({...a,amt:surplus*(a.pct/100)})),
+              allocs:budgetSettings.allocations.map(a=>({...a,amt:surplus*((tranche?.pcts[a.id]||0)/100)})),
               label:new Date(m+"-01").toLocaleString("ar-MA",{month:"long",year:"numeric"})
             };
           });
           const totInc=monthData.reduce((s,m)=>s+m.inc,0);
           const totExp=monthData.reduce((s,m)=>s+m.exp,0);
           const totExpBudget=monthData.reduce((s,m)=>s+m.expBudget,0);
-          const allocTotals=budgetSettings.allocations.map(a=>({...a,total:monthData.reduce((s,m)=>s+(m.surplus*(a.pct/100)),0)}));
+          const allocTotals=budgetSettings.allocations.map(a=>({...a,total:monthData.reduce((s,m)=>s+(m.allocs?.find(x=>x.id===a.id)?.amt||0),0)}));
 
           // التوزيع المقترح للشهر الحالي
           const curMonthData=monthData.find(m=>m.m===MONTH);

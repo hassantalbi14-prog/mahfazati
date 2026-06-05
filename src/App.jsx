@@ -61,6 +61,7 @@ const CSS=`
 .acc-row{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;background:#1e293b;border-radius:10px;margin-bottom:5px;border:1px solid #e2e8f0;}
 `;
 
+// v2.1
 export default function App(){
   const[page,setPage]=useState("dashboard");
   const[drw,setDrw]=useState(false);

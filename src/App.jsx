@@ -634,6 +634,25 @@ export default function App(){
               <input style={{...S.inp,marginBottom:8}} type="password" placeholder="كلمة السر للتأكيد" value={resetCode} onChange={e=>{setResetCode(e.target.value);setResetErr(false);}}/>
               {resetErr&&<div style={{color:"#ef4444",fontSize:12,marginBottom:6}}>❌ كلمة السر غلط</div>}
               <button style={S.btn("#ef4444")} onClick={()=>{if(resetCode!==appPassword){setResetErr(true);return;}resetData();setResetCode("");}}>تأكيد إعادة الضبط</button>
+              <button style={{...S.btn("#f59e0b"),marginTop:8}} onClick={()=>{
+                setBudgetSettings({
+                  allocations:[
+                    {id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],minAlert:300,emergencyTransfer:0,type:"expenses"},
+                    {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency"},
+                    {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:10,accountKeys:[],type:"assets"},
+                    {id:4,name:"الاستثمار",icon:"📈",color:"#10b981",pct:20,accountKeys:[],type:"investment"},
+                    {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement",loanable:true}
+                  ],
+                  tranches:[
+                    {id:1,min:0,max:5000,pcts:{1:100,2:0,3:0,4:0,5:0}},
+                    {id:2,min:5001,max:10000,pcts:{1:60,2:15,3:10,4:10,5:5}},
+                    {id:3,min:10001,max:15000,pcts:{1:50,2:15,3:10,4:17,5:8}},
+                    {id:4,min:15001,max:20000,pcts:{1:45,2:15,3:10,4:20,5:10}},
+                    {id:5,min:20001,max:999999,pcts:{1:40,2:15,3:10,4:25,5:10}}
+                  ]
+                });
+                setErr("✅ تم إعادة ضبط الميزانية");setTimeout(()=>setErr(null),3000);
+              }}>🔄 إعادة ضبط الميزانية فقط</button>
             </div>
           </>}
         </div>

@@ -96,12 +96,19 @@ export default function App(){
   const[budgets,setBudgets]=useState(IBG);
   const[savings,setSavings]=useState(ISV);
   const[budgetSettings,setBudgetSettings]=useState({
-    threshold:3000,
     allocations:[
-      {id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:30,accountKey:""},
-      {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKey:""},
-      {id:3,name:"الاستثمار",icon:"📈",color:"#10b981",pct:30,accountKey:""},
-      {id:4,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:20,accountKey:""}
+      {id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],minAlert:300,emergencyTransfer:0,type:"expenses"},
+      {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency"},
+      {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:15,accountKeys:[],type:"assets"},
+      {id:4,name:"الاستثمار",icon:"📈",color:"#10b981",pct:15,accountKeys:[],type:"investment"},
+      {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement",loanable:true}
+    ],
+    tranches:[
+      {id:1,min:0,max:5000,pcts:{1:100,2:0,3:0,4:0,5:0}},
+      {id:2,min:5001,max:10000,pcts:{1:60,2:15,3:10,4:10,5:5}},
+      {id:3,min:10001,max:15000,pcts:{1:50,2:15,3:15,4:12,5:8}},
+      {id:4,min:15001,max:20000,pcts:{1:45,2:15,3:15,4:15,5:10}},
+      {id:5,min:20001,max:999999,pcts:{1:40,2:15,3:15,4:20,5:10}}
     ]
   });
   const[loaded,setLoaded]=useState(false);
@@ -1599,96 +1606,93 @@ export default function App(){
 
             {/* ======= BUDGET SETTINGS MODAL — الجديد ======= */}
             {modal==="budgetSettings"&&<div style={S.col}>
-              <div style={{fontSize:13,color:"#94a3b8",fontWeight:700}}>🎯 حد الشريحة الأولى</div>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <input style={{...S.inp,flex:1}} type="number" value={budgetSettings.threshold} onChange={e=>setBudgetSettings(p=>({...p,threshold:parseFloat(e.target.value)||0}))}/>
-                <span style={{color:"#64748b",fontSize:13,whiteSpace:"nowrap"}}>درهم</span>
-              </div>
-              <div style={{padding:"10px 14px",background:"#f8fafc",borderRadius:10,fontSize:12,color:"#64748b"}}>
-                من 0 إلى <strong style={{color:"#1e293b"}}>{fmt(budgetSettings.threshold)}</strong> → كلها للمصاريف الأساسية
-              </div>
+              <div style={{fontSize:14,color:"#f1f5f9",fontWeight:800,marginBottom:4}}>⚙️ إعدادات الميزانية</div>
 
-              <div style={{fontSize:13,color:"#94a3b8",fontWeight:700,marginTop:4}}>📊 توزيع الفائض (فوق {fmt(budgetSettings.threshold)})</div>
-
-              {budgetSettings.allocations.map((a)=>{
-                const takenKeys=budgetSettings.allocations.filter(x=>x.id!==a.id&&x.accountKey).map(x=>x.accountKey);
-                const availableAccs=allAcc.filter(ac=>!takenKeys.includes(ac.key));
-                const hasErr=!a.accountKey;
-                const linkedAcc=allAcc.find(x=>x.key===a.accountKey);
-
+              {/* الشرائح */}
+              <div style={{fontSize:12,color:"#94a3b8",fontWeight:700}}>📊 الشرائح — حسب الدخل الشهري</div>
+              {(budgetSettings.tranches||[]).map((tr)=>{
+                const total=Object.values(tr.pcts).reduce((s,v)=>s+(v||0),0);
                 return(
-                  <div key={a.id} style={{...S.card,padding:"14px",border:`2px solid ${hasErr?"#ef444433":a.color+"44"}`}}>
-                    {/* Header */}
+                  <div key={tr.id} style={{background:"rgba(255,255,255,.06)",borderRadius:12,padding:14,border:`1px solid ${total===100?"#10b98144":"#ef444444"}`}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <div style={{width:40,height:40,borderRadius:11,background:a.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{a.icon}</div>
-                        <span style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>{a.name}</span>
-                      </div>
-                      <span style={{fontSize:18,fontWeight:900,color:a.color}}>{a.pct}%</span>
+                      <span style={{fontWeight:700,color:"#f1f5f9",fontSize:13}}>شريحة {tr.id}</span>
+                      <span style={{fontSize:11,color:total===100?"#10b981":"#ef4444",fontWeight:700}}>{total}% {total===100?"✅":"⚠️"}</span>
                     </div>
-
-                    {/* Slider */}
-                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                      <input type="range" min="0" max="100" value={a.pct}
-                        onChange={e=>setBudgetSettings(p=>({...p,allocations:p.allocations.map(x=>x.id===a.id?{...x,pct:parseInt(e.target.value)}:x)}))}
-                        style={{flex:1,accentColor:a.color}}/>
-                      <input style={{...S.inp,width:64,textAlign:"center",padding:"6px 8px"}} type="number" min="0" max="100" value={a.pct}
-                        onChange={e=>setBudgetSettings(p=>({...p,allocations:p.allocations.map(x=>x.id===a.id?{...x,pct:parseInt(e.target.value)||0}:x)}))}/>
-                      <span style={{color:"#64748b",fontSize:12}}>%</span>
-                    </div>
-
-                    {/* اختيار الحساب — إجباري */}
-                    <select
-                      style={{...S.sel,border:`2px solid ${hasErr?"#ef4444":a.color}`,background:linkedAcc?"#f0fdf4":"#fff5f5"}}
-                      value={a.accountKey||""}
-                      onChange={e=>setBudgetSettings(p=>({...p,allocations:p.allocations.map(x=>x.id===a.id?{...x,accountKey:e.target.value}:x)}))}
-                    >
-                      <option value="">⚠️ اختر الحساب (إجباري)</option>
-                      {availableAccs.map(ac=>(
-                        <option key={ac.key} value={ac.key}>{ac.bn} - {ac.name} ({fmt(ac.balance||0)})</option>
-                      ))}
-                    </select>
-
-                    {hasErr&&<div style={{color:"#ef4444",fontSize:11,marginTop:6,fontWeight:600}}>⛔ هاد الـ bucket خاصو حساب إجباري</div>}
-
-                    {/* الحساب المختار */}
-                    {linkedAcc&&(
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,padding:"8px 10px",background:a.color+"15",borderRadius:8,border:`1px solid ${a.color}33`}}>
-                        <div style={{width:8,height:8,borderRadius:"50%",background:a.color,flexShrink:0}}/>
-                        <span style={{fontSize:12,color:"#1e293b",fontWeight:600,flex:1}}>{linkedAcc.bn} — {linkedAcc.name}</span>
-                        <span style={{fontSize:12,color:"#64748b"}}>{fmt(linkedAcc.balance||0)}</span>
+                    <div style={{display:"flex",gap:8,marginBottom:10}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:10,color:"#64748b",marginBottom:4}}>من (درهم)</div>
+                        <input style={{...S.inp,padding:"7px 10px",fontSize:13}} type="number" value={tr.min}
+                          onChange={e=>setBudgetSettings(p=>({...p,tranches:p.tranches.map(x=>x.id===tr.id?{...x,min:parseFloat(e.target.value)||0}:x)}))}/>
                       </div>
-                    )}
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:10,color:"#64748b",marginBottom:4}}>إلى (درهم)</div>
+                        <input style={{...S.inp,padding:"7px 10px",fontSize:13}} type="number" value={tr.max===999999?"":tr.max}
+                          onChange={e=>setBudgetSettings(p=>({...p,tranches:p.tranches.map(x=>x.id===tr.id?{...x,max:parseFloat(e.target.value)||999999}:x)}))}/>
+                      </div>
+                    </div>
+                    {(budgetSettings.allocations||[]).map(a=>(
+                      <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                        <div style={{width:28,height:28,borderRadius:8,background:a.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{a.icon}</div>
+                        <span style={{flex:1,fontSize:12,color:"#f1f5f9"}}>{a.name}</span>
+                        <input style={{...S.inp,width:60,textAlign:"center",padding:"5px 8px",fontSize:13}} type="number" min="0" max="100" value={tr.pcts[a.id]||0}
+                          onChange={e=>setBudgetSettings(p=>({...p,tranches:p.tranches.map(x=>x.id===tr.id?{...x,pcts:{...x.pcts,[a.id]:parseInt(e.target.value)||0}}:x)}))}/>
+                        <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                      </div>
+                    ))}
                   </div>
                 );
               })}
 
-              {/* مجموع النسب */}
-              <div style={{...S.card,textAlign:"center",
-                background:budgetSettings.allocations.reduce((s,a)=>s+a.pct,0)===100?"#10b98115":"#ef444415",
-                border:`1px solid ${budgetSettings.allocations.reduce((s,a)=>s+a.pct,0)===100?"#10b98133":"#ef444433"}`
-              }}>
-                <div style={{fontSize:12,color:"#94a3b8"}}>مجموع النسب</div>
-                <div style={{fontSize:28,fontWeight:900,color:budgetSettings.allocations.reduce((s,a)=>s+a.pct,0)===100?"#10b981":"#ef4444"}}>
-                  {budgetSettings.allocations.reduce((s,a)=>s+a.pct,0)}%
-                </div>
-                {budgetSettings.allocations.reduce((s,a)=>s+a.pct,0)!==100&&
-                  <div style={{fontSize:11,color:"#ef4444",marginTop:4}}>⚠️ المجموع خاص يكون 100%</div>
-                }
-              </div>
+              {/* ربط الحسابات */}
+              <div style={{fontSize:12,color:"#94a3b8",fontWeight:700,marginTop:4}}>🏦 ربط الحسابات</div>
+              {(budgetSettings.allocations||[]).map(a=>{
+                const takenKeys=(budgetSettings.allocations||[]).filter(x=>x.id!==a.id).flatMap(x=>x.accountKeys||[]);
+                const availableAccs=allAcc.filter(ac=>!takenKeys.includes(ac.key));
+                return(
+                  <div key={a.id} style={{background:"rgba(255,255,255,.05)",borderRadius:12,padding:12,border:`2px solid ${a.color}44`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                      <span style={{fontSize:18}}>{a.icon}</span>
+                      <span style={{fontWeight:700,color:"#f1f5f9",fontSize:14}}>{a.name}</span>
+                    </div>
+                    {/* إعدادات خاصة بالمصاريف */}
+                    {a.type==="expenses"&&<>
+                      <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>🔔 تنبيه إذا وصل الرصيد لـ</div>
+                      <input style={{...S.inp,marginBottom:8,padding:"7px 10px",fontSize:13}} type="number" placeholder="300" value={a.minAlert||300}
+                        onChange={e=>setBudgetSettings(p=>({...p,allocations:p.allocations.map(x=>x.id===a.id?{...x,minAlert:parseFloat(e.target.value)||300}:x)}))}/>
+                      <div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>💸 مبلغ التحويل من الطوارئ</div>
+                      <input style={{...S.inp,marginBottom:8,padding:"7px 10px",fontSize:13}} type="number" placeholder="0" value={a.emergencyTransfer||0}
+                        onChange={e=>setBudgetSettings(p=>({...p,allocations:p.allocations.map(x=>x.id===a.id?{...x,emergencyTransfer:parseFloat(e.target.value)||0}:x)}))}/>
+                    </>}
+                    {/* حسابات مربوطة */}
+                    {(a.accountKeys||[]).map(key=>{
+                      const acc=allAcc.find(x=>x.key===key);
+                      return acc?(
+                        <div key={key} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:a.color+"15",borderRadius:8,marginBottom:6}}>
+                          <span style={{flex:1,fontSize:12,color:"#f1f5f9"}}>{acc.bn} — {acc.name}</span>
+                          <button style={{background:"rgba(239,68,68,.2)",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#fca5a5",fontSize:11,fontFamily:"inherit"}}
+                            onClick={()=>setBudgetSettings(p=>({...p,allocations:p.allocations.map(x=>x.id===a.id?{...x,accountKeys:(x.accountKeys||[]).filter(k=>k!==key)}:x)}))}>حذف</button>
+                        </div>
+                      ):null;
+                    })}
+                    <select style={{...S.sel,fontSize:12}} value="" onChange={e=>{
+                      if(!e.target.value)return;
+                      setBudgetSettings(p=>({...p,allocations:p.allocations.map(x=>x.id===a.id?{...x,accountKeys:[...(x.accountKeys||[]),e.target.value]}:x)}));
+                    }}>
+                      <option value="">+ إضافة حساب</option>
+                      {availableAccs.filter(ac=>!(a.accountKeys||[]).includes(ac.key)).map(ac=>(
+                        <option key={ac.key} value={ac.key}>{ac.bn} - {ac.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
 
-              {/* زر الحفظ مع validation */}
               <button style={S.btn()} onClick={()=>{
-                const missing=budgetSettings.allocations.some(a=>!a.accountKey);
-                if(missing){showErr("⛔ كل bucket خاصو حساب — أكمل الإعدادات");return;}
-                const total=budgetSettings.allocations.reduce((s,a)=>s+a.pct,0);
-                if(total!==100){showErr("⛔ المجموع خاص يكون 100%");return;}
-                cm();
-                setErr("✅ تم حفظ الإعدادات");
-                setTimeout(()=>setErr(null),3000);
-              }}>✅ حفظ الإعدادات</button>
+                const invalid=(budgetSettings.tranches||[]).some(tr=>Object.values(tr.pcts).reduce((s,v)=>s+(v||0),0)!==100);
+                if(invalid){showErr("⛔ مجموع النسب خاص يكون 100% في كل شريحة");return;}
+                cm();setErr("✅ تم حفظ الإعدادات");setTimeout(()=>setErr(null),3000);
+              }}>حفظ الإعدادات ✅</button>
             </div>}
-
             {modal==="addSaving"&&<div style={S.col}>
               <input style={S.inp} placeholder="اسم الهدف" value={form.name||""} onChange={e=>F("name",e.target.value)}/>
               <input style={S.inp} placeholder="المبلغ المستهدف" type="number" value={form.target||""} onChange={e=>F("target",e.target.value)}/>

@@ -1395,7 +1395,10 @@ export default function App(){
           const needsEmergency=expBal>0&&expBal<=expAlert;
 
           return <>
-            <PeriodSelector/>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <div style={{flex:1}}><PeriodSelector/></div>
+              <button style={{...S.btn("#334155",false),padding:"8px 12px",fontSize:12,color:"white",flexShrink:0}} onClick={()=>om("budgetSettings")}>⚙️ إعدادات</button>
+            </div>
 
             {/* تنبيه الطوارئ */}
             {needsEmergency&&expAlloc?.emergencyTransfer>0&&<div style={{...S.card,background:"#f59e0b15",border:"2px solid #f59e0b",padding:14}}>

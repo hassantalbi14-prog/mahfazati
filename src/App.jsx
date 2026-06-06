@@ -690,6 +690,28 @@ export default function App(){
               <input style={{...S.inp,marginBottom:8}} type="password" placeholder="كلمة السر للتأكيد" value={resetCode} onChange={e=>{setResetCode(e.target.value);setResetErr(false);}}/>
               {resetErr&&<div style={{color:"#ef4444",fontSize:12,marginBottom:6}}>❌ كلمة السر غلط</div>}
               <button style={S.btn("#ef4444")} onClick={()=>{if(resetCode!==appPassword){setResetErr(true);return;}resetData();setResetCode("");}}>تأكيد إعادة الضبط</button>
+              <button style={{...S.btn("#10b981"),marginTop:8}} onClick={()=>{
+                const newBS={
+                  goals:{incomeGoal:15000,incomeAuto:false,expenseGoal:5000,expenseAuto:false},
+                  allocations:[
+                    {id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],minAlert:300,emergencyTransfer:0,type:"expenses"},
+                    {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency"},
+                    {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:10,accountKeys:[],type:"assets"},
+                    {id:4,name:"الاستثمار",icon:"📈",color:"#10b981",pct:20,accountKeys:[],type:"investment"},
+                    {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement",loanable:true}
+                  ],
+                  tranches:[
+                    {id:1,min:0,max:3000,fix:3000,pcts:{1:100,2:0,3:0,4:0,5:0}},
+                    {id:2,min:3001,max:6000,fix:3000,pcts:{1:35,2:20,3:10,4:25,5:10}},
+                    {id:3,min:6001,max:10000,fix:4000,pcts:{1:30,2:20,3:15,4:25,5:10}},
+                    {id:4,min:10001,max:15000,fix:5000,pcts:{1:25,2:20,3:15,4:30,5:10}},
+                    {id:5,min:15001,max:999999,fix:6000,pcts:{1:20,2:20,3:15,4:35,5:10}}
+                  ]
+                };
+                setBudgetSettings(newBS);
+                _save('budgetSettings',newBS);
+                setErr("✅ تم تهيئة الميزانية الجديدة");setTimeout(()=>setErr(null),3000);
+              }}>🆕 تهيئة الميزانية الجديدة</button>
               <button style={{...S.btn("#f59e0b"),marginTop:8}} onClick={()=>{
                 setBudgetSettings(p=>({...p,
                   allocations:[

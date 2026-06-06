@@ -135,7 +135,36 @@ export default function App(){
       const l=await _load('loans'); if(l)setLoans(l);
       const ct=await _load('cats'); if(ct)setCats(ct);
       const tx=await _load('txs'); if(tx)setTxs(tx);
-      const bs=await _load('budgetSettings'); if(bs)setBudgetSettings(bs);
+      const bs=await _load('budgetSettings');
+      if(bs){
+        // migration: تأكد من وجود tranches و5 buckets
+        const defaultAlloc=[
+          {id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],minAlert:300,emergencyTransfer:0,type:"expenses"},
+          {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency"},
+          {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:10,accountKeys:[],type:"assets"},
+          {id:4,name:"الاستثمار",icon:"📈",color:"#10b981",pct:20,accountKeys:[],type:"investment"},
+          {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement",loanable:true}
+        ];
+        const defaultTranches=[
+          {id:1,min:0,max:3000,fix:3000,pcts:{1:100,2:0,3:0,4:0,5:0}},
+          {id:2,min:3001,max:6000,fix:3000,pcts:{1:35,2:20,3:10,4:25,5:10}},
+          {id:3,min:6001,max:10000,fix:4000,pcts:{1:30,2:20,3:15,4:25,5:10}},
+          {id:4,min:10001,max:15000,fix:5000,pcts:{1:25,2:20,3:15,4:30,5:10}},
+          {id:5,min:15001,max:999999,fix:6000,pcts:{1:20,2:20,3:15,4:35,5:10}}
+        ];
+        const defaultGoals={incomeGoal:15000,incomeAuto:false,expenseGoal:5000,expenseAuto:false};
+        // merge allocations - keep accountKeys if exist
+        const mergedAlloc=defaultAlloc.map(da=>{
+          const existing=(bs.allocations||[]).find(a=>a.id===da.id||a.name===da.name);
+          return existing?{...da,accountKeys:existing.accountKeys||existing.accountKey?[existing.accountKey].filter(Boolean):da.accountKeys}:da;
+        });
+        setBudgetSettings({
+          ...bs,
+          goals:bs.goals||defaultGoals,
+          allocations:mergedAlloc,
+          tranches:bs.tranches||defaultTranches
+        });
+      }
       setLoaded(true);
     };
     loadAll();

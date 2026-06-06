@@ -1493,9 +1493,7 @@ export default function App(){
           </div>
         </>}
 
-        {// ===== BUDGET PAGE TEST =====
-// نسخ هاد الكود وتبدل به صفحة الميزانية في App.jsx
-// ابحث عن: page==="budget"&&(()=>{
+        {page==="budget"&&(()=>{
           const filtTxs=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
           const mInc=filtTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
           const mExp=filtTxs.filter(t=>t.type==="expense"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);

@@ -1671,7 +1671,7 @@ export default function App(){
               <div style={{marginTop:12,borderTop:"1px solid rgba(255,255,255,.1)",paddingTop:12}}>
                 <div style={{fontSize:12,color:"#94a3b8",marginBottom:6}}>📱 جهة استرجاع كلمة السر (إيميل أو هاتف)</div>
                 <input style={S.inp} type="text" placeholder="example@email.com أو 0600000000" value={recoveryContact}
-                  onChange={e=>{setRecoveryContact(e.target.value);localStorage.setItem("mhf_recovery",e.target.value);}}/>
+                  onChange={e=>{setRecoveryContact(e.target.value);}}/>
                 <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>تستعمل هاد المعلومة للتذكير بكلمة السر</div>
               </div>
             </div>}

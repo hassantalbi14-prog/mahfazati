@@ -66,6 +66,7 @@ export default function App(){
   const[page,setPage]=useState("dashboard");
   const[drw,setDrw]=useState(false);
   const[period,setPeriod]=useState({type:"month",month:new Date().toISOString().slice(0,7),year:new Date().getFullYear().toString()});
+  const filterByPeriod=(txList)=>{if(period.type==="month")return txList.filter(t=>t.date.startsWith(period.month));if(period.type==="year")return txList.filter(t=>t.date.startsWith(period.year));return txList;};
   const[hideBalance,setHideBalance]=useState(false);
   const[showActions,setShowActions]=useState(false);
   const[distModal,setDistModal]=useState(null); // {income, step:1-5}

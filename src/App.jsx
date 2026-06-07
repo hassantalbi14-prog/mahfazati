@@ -867,7 +867,7 @@ export default function App(){
               <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"income"});}}>+ دخل</button>
               <button style={{...S.btn("#6366f1"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("transfer");}}>⇄ تحويل</button>
               <button style={{...S.btn("#14b8a6"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("buyAsset");}}>🏠 ممتلك</button>
-                <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"invest"});}}>📈 استثمار</button>
+                <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addInvest");}}>📈 استثمار</button>
                 <button style={{...S.btn("#f59e0b"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"emergency"});}}>🚨 طوارئ</button>
                 <button style={{...S.btn("#6366f1"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"retire"});}}>🏦 تقاعد</button>
               <button style={{...S.btn("#8b5cf6"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);setPage("debts");}}>💰 ديون</button>
@@ -1814,6 +1814,7 @@ export default function App(){
                 {modal==="addLoan"&&"إضافة سلف/قرض"}
                 {modal==="transfer"&&"تحويل بين الحسابات"}
                 {modal==="buyAsset"&&"🏠 شراء ممتلك"}
+                {modal==="addInvest"&&"📈 إضافة استثمار"}
                 {modal==="addBudget"&&"إضافة ميزانية"}
                 {modal==="addSaving"&&"هدف ادخار جديد"}
                 {modal==="dep"&&"إضافة للادخار"}
@@ -1961,6 +1962,33 @@ export default function App(){
               }}>تأكيد الشراء 🏠</button>
             </div>}
 
+            {modal==="addInvest"&&<div style={S.col}>
+              <div style={{padding:"10px 14px",background:"#10b98115",borderRadius:10,fontSize:13,color:"#10b981",fontWeight:700,textAlign:"center"}}>📈 إضافة استثمار</div>
+              <input style={S.inp} placeholder="اسم الاستثمار" value={form.invName||""} onChange={e=>F("invName",e.target.value)}/>
+              <select style={S.sel} value={form.invType||""} onChange={e=>F("invType",e.target.value)}>
+                <option value="">نوع الاستثمار</option>
+                {["أسهم","صندوق","عقار","ذهب","عملة رقمية","أخرى"].map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+              <input style={S.num} placeholder="0.00" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
+              <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
+              <select style={{...S.sel,border:"2px solid #10b981"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}>
+                <option value="">⚠️ اختر الحساب (إجباري)</option>
+                {getBucketAccs("investment").map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
+              </select>
+              <input style={S.inp} placeholder="ملاحظة (اختياري)" value={form.note||""} onChange={e=>F("note",e.target.value)}/>
+              <button style={S.btn()} onClick={()=>{
+                const amt=parseFloat(form.amount);
+                if(!form.invName){showErr("خاصك تدخل اسم الاستثمار");return;}
+                if(!amt||amt<=0){showErr("خاصك تدخل المبلغ");return;}
+                if(!form.akey){showErr("خاصك تختار الحساب");return;}
+                const acc=allAcc.find(a=>a.key===form.akey);
+                if(!acc){showErr("الحساب غير موجود");return;}
+                setTxs(p=>[{id:Date.now(),type:"expense",amount:amt,catId:null,subId:null,
+                  desc:`استثمار: ${form.invName}`,date:form.date||new Date().toISOString().split("T")[0],
+                  pm:"استثمار",ref:acc.ref,isAsset:false,isInvest:true,note:form.note||""},...p]);
+                cm();
+              }}>تأكيد الاستثمار 📈</button>
+            </div>}
             {modal==="returnLoan"&&ei&&<div style={S.col}>
               <div style={{padding:"12px 14px",background:"#0c0f1e",borderRadius:10,fontSize:13}}>
                 <div style={{color:"#94a3b8",marginBottom:4}}>رجوع سلفة من:</div>

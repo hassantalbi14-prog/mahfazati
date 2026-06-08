@@ -395,6 +395,16 @@ export default function App(){
           style={{background:"#0c0f1e",border:`2px solid ${pwErr?"#ef4444":"#1e2548"}`,borderRadius:12,padding:"12px 16px",color:"#0f172a",fontFamily:"Tajawal",fontSize:16,width:"100%",outline:"none",textAlign:"center",marginBottom:8}}
           autoFocus/>
         {pwErr&&<div style={{color:"#ef4444",fontSize:13,marginBottom:8}}>❌ كلمة السر غلط</div>}
+        {pwErr&&<div style={{textAlign:"center",marginTop:4,marginBottom:8}}>
+          {recoveryContact?<>
+            <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>📱 جهة الاسترجاع:</div>
+            <div style={{fontSize:14,fontWeight:700,color:"#10b981",padding:"8px 16px",background:"#10b98115",borderRadius:10,marginBottom:4}}>{recoveryContact}</div>
+            <div style={{fontSize:11,color:"#64748b"}}>تواصل على هاد الرقم/الإيميل باش تسترجع كلمة السر</div>
+          </>:<>
+            <div style={{fontSize:11,color:"#94a3b8"}}>ما عندكش جهة استرجاع مسجلة</div>
+            <div style={{fontSize:12,color:"#f59e0b",marginTop:4,fontWeight:700}}>كلمة السر الافتراضية: 1234</div>
+          </>}
+        </div>}
         <button onClick={()=>{if(pwInput===appPassword){sessionStorage.setItem("mhf_auth","1");setIsAuth(true);}else setPwErr(true);}}
           style={{background:"#10b981",color:"white",border:"none",padding:"13px",borderRadius:12,fontFamily:"Tajawal",fontSize:15,fontWeight:700,cursor:"pointer",width:"100%",marginTop:4}}>
           دخول 🔓
@@ -975,6 +985,47 @@ export default function App(){
             {assets.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#94a3b8"}}>لا توجد ممتلكات</div>}
           </>;
 
+          if(ovPage==="invest") return <>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
+              <button style={{...S.btn("#e2e8f0",false),padding:"8px 12px",fontSize:13,color:"#64748b"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
+              <span style={{fontWeight:800,fontSize:17}}>📈 الاستثمار</span>
+            </div>
+            {(()=>{
+              const invAlloc=(budgetSettings.allocations||[]).find(a=>a.type==="investment");
+              const invAccs=allAcc.filter(ac=>(invAlloc?.accountKeys||[]).includes(ac.key));
+              const invTotal=invAccs.reduce((s,a)=>s+a.balance,0);
+              const invTxs=txs.filter(t=>t.isInvest);
+              return <>
+                <div style={{...S.card,textAlign:"center",background:"#10b98110",border:"1px solid #10b98133",padding:12}}>
+                  <div style={{fontSize:11,color:"#10b981"}}>إجمالي الاستثمار</div>
+                  <div style={{fontSize:22,fontWeight:900,color:"#10b981"}}>{fmt(invTotal)}</div>
+                </div>
+                {invAccs.map(a=>(
+                  <div key={a.key} style={{...S.card,padding:"14px 16px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <Dot color={a.color}/>
+                      <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{a.name}</div><div style={{fontSize:12,color:"#94a3b8"}}>{a.bn}</div></div>
+                      <span style={{fontSize:18,fontWeight:900,color:"#10b981"}}>{fmt(a.balance)}</span>
+                    </div>
+                  </div>
+                ))}
+                {invTxs.length>0&&<>
+                  <div style={{fontWeight:700,fontSize:14,color:"#1e293b",marginTop:4}}>📋 سجل الاستثمارات</div>
+                  {invTxs.map(t=>(
+                    <div key={t.id} style={{...S.card,padding:"12px 16px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:38,height:38,borderRadius:10,background:"#10b98120",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>📈</div>
+                        <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc}</div><div style={{fontSize:11,color:"#94a3b8"}}>{t.date}</div></div>
+                        <span style={{fontSize:14,fontWeight:700,color:"#ef4444"}}>-{fmt(t.amount)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </>}
+                {invAccs.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#94a3b8"}}>ما كاينش حسابات استثمار مربوطة</div>}
+              </>;
+            })()}
+          </>;
+
           if(ovPage==="loans") return <>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
               <button style={{...S.btn("#e2e8f0",false),padding:"8px 12px",fontSize:13,color:"#64748b"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
@@ -1177,6 +1228,20 @@ export default function App(){
               <div style={{width:42,height:42,borderRadius:12,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🔑</div>
               <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1e293b"}}>تغيير كلمة السر</span>
               <ChevronLeft size={18} color="#94a3b8"/>
+            </div>
+            {/* جهة الاسترجاع */}
+            <div style={{padding:"14px 16px",borderTop:"1px solid #f1f5f9"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#1e293b",marginBottom:8}}>📱 جهة استرجاع كلمة السر</div>
+              <div style={{fontSize:11,color:"#94a3b8",marginBottom:10}}>إيميل أو رقم الهاتف — كيبان ملي تنسى كلمة السر</div>
+              <input style={{...S.inp,marginBottom:8}} type="text"
+                placeholder="example@email.com أو 0600000000"
+                value={recoveryContact}
+                onChange={e=>setRecoveryContact(e.target.value)}/>
+              {recoveryContact&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#10b98110",borderRadius:8}}>
+                <span style={{fontSize:16}}>✅</span>
+                <span style={{fontSize:12,color:"#10b981",fontWeight:700}}>{recoveryContact}</span>
+              </div>}
+              {!recoveryContact&&<div style={{fontSize:11,color:"#f59e0b"}}>⚠️ ما سجلتيش جهة استرجاع بعد</div>}
             </div>
             <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>setDp("cloud")}>
               <div style={{width:42,height:42,borderRadius:12,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>☁️</div>

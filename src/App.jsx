@@ -119,7 +119,6 @@ export default function App(){
   const[selBk,setSelBk]=useState(null);
   const[ovExp,setOvExp]=useState({});
   const[bkMsg,setBkMsg]=useState(null);
-  const[resetCode,setResetCode]=useState("");
   const[resetErr,setResetErr]=useState(false);
   const[isAuth,setIsAuth]=useState(()=>sessionStorage.getItem("mhf_auth")==="1");
   const[pwInput,setPwInput]=useState("");

@@ -67,6 +67,31 @@ export default function App(){
   const[drw,setDrw]=useState(false);
   const[period,setPeriod]=useState({type:"month",month:new Date().toISOString().slice(0,7),year:new Date().getFullYear().toString()});
   const[recoveryContact,setRecoveryContact]=useState("");
+  const[resetCode,setResetCode]=useState("");
+  const[sentCode,setSentCode]=useState("");
+  const[resetStep,setResetStep]=useState(0); // 0=none, 1=sent, 2=verified
+  const EMAILJS_SVC="service_5v67rxb";
+  const EMAILJS_TPL="template_ampwze8";
+  const EMAILJS_KEY="xQEWmslup-DUKjzz0";
+  // ── إرسال كود الاسترجاع ──
+  const sendResetEmail=async()=>{
+    if(!recoveryContact||!recoveryContact.includes("@")){
+      showErr("خاصك تسجل إيميل صحيح في الإعدادات أولاً");return;
+    }
+    const code=Math.floor(100000+Math.random()*900000).toString();
+    setSentCode(code);
+    try{
+      await window.emailjs.send(EMAILJS_SVC,EMAILJS_TPL,{
+        email:recoveryContact,
+        passcode:code,
+        to_email:recoveryContact,
+      },EMAILJS_KEY);
+      setResetStep(1);
+      setResetCode("");
+    }catch(e){
+      showErr("فشل إرسال الإيميل — تحقق من الاتصال");
+    }
+  };
   const getBucketAccKeys=(bucketType)=>{
     const alloc=(budgetSettings.allocations||[]).find(a=>a.type===bucketType);
     return alloc?.accountKeys||[];
@@ -130,6 +155,14 @@ export default function App(){
     ]
   });
   const[loaded,setLoaded]=useState(false);
+
+  // Load EmailJS
+  useEffect(()=>{
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js";
+    s.onload=()=>window.emailjs.init(EMAILJS_KEY);
+    document.head.appendChild(s);
+  },[]);
 
   useEffect(()=>{
     const loadAll=async()=>{
@@ -395,16 +428,45 @@ export default function App(){
           style={{background:"#0c0f1e",border:`2px solid ${pwErr?"#ef4444":"#1e2548"}`,borderRadius:12,padding:"12px 16px",color:"#0f172a",fontFamily:"Tajawal",fontSize:16,width:"100%",outline:"none",textAlign:"center",marginBottom:8}}
           autoFocus/>
         {pwErr&&<div style={{color:"#ef4444",fontSize:13,marginBottom:8}}>❌ كلمة السر غلط</div>}
-        {pwErr&&<div style={{textAlign:"center",marginTop:4,marginBottom:8}}>
-          {recoveryContact?<>
-            <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>📱 جهة الاسترجاع:</div>
-            <div style={{fontSize:14,fontWeight:700,color:"#10b981",padding:"8px 16px",background:"#10b98115",borderRadius:10,marginBottom:4}}>{recoveryContact}</div>
-            <div style={{fontSize:11,color:"#64748b"}}>تواصل على هاد الرقم/الإيميل باش تسترجع كلمة السر</div>
-          </>:<>
-            <div style={{fontSize:11,color:"#94a3b8"}}>ما عندكش جهة استرجاع مسجلة</div>
-            <div style={{fontSize:12,color:"#f59e0b",marginTop:4,fontWeight:700}}>كلمة السر الافتراضية: 1234</div>
-          </>}
+                {/* نسيت كلمة السر */}
+        {resetStep===0&&<button style={{background:"none",border:"none",color:"#6366f1",fontSize:13,cursor:"pointer",fontFamily:"inherit",marginTop:8,textDecoration:"underline"}}
+          onClick={()=>{if(!recoveryContact||!recoveryContact.includes("@")){showErr("سجل إيميلك في الإعدادات أولاً");return;}sendResetEmail();}}>
+          🔑 نسيت كلمة السر؟
+        </button>}
+
+        {/* خطوة 1: دخل الكود */}
+        {resetStep===1&&<div style={{marginTop:12,padding:16,background:"#f0fdf4",borderRadius:12,border:"1px solid #10b98133",width:"100%",boxSizing:"border-box"}}>
+          <div style={{fontSize:13,color:"#10b981",fontWeight:700,marginBottom:8,textAlign:"center"}}>📧 وصلك كود على {recoveryContact}</div>
+          <input style={{width:"100%",borderRadius:10,border:"2px solid #10b981",padding:"12px 16px",fontSize:18,textAlign:"center",fontFamily:"inherit",boxSizing:"border-box",letterSpacing:4}}
+            type="text" placeholder="------" maxLength={6} value={resetCode}
+            onChange={e=>setResetCode(e.target.value)}/>
+          <button style={{width:"100%",marginTop:10,background:"#10b981",color:"white",border:"none",borderRadius:10,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}
+            onClick={()=>{
+              if(resetCode===sentCode){setResetStep(2);setResetCode("");}
+              else showErr("الكود غلط — حاول مرة أخرى");
+            }}>تأكيد الكود ✅</button>
+          <button style={{width:"100%",marginTop:6,background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}
+            onClick={()=>{setResetStep(0);setSentCode("");setResetCode("");}}>إلغاء</button>
         </div>}
+
+        {/* خطوة 2: كلمة السر الجديدة */}
+        {resetStep===2&&<div style={{marginTop:12,padding:16,background:"#f0fdf4",borderRadius:12,border:"1px solid #10b98133",width:"100%",boxSizing:"border-box"}}>
+          <div style={{fontSize:13,color:"#10b981",fontWeight:700,marginBottom:8,textAlign:"center"}}>🔐 أدخل كلمة السر الجديدة</div>
+          <input style={{width:"100%",borderRadius:10,border:"2px solid #10b981",padding:"12px 16px",fontSize:16,fontFamily:"inherit",boxSizing:"border-box"}}
+            type="password" placeholder="كلمة السر الجديدة" value={resetCode}
+            onChange={e=>setResetCode(e.target.value)}/>
+          <button style={{width:"100%",marginTop:10,background:"#10b981",color:"white",border:"none",borderRadius:10,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}
+            onClick={()=>{
+              if(!resetCode||resetCode.length<4){showErr("كلمة السر خاصها 4 أحرف على الأقل");return;}
+              setAppPassword(resetCode);
+              localStorage.setItem("mhf_pw",resetCode);
+              setResetStep(0);setSentCode("");setResetCode("");
+              setPwErr(false);setPwInput("");
+              setErr("✅ تم تغيير كلمة السر");setTimeout(()=>setErr(null),3000);
+            }}>حفظ كلمة السر الجديدة 🔐</button>
+        </div>}
+
+        {pwErr&&!resetStep&&<div style={{fontSize:12,color:"#ef4444",marginTop:8}}>❌ كلمة السر غلط</div>}
         <button onClick={()=>{if(pwInput===appPassword){sessionStorage.setItem("mhf_auth","1");setIsAuth(true);}else setPwErr(true);}}
           style={{background:"#10b981",color:"white",border:"none",padding:"13px",borderRadius:12,fontFamily:"Tajawal",fontSize:15,fontWeight:700,cursor:"pointer",width:"100%",marginTop:4}}>
           دخول 🔓

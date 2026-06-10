@@ -119,6 +119,7 @@ export default function App(){
   const[selBk,setSelBk]=useState(null);
   const[ovExp,setOvExp]=useState({});
   const[bkMsg,setBkMsg]=useState(null);
+  const[budgetSec,setBudgetSec]=useState({goals:false,tranches:false,alloc:false});
   const[resetErr,setResetErr]=useState(false);
   const[isAuth,setIsAuth]=useState(()=>sessionStorage.getItem("mhf_auth")==="1");
   const[pwInput,setPwInput]=useState("");
@@ -194,7 +195,7 @@ export default function App(){
         // merge allocations - keep accountKeys if exist
         const mergedAlloc=defaultAlloc.map(da=>{
           const existing=(bs.allocations||[]).find(a=>a.id===da.id||a.name===da.name);
-          return existing?{...da,accountKeys:existing.accountKeys||existing.accountKey?[existing.accountKey].filter(Boolean):da.accountKeys}:da;
+          return existing?{...da,...existing,accountKeys:existing.accountKeys?.length?existing.accountKeys:existing.accountKey?[existing.accountKey].filter(Boolean):[]}:da;
         });
         setBudgetSettings({
           ...bs,
@@ -227,7 +228,7 @@ export default function App(){
   const totGiv=loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+l.remaining,0);
   const totOwd=loans.filter(l=>l.kind==="أخذت").reduce((s,l)=>s+l.remaining,0);
   const mInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
-  const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+  const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
 
   const gc=(tp,id)=>cats[tp]?.find(c=>c.id===id);
   const gs=(tp,cid,sid)=>gc(tp,cid)?.subs?.find(s=>s.id===sid);
@@ -236,7 +237,7 @@ export default function App(){
 
   const expByCat=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)).reduce((acc,t)=>{const c=gc("expense",t.catId);const k=c?.name||"أخرى";acc[k]=(acc[k]||0)+t.amount;return acc;},{});
   const pie=Object.entries(expByCat).map(([name,value])=>({name,value}));
-  const chart=Array.from({length:6},(_,i)=>{const d=new Date(2026,4-i,1);const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return{lbl:d.toLocaleString("ar-MA",{month:"short"}),inc:txs.filter(t=>t.type==="income"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0),exp:txs.filter(t=>t.type==="expense"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer&&!t.isAsset).reduce((s,t)=>s+t.amount,0)};}).reverse();
+  const chart=Array.from({length:6},(_,i)=>{const d=new Date(2026,4-i,1);const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return{lbl:d.toLocaleString("ar-MA",{month:"short"}),inc:txs.filter(t=>t.type==="income"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0),exp:txs.filter(t=>t.type==="expense"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0)};}).reverse();
 
   const om=(t,x={})=>{setForm(x);setModal(t);};
   const cm=()=>{setModal(null);setForm({});};
@@ -287,7 +288,7 @@ export default function App(){
       const expAlloc=budgetSettings.allocations.find(a=>a.name==="المصاريف");
       const expPct=expAlloc?.pct||30;
       const curMonthInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
-      const curMonthExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+      const curMonthExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
       const budget=curMonthInc<=threshold?curMonthInc:threshold+(curMonthInc-threshold)*(expPct/100);
       if(budget>0&&(curMonthExp+amt)>budget){
         showErr(`⚠️ تجاوزت ميزانية الشهر — الباقي: ${fmt(Math.max(0,budget-curMonthExp))}`);
@@ -849,13 +850,13 @@ export default function App(){
             const goals=budgetSettings.goals||{incomeGoal:15000,incomeAuto:false,expenseGoal:5000,expenseAuto:false};
             const allMonths=[...new Set(txs.map(t=>t.date.slice(0,7)))];
             const avgInc=allMonths.length>0?txs.filter(t=>t.type==="income"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0)/allMonths.length:0;
-            const avgExp=allMonths.length>0?txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isAsset).reduce((s,t)=>s+t.amount,0)/allMonths.length:0;
+            const avgExp=allMonths.length>0?txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0)/allMonths.length:0;
             const incGoal=goals.incomeAuto?Math.round(avgInc):goals.incomeGoal;
             const expGoal=goals.expenseAuto?Math.round(avgExp):goals.expenseGoal;
             const filtP=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
             const goalMult=period.type==="year"?12:period.type==="all"?Math.max(allMonths.length,1):1;
             const pInc=filtP.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-            const pExp=filtP.filter(t=>t.type==="expense"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+            const pExp=filtP.filter(t=>t.type==="expense"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
             const incGoalAdj=incGoal*goalMult;
             const expGoalAdj=expGoal*goalMult;
             const incPct=incGoalAdj>0?Math.min((pInc/incGoalAdj)*100,100):0;
@@ -910,7 +911,7 @@ export default function App(){
               const mI=txs.filter(t=>t.type==="income"&&t.date.startsWith(m)&&!t.isTransfer&&t.pm!=="تحويل").reduce((ss,t)=>ss+t.amount,0);
               return s+(mI<=threshold?mI:threshold+(mI-threshold)*(expPct/100));
             },0);
-            const totExpReal=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+            const totExpReal=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
             const remaining=totBudget-totExpReal;
             const pct=totBudget>0?Math.min((totExpReal/totBudget)*100,100):0;
             const color=pct>90?"#ef4444":pct>70?"#f59e0b":"#10b981";
@@ -1170,8 +1171,12 @@ export default function App(){
             <div style={{padding:"10px 16px 6px",fontSize:11,color:"#94a3b8",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>⚙️ الميزانية الذكية</div>
 
             {/* الأهداف */}
-            <div style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
-              <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>🎯 الأهداف الشهرية</div>
+            <div style={{borderBottom:"1px solid #f1f5f9"}}>
+              <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setBudgetSec(p=>({...p,goals:!p.goals}))}>
+                <div style={{fontWeight:700,fontSize:14}}>🎯 الأهداف الشهرية</div>
+                <span style={{fontSize:16,color:"#94a3b8"}}>{budgetSec.goals?"▲":"▼"}</span>
+              </div>
+            {budgetSec.goals&&<div style={{padding:"0 16px 14px"}}>
               {[{key:"incomeGoal",autoKey:"incomeAuto",label:"💰 هدف الدخل",color:"#10b981"},{key:"expenseGoal",autoKey:"expenseAuto",label:"💸 هدف المصاريف",color:"#ef4444"}].map(({key,autoKey,label,color})=>(
                 <div key={key} style={{marginBottom:14}}>
                   <div style={{fontWeight:700,color,marginBottom:8,fontSize:13}}>{label}</div>
@@ -1190,11 +1195,16 @@ export default function App(){
                   })()}
                 </div>
               ))}
+            </div>}
             </div>
 
             {/* الشرائح */}
-            <div style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
-              <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>📊 الشرائح</div>
+            <div style={{borderBottom:"1px solid #f1f5f9"}}>
+              <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setBudgetSec(p=>({...p,tranches:!p.tranches}))}>
+                <div style={{fontWeight:700,fontSize:14}}>📊 الشرائح</div>
+                <span style={{fontSize:16,color:"#94a3b8"}}>{budgetSec.tranches?"▲":"▼"}</span>
+              </div>
+            {budgetSec.tranches&&<div style={{padding:"0 16px 14px"}}>
               {(budgetSettings.tranches||[]).map(tr=>{
                 const total=Object.values(tr.pcts).reduce((s,v)=>s+(v||0),0);
                 return(
@@ -1226,11 +1236,16 @@ export default function App(){
                   </div>
                 );
               })}
+            </div>}
             </div>
 
             {/* ربط الحسابات */}
-            <div style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
-              <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>🏦 ربط الحسابات</div>
+            <div style={{borderBottom:"1px solid #f1f5f9"}}>
+              <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setBudgetSec(p=>({...p,alloc:!p.alloc}))}>
+                <div style={{fontWeight:700,fontSize:14}}>🏦 ربط الحسابات</div>
+                <span style={{fontSize:16,color:"#94a3b8"}}>{budgetSec.alloc?"▲":"▼"}</span>
+              </div>
+            {budgetSec.alloc&&<div style={{padding:"0 16px 14px"}}>
               {(budgetSettings.allocations||[]).map(a=>{
                 const takenKeys=(budgetSettings.allocations||[]).filter(x=>x.id!==a.id).flatMap(x=>x.accountKeys||[]);
                 const available=allAcc.filter(ac=>!takenKeys.includes(ac.key));
@@ -1276,6 +1291,7 @@ export default function App(){
                   </div>
                 );
               })}
+            </div>}
             </div>
 
             {/* حفظ */}
@@ -1283,7 +1299,7 @@ export default function App(){
               <button style={S.btn()} onClick={()=>{
                 const invalid=(budgetSettings.tranches||[]).some(tr=>Object.values(tr.pcts).reduce((s,v)=>s+(v||0),0)!==100);
                 if(invalid){const bad=(budgetSettings.tranches||[]).filter(tr=>Object.values(tr.pcts).reduce((s,v)=>s+(v||0),0)!==100);showErr(`⛔ شريحة ${bad.map(t=>t.id).join("، ")} — المجموع خاص يكون 100%`);return;}
-                cm();setErr("✅ تم حفظ إعدادات الميزانية");setTimeout(()=>setErr(null),3000);
+                _save('budgetSettings',budgetSettings);cm();setErr("✅ تم حفظ إعدادات الميزانية");setTimeout(()=>setErr(null),3000);
               }}>✅ حفظ إعدادات الميزانية</button>
             </div>
           </div>
@@ -1627,9 +1643,9 @@ export default function App(){
         {page==="budget"&&(()=>{
           const filtTxs=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
           const mInc=filtTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-          const mExp=filtTxs.filter(t=>t.type==="expense"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+          const mExp=filtTxs.filter(t=>t.type==="expense"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
           const totInc=txs.filter(t=>t.type==="income"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
-          const totExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+          const totExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
           const tranche=(budgetSettings.tranches||[]).find(tr=>mInc>=tr.min&&mInc<=tr.max)||(budgetSettings.tranches||[]).slice(-1)[0];
           const fixedAmt=tranche?.fix||0;
           const surplus=Math.max(mInc-fixedAmt,0);
@@ -1640,12 +1656,12 @@ export default function App(){
           const goals=budgetSettings.goals||{incomeGoal:15000,incomeAuto:false,expenseGoal:5000,expenseAuto:false};
           const allM=[...new Set(txs.map(t=>t.date.slice(0,7)))];
           const avgInc=allM.length>0?txs.filter(t=>t.type==="income"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0)/allM.length:0;
-          const avgExp=allM.length>0?txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isAsset).reduce((s,t)=>s+t.amount,0)/allM.length:0;
+          const avgExp=allM.length>0?txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0)/allM.length:0;
           const incGoal=goals.incomeAuto?Math.round(avgInc):goals.incomeGoal;
           const expGoal=goals.expenseAuto?Math.round(avgExp):goals.expenseGoal;
           const goalMult=period.type==="year"?12:period.type==="all"?Math.max(allM.length,1):1;
           const pInc=filtTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-          const pExp=filtTxs.filter(t=>t.type==="expense"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+          const pExp=filtTxs.filter(t=>t.type==="expense"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
           const incGoalAdj=incGoal*goalMult;
           const expGoalAdj=expGoal*goalMult;
           const incPct=incGoalAdj>0?Math.min((pInc/incGoalAdj)*100,100):0;
@@ -1745,10 +1761,7 @@ export default function App(){
                       <span style={{fontSize:11,color:a.color,fontWeight:700}}>{fillPct.toFixed(0)}%</span>
                     </div>
                   </>}
-                  {noAcc&&<div style={{fontSize:12,color:"#f59e0b",marginTop:6,display:"flex",alignItems:"center",gap:6}}>
-                    ⚠️ ما كاينش حسابات مربوطة
-                    <button style={{background:"none",border:"none",color:"#6366f1",fontFamily:"inherit",fontSize:12,cursor:"pointer",textDecoration:"underline"}} onClick={()=>setPage("settings")}>ربط الآن</button>
-                  </div>}
+                  {noAcc&&<div style={{fontSize:12,color:"#f59e0b",marginTop:6}}>⚠️ ما كاينش حسابات مربوطة</div>}
                   {a.type==="retirement"&&!noAcc&&<div style={{fontSize:11,color:"#6366f1",marginTop:6}}>🔒 محمي</div>}
                 </div>
               );
@@ -1775,12 +1788,12 @@ export default function App(){
             const selMonth=ovExp.repMonth||null;
             const yTxs=txs.filter(t=>t.date.startsWith(selYear)&&!t.isTransfer&&t.pm!=="تحويل");
             const yInc=yTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-            const yExp=yTxs.filter(t=>t.type==="expense"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+            const yExp=yTxs.filter(t=>t.type==="expense"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
             const monthsData=Array.from({length:12},(_,i)=>{
               const m=`${selYear}-${String(i+1).padStart(2,"0")}`;
               const mTxs=yTxs.filter(t=>t.date.startsWith(m));
               const inc=mTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-              const exp=mTxs.filter(t=>t.type==="expense"&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+              const exp=mTxs.filter(t=>t.type==="expense"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
               return{m,lbl:new Date(m+"-01").toLocaleString("ar-MA",{month:"long"}),inc,exp,save:inc-exp,txs:mTxs};
             });
             return <>
@@ -2266,7 +2279,7 @@ export default function App(){
                   showErr(`⛔ شريحة ${badTr.map(t=>t.id).join("، ")} — المجموع خاص يكون 100%`);return;
                 }
                 const hasNoFix=(budgetSettings.tranches||[]).some(tr=>!tr.fix&&tr.fix!==0);
-                cm();setErr("✅ تم حفظ الإعدادات");setTimeout(()=>setErr(null),3000);
+                _save('budgetSettings',budgetSettings);cm();setErr("✅ تم حفظ الإعدادات");setTimeout(()=>setErr(null),3000);
               }}>✅ حفظ الإعدادات</button>
             </div>}
             {modal==="addSaving"&&<div style={S.col}>

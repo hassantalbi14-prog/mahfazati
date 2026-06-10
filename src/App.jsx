@@ -171,6 +171,8 @@ export default function App(){
       const l=await _load('loans'); if(l)setLoans(l);
       const ct=await _load('cats'); if(ct)setCats(ct);
       const tx=await _load('txs'); if(tx)setTxs(tx);
+      const pw=await _load('appPassword'); if(pw){setAppPassword(pw);localStorage.setItem("mhf_pw",pw);}
+      const rc=await _load('recoveryContact'); if(rc)setRecoveryContact(rc);
       const bs=await _load('budgetSettings');
       if(bs){
         // migration: تأكد من وجود tranches و5 buckets
@@ -213,6 +215,8 @@ export default function App(){
   useEffect(()=>{if(loaded)_save('cats',cats);},[cats,loaded]);
   useEffect(()=>{if(loaded)_save('txs',txs);},[txs,loaded]);
   useEffect(()=>{if(loaded)_save('budgetSettings',budgetSettings);},[budgetSettings,loaded]);
+  useEffect(()=>{if(loaded)_save('appPassword',appPassword);},[appPassword,loaded]);
+  useEffect(()=>{if(loaded&&recoveryContact)_save('recoveryContact',recoveryContact);},[recoveryContact,loaded]);
 
   const allAcc=[
     ...banks.flatMap(b=>b.accounts.map(a=>({...a,bn:b.name,bid:b.id,key:`b-${b.id}-${a.id}`,ref:{k:"bank",bid:b.id,aid:a.id}}))),

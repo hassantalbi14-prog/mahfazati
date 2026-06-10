@@ -937,16 +937,17 @@ export default function App(){
           })()}
 
           <div style={{position:"relative",height:64,marginBottom:8}}>
-            {showActions&&<div style={{position:"absolute",bottom:70,left:0,right:0,display:"flex",gap:8,flexWrap:"wrap",zIndex:10,background:"white",borderRadius:16,padding:12,boxShadow:"0 4px 20px rgba(0,0,0,.12)"}}>
-              <button style={{...S.btn("#ef4444"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"expense"});}}>+ مصروف</button>
-              <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"income"});}}>+ دخل</button>
-              <button style={{...S.btn("#6366f1"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("transfer");}}>⇄ تحويل</button>
-              <button style={{...S.btn("#14b8a6"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("buyAsset");}}>🏠 ممتلك</button>
+            {showActions&&<div style={{position:"absolute",bottom:70,left:0,right:0,zIndex:10,background:"white",borderRadius:16,padding:12,boxShadow:"0 4px 20px rgba(0,0,0,.12)"}}>
+              <div style={{display:"flex",gap:8,marginBottom:8}}>
+                <button style={{...S.btn("#ef4444"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"expense"});}}>+ مصروف</button>
+                <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"income"});}}>+ دخل</button>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button style={{...S.btn("#6366f1"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("transfer");}}>⇄ تحويل</button>
+                <button style={{...S.btn("#14b8a6"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("buyAsset");}}>🏠 ممتلك</button>
                 <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addInvest");}}>📈 استثمار</button>
-                <button style={{...S.btn("#f59e0b"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"emergency"});}}>🚨 طوارئ</button>
-                <button style={{...S.btn("#6366f1"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"retire"});}}>🏦 تقاعد</button>
-              <button style={{...S.btn("#8b5cf6"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);setPage("debts");}}>💰 ديون</button>
-              <button style={{...S.btn("#f97316"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addLoan",{kind:"أعطيت"});}}>🤝 سلفة</button>
+                <button style={{...S.btn("#8b5cf6"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);setPage("debts");}}>💰 ديون</button>
+              </div>
             </div>}
             <button onClick={()=>setShowActions(p=>!p)} style={{position:"absolute",bottom:0,left:"50%",transform:showActions?"translateX(-50%) rotate(45deg)":"translateX(-50%)",width:56,height:56,borderRadius:"50%",background:showActions?"#ef4444":"linear-gradient(135deg,#10b981,#059669)",border:"none",color:"white",fontSize:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(16,185,129,.4)",transition:"all .2s"}}>+</button>
           </div>

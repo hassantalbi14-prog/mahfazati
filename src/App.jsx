@@ -224,7 +224,7 @@ export default function App(){
   const tl=t=>{const tp=t.type==="income"?"income":"expense";const c=gc(tp,t.catId);const s=gs(tp,t.catId,t.subId);return{cn:c?.name||"—",sn:s?.name||"",ic:c?.ci||c?.icon||"📌",hi:!!c?.ci,col:c?.color||"#94a3b8"};};
   const al=ref=>{if(!ref)return"";if(ref.k==="bank"){const b=banks.find(x=>x.id===ref.bid);const a=b?.accounts.find(x=>x.id===ref.aid);return`${b?.name} - ${a?.name}`;}if(ref.k==="cash"){return cash.find(x=>x.id===ref.cid)?.name;}return"";};
 
-  const expByCat=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)).reduce((acc,t)=>{const c=gc("expense",t.catId);const k=c?.name||"أخرى";acc[k]=(acc[k]||0)+t.amount;return acc;},{});
+  const expByCat=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((acc,t)=>{const c=gc("expense",t.catId);const k=c?.name||"أخرى";acc[k]=(acc[k]||0)+t.amount;return acc;},{});
   const pie=Object.entries(expByCat).map(([name,value])=>({name,value}));
   const chart=Array.from({length:6},(_,i)=>{const d=new Date(2026,4-i,1);const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return{lbl:d.toLocaleString("ar-MA",{month:"short"}),inc:txs.filter(t=>t.type==="income"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0),exp:txs.filter(t=>t.type==="expense"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0)};}).reverse();
 
@@ -1789,13 +1789,13 @@ export default function App(){
             const selYear=ovExp.repYear||(years[0]||"2026");
             const selMonth=ovExp.repMonth||null;
             const yTxs=txs.filter(t=>t.date.startsWith(selYear)&&!t.isTransfer&&t.pm!=="تحويل");
-            const yInc=yTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-            const yExp=yTxs.filter(t=>t.type==="expense"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
+            const yInc=yTxs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+            const yExp=yTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
             const monthsData=Array.from({length:12},(_,i)=>{
               const m=`${selYear}-${String(i+1).padStart(2,"0")}`;
               const mTxs=yTxs.filter(t=>t.date.startsWith(m));
-              const inc=mTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-              const exp=mTxs.filter(t=>t.type==="expense"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
+              const inc=mTxs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+              const exp=mTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
               return{m,lbl:new Date(m+"-01").toLocaleString("ar-MA",{month:"long"}),inc,exp,save:inc-exp,txs:mTxs};
             });
             return <>
@@ -1846,8 +1846,8 @@ export default function App(){
               {selMonth&&(()=>{
                 const md=monthsData.find(m=>m.m===selMonth);
                 if(!md)return null;
-                const incTxs=md.txs.filter(t=>t.type==="income");
-                const expTxs=md.txs.filter(t=>t.type==="expense"&&!t.isAsset);
+                const incTxs=md.txs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset);
+                const expTxs=md.txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset);
                 return <>
                   <div style={{...S.card,background:"#f8fafc"}}>
                     <div style={{fontWeight:800,fontSize:15,marginBottom:10}}>{md.lbl} {selYear}</div>

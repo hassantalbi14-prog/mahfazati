@@ -479,7 +479,7 @@ export default function App(){
     </div>
   );
 
-  const NAV=[{id:"dashboard",icon:<Home size={18}/>,lbl:"الرئيسية"},{id:"transactions",icon:<Wallet size={18}/>,lbl:"المعاملات"},{id:"budget",icon:<Target size={18}/>,lbl:"الميزانية"},{id:"reports",icon:<BarChart3 size={18}/>,lbl:"التقارير"},{id:"settings",icon:<Settings size={18}/>,lbl:"الإعدادات"}];
+  const NAV=[{id:"dashboard",icon:<Home size={18}/>,lbl:"الرئيسية"},{id:"transactions",icon:<Wallet size={18}/>,lbl:"المعاملات"},{id:"budget",icon:<Target size={18}/>,lbl:"الميزانية"},{id:"reports",icon:<BarChart3 size={18}/>,lbl:"التقارير"}];
   const Ico=({src,fb,sz=20})=>src?<img src={src} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:sz}}>{fb}</span>;
   const PeriodSelector=()=>{
     const years=[...new Set(txs.map(t=>t.date.slice(0,4)))].sort().reverse();
@@ -828,10 +828,16 @@ export default function App(){
       <div style={{flex:1,overflowY:"auto",padding:"16px 20px 90px",display:"flex",flexDirection:"column",gap:14}}>
 
         {page==="dashboard"&&<>
-          <div style={{background:"linear-gradient(135deg,#10b981,#059669)",borderRadius:20,padding:24,position:"relative",overflow:"hidden",cursor:"pointer"}} onClick={()=>setPage("overview")}>
-            <div style={{position:"absolute",top:-20,left:-20,width:100,height:100,borderRadius:"50%",background:"rgba(255,255,255,.08)"}}/>
+          <div style={{background:"linear-gradient(145deg,#0f766e 0%,#10b981 50%,#34d399 100%)",borderRadius:24,padding:26,position:"relative",overflow:"hidden",cursor:"pointer",boxShadow:"0 8px 32px rgba(16,185,129,.35)"}} onClick={()=>setPage("overview")}>
+            <div style={{position:"absolute",top:-30,left:-30,width:130,height:130,borderRadius:"50%",background:"rgba(255,255,255,.07)"}}/>
+            <div style={{position:"absolute",bottom:-40,right:-20,width:160,height:160,borderRadius:"50%",background:"rgba(255,255,255,.05)"}}/>
+            <div style={{position:"absolute",top:60,left:40,width:60,height:60,borderRadius:"50%",background:"rgba(255,255,255,.04)"}}/>
             <div style={{position:"absolute",top:14,left:14,background:"rgba(255,255,255,.2)",borderRadius:8,padding:"3px 10px",fontSize:11,color:"white",fontWeight:700}}>اضغط للتفاصيل ←</div>
-            <button onClick={e=>{e.stopPropagation();setHideBalance(p=>!p);}} style={{position:"absolute",top:14,right:14,background:"rgba(255,255,255,.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer",color:"white",fontSize:16}}>{hideBalance?"👁️":"🙈"}</button>
+            <button onClick={e=>{e.stopPropagation();setHideBalance(p=>!p);}} style={{position:"absolute",top:14,right:14,background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.25)",borderRadius:10,padding:"6px 10px",cursor:"pointer",color:"white",display:"flex",alignItems:"center",gap:4,backdropFilter:"blur(4px)"}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {hideBalance?<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>:<><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>}
+              </svg>
+            </button>
             <div style={{fontSize:12,color:"rgba(255,255,255,.8)",marginBottom:6}}>صافي الثروة الكلية</div>
             <div style={{fontSize:30,fontWeight:900,color:"white"}}>{hideBalance?"••••••":fmt(totBal+totAst+totGiv-totOwd)}</div>
             <div style={{display:"flex",gap:12,marginTop:10,flexWrap:"wrap"}}>
@@ -861,21 +867,21 @@ export default function App(){
             const expGoalAdj=expGoal*goalMult;
             const incPct=incGoalAdj>0?Math.min((pInc/incGoalAdj)*100,100):0;
             const expPct=expGoalAdj>0?Math.min((pExp/expGoalAdj)*100,100):0;
-            const r=40;const circ=2*Math.PI*r;
+            const r=46;const circ=2*Math.PI*r;
             return(
               <div style={S.card}>
                 <div style={{fontSize:13,fontWeight:800,color:"#1e293b",marginBottom:14}}>🎯 الأهداف</div>
                 <div style={{display:"flex",gap:16,justifyContent:"center",alignItems:"center"}}>
                   <div style={{flex:1,textAlign:"center"}}>
-                    <div style={{position:"relative",width:90,height:90,margin:"0 auto 8px"}}>
-                      <svg width="90" height="90" viewBox="0 0 90 90" style={{transform:"rotate(-90deg)"}}>
-                        <circle cx="45" cy="45" r={r} fill="none" stroke="#e2e8f0" strokeWidth="8"/>
-                        <circle cx="45" cy="45" r={r} fill="none" stroke="#10b981" strokeWidth="8" strokeLinecap="round"
+                    <div style={{position:"relative",width:110,height:110,margin:"0 auto 10px"}}>
+                      <svg width="110" height="110" viewBox="0 0 110 110" style={{transform:"rotate(-90deg)"}}>
+                        <circle cx="55" cy="55" r={r} fill="none" stroke="#e2e8f0" strokeWidth="9"/>
+                        <circle cx="55" cy="55" r={r} fill="none" stroke="#10b981" strokeWidth="9" strokeLinecap="round"
                           strokeDasharray={circ} strokeDashoffset={circ-(circ*incPct/100)}/>
                       </svg>
                       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
-                        <div style={{fontSize:16,fontWeight:900,color:"#10b981"}}>{Math.round(incPct)}%</div>
-                        <div style={{fontSize:8,color:"#94a3b8"}}>وصلت</div>
+                        <div style={{fontSize:19,fontWeight:900,color:"#10b981"}}>{Math.round(incPct)}%</div>
+                        <div style={{fontSize:9,color:"#94a3b8"}}>وصلت</div>
                       </div>
                     </div>
                     <div style={{fontSize:12,fontWeight:700,color:"#1e293b"}}>💰 هدف الدخل</div>
@@ -883,15 +889,15 @@ export default function App(){
                   </div>
                   <div style={{width:1,height:70,background:"#e2e8f0"}}/>
                   <div style={{flex:1,textAlign:"center"}}>
-                    <div style={{position:"relative",width:90,height:90,margin:"0 auto 8px"}}>
-                      <svg width="90" height="90" viewBox="0 0 90 90" style={{transform:"rotate(-90deg)"}}>
-                        <circle cx="45" cy="45" r={r} fill="none" stroke="#e2e8f0" strokeWidth="8"/>
-                        <circle cx="45" cy="45" r={r} fill="none" stroke={expPct>90?"#ef4444":"#f59e0b"} strokeWidth="8" strokeLinecap="round"
+                    <div style={{position:"relative",width:110,height:110,margin:"0 auto 10px"}}>
+                      <svg width="110" height="110" viewBox="0 0 110 110" style={{transform:"rotate(-90deg)"}}>
+                        <circle cx="55" cy="55" r={r} fill="none" stroke="#e2e8f0" strokeWidth="9"/>
+                        <circle cx="55" cy="55" r={r} fill="none" stroke={expPct>90?"#ef4444":"#f59e0b"} strokeWidth="9" strokeLinecap="round"
                           strokeDasharray={circ} strokeDashoffset={circ-(circ*expPct/100)}/>
                       </svg>
                       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
-                        <div style={{fontSize:16,fontWeight:900,color:expPct>90?"#ef4444":"#f59e0b"}}>{Math.round(expPct)}%</div>
-                        <div style={{fontSize:8,color:"#94a3b8"}}>صرفت</div>
+                        <div style={{fontSize:19,fontWeight:900,color:expPct>90?"#ef4444":"#f59e0b"}}>{Math.round(expPct)}%</div>
+                        <div style={{fontSize:9,color:"#94a3b8"}}>صرفت</div>
                       </div>
                     </div>
                     <div style={{fontSize:12,fontWeight:700,color:"#1e293b"}}>💸 هدف المصاريف</div>

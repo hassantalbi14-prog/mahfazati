@@ -176,14 +176,7 @@ export default function App(){
       const rc=await _load('recoveryContact'); if(rc)setRecoveryContact(rc);
       const bs=await _load('budgetSettings');
       if(bs){
-        // migration: تأكد من وجود tranches و5 buckets
-        const defaultAlloc=[
-          {id:1,name:"المصاريف",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],minAlert:300,emergencyTransfer:0,type:"expenses"},
-          {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency"},
-          {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:10,accountKeys:[],type:"assets"},
-          {id:4,name:"الاستثمار",icon:"📈",color:"#10b981",pct:20,accountKeys:[],type:"investment"},
-          {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement",loanable:true}
-        ];
+        const defaultGoals={incomeGoal:15000,incomeAuto:false,expenseGoal:5000,expenseAuto:false};
         const defaultTranches=[
           {id:1,min:0,max:3000,fix:3000,pcts:{1:100,2:0,3:0,4:0,5:0}},
           {id:2,min:3001,max:6000,fix:3000,pcts:{1:35,2:20,3:10,4:25,5:10}},
@@ -191,16 +184,11 @@ export default function App(){
           {id:4,min:10001,max:15000,fix:5000,pcts:{1:25,2:20,3:15,4:30,5:10}},
           {id:5,min:15001,max:999999,fix:6000,pcts:{1:20,2:20,3:15,4:35,5:10}}
         ];
-        const defaultGoals={incomeGoal:15000,incomeAuto:false,expenseGoal:5000,expenseAuto:false};
-        // merge allocations - keep accountKeys if exist
-        const mergedAlloc=defaultAlloc.map(da=>{
-          const existing=(bs.allocations||[]).find(a=>a.id===da.id||a.name===da.name);
-          return existing?{...da,...existing,accountKeys:existing.accountKeys?.length?existing.accountKeys:existing.accountKey?[existing.accountKey].filter(Boolean):[]}:da;
-        });
+        // استعمل البيانات المحفوظة مباشرة بدون merge يضيع accountKeys
         setBudgetSettings({
           ...bs,
           goals:bs.goals||defaultGoals,
-          allocations:mergedAlloc,
+          allocations:(bs.allocations||[]).map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]})),
           tranches:bs.tranches||defaultTranches
         });
       }
@@ -861,8 +849,8 @@ export default function App(){
             const expGoal=goals.expenseAuto?Math.round(avgExp):goals.expenseGoal;
             const filtP=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
             const goalMult=period.type==="year"?12:period.type==="all"?Math.max(allMonths.length,1):1;
-            const pInc=filtP.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-            const pExp=filtP.filter(t=>t.type==="expense"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
+            const pInc=filtP.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+            const pExp=filtP.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
             const incGoalAdj=incGoal*goalMult;
             const expGoalAdj=expGoal*goalMult;
             const incPct=incGoalAdj>0?Math.min((pInc/incGoalAdj)*100,100):0;
@@ -1648,10 +1636,10 @@ export default function App(){
 
         {page==="budget"&&(()=>{
           const filtTxs=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
-          const mInc=filtTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-          const mExp=filtTxs.filter(t=>t.type==="expense"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
-          const totInc=txs.filter(t=>t.type==="income"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
-          const totExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
+          const mInc=filtTxs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+          const mExp=filtTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
+          const totInc=txs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+          const totExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
           const tranche=(budgetSettings.tranches||[]).find(tr=>mInc>=tr.min&&mInc<=tr.max)||(budgetSettings.tranches||[]).slice(-1)[0];
           const fixedAmt=tranche?.fix||0;
           const surplus=Math.max(mInc-fixedAmt,0);
@@ -1666,8 +1654,8 @@ export default function App(){
           const incGoal=goals.incomeAuto?Math.round(avgInc):goals.incomeGoal;
           const expGoal=goals.expenseAuto?Math.round(avgExp):goals.expenseGoal;
           const goalMult=period.type==="year"?12:period.type==="all"?Math.max(allM.length,1):1;
-          const pInc=filtTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-          const pExp=filtTxs.filter(t=>t.type==="expense"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
+          const pInc=filtTxs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+          const pExp=filtTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
           const incGoalAdj=incGoal*goalMult;
           const expGoalAdj=expGoal*goalMult;
           const incPct=incGoalAdj>0?Math.min((pInc/incGoalAdj)*100,100):0;

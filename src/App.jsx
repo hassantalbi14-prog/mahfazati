@@ -2144,7 +2144,7 @@ export default function App(){
                 const amt=parseFloat(form.amount);
                 const acc=allAcc.find(a=>a.key===form.akey);
                 if(!acc)return;
-                setTxs(p=>[{id:uid(),type:"income",amount:amt,catId:null,subId:null,desc:`رجوع سلفة — ${ei.person}`,date:form.date||new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref},...p]);
+                setTxs(p=>[{id:uid(),type:"income",amount:amt,catId:null,subId:null,desc:`رجوع سلفة — ${ei.person}`,date:form.date||new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref,isLoan:true,isTransfer:true},...p]);
                 updBal(acc.ref,amt,"income","add");
                 setLoans(p=>p.map(l=>l.id===ei.id?{...l,remaining:Math.max(0,l.remaining-amt)}:l));
                 cm();

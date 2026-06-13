@@ -123,6 +123,7 @@ export default function App(){
   const[resetErr,setResetErr]=useState(false);
   const[isAuth,setIsAuth]=useState(()=>sessionStorage.getItem("mhf_auth")==="1");
   const[pwInput,setPwInput]=useState("");
+  const[showPw,setShowPw]=useState(false);
   const[pwErr,setPwErr]=useState(false);
   const[appPassword,setAppPassword]=useState(()=>localStorage.getItem("mhf_pw")||"1234");
   const fRef=useRef();
@@ -412,13 +413,20 @@ export default function App(){
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');*{box-sizing:border-box;margin:0;padding:0;}`}</style>
       <div style={{background:"#1a1d27",borderRadius:24,padding:36,width:"100%",maxWidth:340,border:"1px solid #1e2548",textAlign:"center"}}>
         <div style={{fontSize:50,marginBottom:16}}>💰</div>
-        <div style={{fontSize:22,fontWeight:900,color:"#0f172a",marginBottom:6}}>محفظتي</div>
+        <div style={{fontSize:22,fontWeight:900,color:"#ffffff",marginBottom:6}}>محفظتي</div>
         <div style={{fontSize:13,color:"#475569",marginBottom:28}}>أدخل كلمة السر للدخول</div>
-        <input type="password" placeholder="كلمة السر" value={pwInput}
-          onChange={e=>{setPwInput(e.target.value);setPwErr(false);}}
-          onKeyDown={e=>{if(e.key==="Enter"){if(pwInput===appPassword){sessionStorage.setItem("mhf_auth","1");setIsAuth(true);}else setPwErr(true);}}}
-          style={{background:"#0c0f1e",border:`2px solid ${pwErr?"#ef4444":"#1e2548"}`,borderRadius:12,padding:"12px 16px",color:"#0f172a",fontFamily:"Tajawal",fontSize:16,width:"100%",outline:"none",textAlign:"center",marginBottom:8}}
-          autoFocus/>
+        <div style={{position:"relative",marginBottom:8}}>
+          <input type={showPw?"text":"password"} placeholder="كلمة السر" value={pwInput}
+            onChange={e=>{setPwInput(e.target.value);setPwErr(false);}}
+            onKeyDown={e=>{if(e.key==="Enter"){if(pwInput===appPassword){sessionStorage.setItem("mhf_auth","1");setIsAuth(true);}else setPwErr(true);}}}
+            style={{background:"#0c0f1e",border:`2px solid ${pwErr?"#ef4444":"#1e2548"}`,borderRadius:12,padding:"12px 44px 12px 16px",color:"#ffffff",fontFamily:"Tajawal",fontSize:16,width:"100%",outline:"none",textAlign:"center"}}
+            autoFocus/>
+          <button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#94a3b8",display:"flex",alignItems:"center",padding:0}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {showPw?<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>:<><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>}
+            </svg>
+          </button>
+        </div>
         {pwErr&&<div style={{color:"#ef4444",fontSize:13,marginBottom:8}}>❌ كلمة السر غلط</div>}
                 {/* نسيت كلمة السر */}
         {resetStep===0&&<button style={{background:"none",border:"none",color:"#6366f1",fontSize:13,cursor:"pointer",fontFamily:"inherit",marginTop:8,textDecoration:"underline"}}

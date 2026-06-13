@@ -1846,8 +1846,8 @@ export default function App(){
               {selMonth&&(()=>{
                 const md=monthsData.find(m=>m.m===selMonth);
                 if(!md)return null;
-                const incTxs=md.txs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset);
-                const expTxs=md.txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset);
+                const incTxs=md.txs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&t.pm!=="سلف"&&!t.isLoan&&!t.isInvest&&!t.isAsset&&!(t.desc||"").includes("رجوع سلفة")&&!(t.desc||"").includes("تحويل"));
+                const expTxs=md.txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&t.pm!=="سلف"&&!t.isLoan&&!t.isInvest&&!t.isAsset&&!(t.desc||"").includes("تحويل"));
                 return <>
                   <div style={{...S.card,background:"#f8fafc"}}>
                     <div style={{fontWeight:800,fontSize:15,marginBottom:10}}>{md.lbl} {selYear}</div>

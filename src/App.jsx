@@ -217,8 +217,8 @@ export default function App(){
   const totAst=assets.reduce((s,a)=>s+(a.value||0),0);
   const totGiv=loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+l.remaining,0);
   const totOwd=loans.filter(l=>l.kind==="أخذت").reduce((s,l)=>s+l.remaining,0);
-  const mInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
-  const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
+  const mInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset&&!(t.desc||"").includes("رجوع سلفة")).reduce((s,t)=>s+t.amount,0);
+  const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isAsset&&!t.isInvest&&!(t.desc||"").includes("تحويل")).reduce((s,t)=>s+t.amount,0);
 
   const gc=(tp,id)=>cats[tp]?.find(c=>c.id===id);
   const gs=(tp,cid,sid)=>gc(tp,cid)?.subs?.find(s=>s.id===sid);
@@ -1278,13 +1278,15 @@ export default function App(){
                           <span style={{flex:1,fontSize:12}}>{acc.bn} — {acc.name}</span>
                           <span style={{fontSize:12,fontWeight:700,color:a.color}}>{fmt(acc.balance)}</span>
                           <button style={{background:"#ef444420",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:11,fontFamily:"inherit"}}
-                            onClick={()=>setBudgetSettings(p=>({...p,allocations:(p.allocations||[]).map(x=>x.id===a.id?{...x,accountKeys:(x.accountKeys||[]).filter(k=>k!==key)}:x)}))}>✕</button>
+                            onClick={()=>{const newBS3={...budgetSettings,allocations:(budgetSettings.allocations||[]).map(x=>x.id===a.id?{...x,accountKeys:(x.accountKeys||[]).filter(k=>k!==key)}:x)};setBudgetSettings(newBS3);_save('budgetSettings',newBS3);}}>✕</button>
                         </div>
                       ):null;
                     })}
                     <select style={{...S.sel,marginTop:4}} value="" onChange={e=>{
                       if(!e.target.value)return;
-                      setBudgetSettings(p=>({...p,allocations:(p.allocations||[]).map(x=>x.id===a.id?{...x,accountKeys:[...(x.accountKeys||[]),e.target.value]}:x)}));
+                      const newBS2={...budgetSettings,allocations:(budgetSettings.allocations||[]).map(x=>x.id===a.id?{...x,accountKeys:[...(x.accountKeys||[]),e.target.value]}:x)};
+                      setBudgetSettings(newBS2);
+                      _save('budgetSettings',newBS2);
                     }}>
                       <option value="">+ إضافة حساب</option>
                       {available.filter(ac=>!(a.accountKeys||[]).includes(ac.key)).map(ac=>(

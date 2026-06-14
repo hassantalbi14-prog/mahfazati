@@ -1655,12 +1655,22 @@ export default function App(){
           const tranche=(budgetSettings.tranches||[]).find(tr=>mInc>=tr.min&&mInc<=tr.max)||(budgetSettings.tranches||[]).slice(-1)[0];
           const fixedAmt=tranche?.fix||0;
           const surplus=Math.max(mInc-fixedAmt,0);
-          const getBal=a=>!a?.accountKeys?.length?0:allAcc.filter(ac=>(a.accountKeys||[]).includes(ac.key)).reduce((s,ac)=>s+(ac.balance||0),0);
+          const getBal=a=>{
+            if(!a?.accountKeys?.length)return 0;
+            console.log('accountKeys:',a.name, JSON.stringify(a.accountKeys));
+            console.log('allAcc keys:',allAcc.map(ac=>ac.key));
+            return allAcc.filter(ac=>(a.accountKeys||[]).includes(ac.key)).reduce((s,ac)=>s+(ac.balance||0),0);
+          };
           const getAccInc=(a,period)=>{
             const keys=a.accountKeys||[];
             return txs.filter(t=>t.type==="income"&&keys.includes(t.ref)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset&&(period?t.date.startsWith(period):true)).reduce((s,t)=>s+t.amount,0);
           };
           const getAccOut=(a,period)=>{
+            // bucket المصاريف = كل المصاريف العادية
+            if(a.type==="expenses"){
+              return txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isAsset&&!t.isInvest&&!(t.desc||"").includes("رجوع سلفة")&&(period?t.date.startsWith(period):true)).reduce((s,t)=>s+t.amount,0);
+            }
+            // باقي الـ buckets = المصاريف المربوطة بحساباتهم
             const keys=a.accountKeys||[];
             return txs.filter(t=>t.type==="expense"&&keys.includes(t.ref)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&(period?t.date.startsWith(period):true)).reduce((s,t)=>s+t.amount,0);
           };
@@ -1720,9 +1730,9 @@ export default function App(){
               const noAcc=!a.accountKeys?.length;
               const accInc=getAccInc(a,curPeriodKey);
               const isOver=remaining<0;
-              const noInc=accInc===0&&!noAcc;
-              const status=noAcc?"❌":isOver?"❌":noInc?"❌":"✅";
-              const statusBg=noAcc||isOver||noInc?"#ef444420":"#10b98120";
+              const noInc=false;
+              const status=noAcc?"❌":isOver?"❌":"✅";
+              const statusBg=noAcc||isOver?"#ef444420":"#10b98120";
               return(
                 <div key={a.id} onClick={()=>setSelBucket(selBucket===a.id?null:a.id)}
                   style={{background:"rgba(255,255,255,0.88)",borderRadius:20,padding:16,marginBottom:12,border:"1px solid rgba(226,232,240,.7)",boxShadow:"0 2px 12px rgba(15,23,42,.05)",cursor:"pointer",position:"relative",overflow:"hidden"}}>
@@ -1749,7 +1759,7 @@ export default function App(){
                         {remaining>=0?"باقي "+fmt(remaining):"عجز "+fmt(Math.abs(remaining))}
                       </div>
                       {noAcc&&<div style={{fontSize:11,color:"#f59e0b",fontWeight:700}}>⚠️ ما كاينش ربط</div>}
-                      {noInc&&!noAcc&&<div style={{fontSize:11,color:"#f59e0b",fontWeight:700}}>⚠️ دخل 0 للحساب</div>}
+
                     </div>
                     <div style={{width:28,height:28,borderRadius:"50%",background:statusBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{status}</div>
                   </div>
@@ -2311,7 +2321,7 @@ export default function App(){
                         <div key={key} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:a.color+"15",borderRadius:8,marginBottom:5}}>
                           <span style={{flex:1,fontSize:11,color:"#f1f5f9"}}>{acc.bn} — {acc.name}</span>
                           <button style={{background:"rgba(239,68,68,.2)",border:"none",borderRadius:6,padding:"2px 7px",cursor:"pointer",color:"#fca5a5",fontSize:10,fontFamily:"inherit"}}
-                            onClick={()=>setBudgetSettings(p=>({...p,allocations:p.allocations.map(x=>x.id===a.id?{...x,accountKeys:(x.accountKeys||[]).filter(k=>k!==key)}:x)}))}>حذف</button>
+                            onClick={()=>{const nb={...budgetSettings,allocations:(budgetSettings.allocations||[]).map(x=>x.id===a.id?{...x,accountKeys:(x.accountKeys||[]).filter(k=>k!==key)}:x)};setBudgetSettings(nb);_save('budgetSettings',nb);}}>حذف</button>
                         </div>
                       ):null;
                     })}

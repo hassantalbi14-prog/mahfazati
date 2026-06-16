@@ -828,7 +828,7 @@ export default function App(){
         {page==="dashboard"&&<>
           <div style={{background:"linear-gradient(145deg,#1a6b4a,#0f4a33)",borderRadius:24,padding:26,position:"relative",overflow:"hidden",cursor:"pointer",boxShadow:"0 8px 32px rgba(26,107,74,.35)"}} onClick={()=>setPage("overview")}>
             <div style={{position:"absolute",top:-30,left:-30,width:130,height:130,borderRadius:"50%",background:"rgba(255,255,255,.07)"}}/>
-            <div style={{position:"absolute",bottom:-40,right:-20,width:160,height:160,borderRadius:"50%",background:"white"}}/>
+            <div style={{position:"absolute",bottom:-40,right:-20,width:160,height:160,borderRadius:"50%",background:"rgba(255,255,255,.07)"}}/>
             <div style={{position:"absolute",top:60,left:40,width:60,height:60,borderRadius:"50%",background:"rgba(255,255,255,.04)"}}/>
             <div style={{position:"absolute",top:14,left:14,background:"rgba(255,255,255,.2)",borderRadius:8,padding:"3px 10px",fontSize:11,color:"#1a1a1a",fontWeight:700}}>اضغط للتفاصيل ←</div>
             <button onClick={e=>{e.stopPropagation();setHideBalance(p=>!p);}} style={{position:"absolute",top:14,right:14,background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.25)",borderRadius:10,padding:"6px 10px",cursor:"pointer",color:"#1a1a1a",display:"flex",alignItems:"center",gap:4,backdropFilter:"blur(4px)"}}>
@@ -873,8 +873,8 @@ export default function App(){
                   <div style={{flex:1,textAlign:"center"}}>
                     <div style={{position:"relative",width:110,height:110,margin:"0 auto 10px"}}>
                       <svg width="110" height="110" viewBox="0 0 110 110" style={{transform:"rotate(-90deg)"}}>
-                        <circle cx="55" cy="55" r={r} fill="none" stroke="#e8e8e4" strokeWidth="9"/>
-                        <circle cx="55" cy="55" r={r} fill="none" stroke="#10b981" strokeWidth="9" strokeLinecap="round"
+                        <circle cx="55" cy="55" r={r} fill="none" stroke="#e8e8e4" strokeWidth="11"/>
+                        <circle cx="55" cy="55" r={r} fill="none" stroke="#10b981" strokeWidth="11" strokeLinecap="round"
                           strokeDasharray={circ} strokeDashoffset={circ-(circ*incPct/100)}/>
                       </svg>
                       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
@@ -889,8 +889,8 @@ export default function App(){
                   <div style={{flex:1,textAlign:"center"}}>
                     <div style={{position:"relative",width:110,height:110,margin:"0 auto 10px"}}>
                       <svg width="110" height="110" viewBox="0 0 110 110" style={{transform:"rotate(-90deg)"}}>
-                        <circle cx="55" cy="55" r={r} fill="none" stroke="#e8e8e4" strokeWidth="9"/>
-                        <circle cx="55" cy="55" r={r} fill="none" stroke={expPct>90?"#ef4444":"#f59e0b"} strokeWidth="9" strokeLinecap="round"
+                        <circle cx="55" cy="55" r={r} fill="none" stroke="#e8e8e4" strokeWidth="11"/>
+                        <circle cx="55" cy="55" r={r} fill="none" stroke={expPct>90?"#ef4444":"#f59e0b"} strokeWidth="11" strokeLinecap="round"
                           strokeDasharray={circ} strokeDashoffset={circ-(circ*expPct/100)}/>
                       </svg>
                       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
@@ -954,7 +954,7 @@ export default function App(){
                 <button style={{...S.btn("#8b5cf6"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);setPage("debts");}}>💰 ديون</button>
               </div>
             </div>}
-            <button onClick={()=>setShowActions(p=>!p)} style={{position:"absolute",bottom:0,left:"50%",transform:showActions?"translateX(-50%) rotate(45deg)":"translateX(-50%)",width:56,height:56,borderRadius:"50%",background:showActions?"#ef4444":"linear-gradient(135deg,#10b981,#059669)",border:"none",color:"#1a1a1a",fontSize:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(16,185,129,.4)",transition:"all .2s"}}>+</button>
+            <button onClick={()=>setShowActions(p=>!p)} style={{position:"absolute",bottom:0,left:"50%",transform:showActions?"translateX(-50%) rotate(45deg)":"translateX(-50%)",width:56,height:56,borderRadius:"50%",background:showActions?"#ef4444":"linear-gradient(135deg,#1a6b4a,#0f4a33)",border:"none",color:"white",fontSize:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(16,185,129,.4)",transition:"all .2s"}}>+</button>
           </div>
 
           <div style={S.card}>
@@ -1652,7 +1652,7 @@ export default function App(){
           const mExp=filtTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
           const totInc=txs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
           const totExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-          const tranche=(budgetSettings.tranches||[]).find(tr=>mInc>=tr.min&&mInc<=tr.max)||(budgetSettings.tranches||[]).slice(-1)[0];
+          const tranche=(budgetSettings.tranches||[]).find(tr=>mInc>=tr.min&&mInc<=tr.max)||(budgetSettings.tranches?.length>0?budgetSettings.tranches[budgetSettings.tranches.length-1]:null);
           const fixedAmt=tranche?.fix||0;
           const surplus=Math.max(mInc-fixedAmt,0);
           const getBal=a=>{
@@ -1665,14 +1665,14 @@ export default function App(){
             const keys=a.accountKeys||[];
             return txs.filter(t=>t.type==="income"&&keys.includes(t.ref)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset&&(period?t.date.startsWith(period):true)).reduce((s,t)=>s+t.amount,0);
           };
-          const getAccOut=(a,period)=>{
-            // bucket المصاريف = كل المصاريف العادية
+          const getAccOut=(a,per)=>{
+            // bucket المصاريف = كل المصاريف العادية للفترة
             if(a.type==="expenses"){
-              return txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isAsset&&!t.isInvest&&!(t.desc||"").includes("رجوع سلفة")&&(period?t.date.startsWith(period):true)).reduce((s,t)=>s+t.amount,0);
+              return filtTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isAsset&&!t.isInvest&&!(t.desc||"").includes("رجوع سلفة")).reduce((s,t)=>s+t.amount,0);
             }
             // باقي الـ buckets = المصاريف المربوطة بحساباتهم
             const keys=a.accountKeys||[];
-            return txs.filter(t=>t.type==="expense"&&keys.includes(t.ref)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&(period?t.date.startsWith(period):true)).reduce((s,t)=>s+t.amount,0);
+            return filtTxs.filter(t=>t.type==="expense"&&keys.includes(t.ref)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan).reduce((s,t)=>s+t.amount,0);
           };
           const expAlloc=(budgetSettings.allocations||[]).find(a=>a.type==="expenses");
           const expBal=getBal(expAlloc);

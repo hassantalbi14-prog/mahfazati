@@ -863,8 +863,16 @@ export default function App(){
             const pExp=filtP.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
             const incGoalAdj=incGoal*goalMult;
             const expGoalAdj=expGoal*goalMult;
-            const incPct=incGoalAdj>0?Math.min((pInc/incGoalAdj)*100,100):0;
-            const expPct=expGoalAdj>0?Math.min((pExp/expGoalAdj)*100,100):0;
+            const incPctRaw=incGoalAdj>0?(pInc/incGoalAdj)*100:0;
+            const expPctRaw=expGoalAdj>0?(pExp/expGoalAdj)*100:0;
+            const incPct=Math.min(incPctRaw,100);
+            const expPct=Math.min(expPctRaw,100);
+            const incRemaining=incGoalAdj-pInc;
+            const expRemaining=expGoalAdj-pExp;
+            // دخل: تدريجي أحمر→أخضر كيما كيقرب من الهدف
+            const incColor=incPctRaw>=100?"#10b981":incPctRaw>=70?"#10b981":incPctRaw>=40?"#f59e0b":"#ef4444";
+            // مصاريف: عكس - أخضر مازال بعيد، أحمر قرب/تجاوز
+            const expColor=expPctRaw>=100?"#ef4444":expPctRaw>=85?"#ef4444":expPctRaw>=60?"#f59e0b":"#10b981";
             const r=46;const circ=2*Math.PI*r;
             return(
               <div style={S.card}>
@@ -874,51 +882,60 @@ export default function App(){
                     <div style={{position:"relative",width:110,height:110,margin:"0 auto 10px"}}>
                       <svg width="110" height="110" viewBox="0 0 110 110" style={{transform:"rotate(-90deg)"}}>
                         <circle cx="55" cy="55" r={r} fill="none" stroke="#e8e8e4" strokeWidth="11"/>
-                        <circle cx="55" cy="55" r={r} fill="none" stroke="#10b981" strokeWidth="11" strokeLinecap="round"
-                          strokeDasharray={circ} strokeDashoffset={circ-(circ*incPct/100)}/>
+                        <circle cx="55" cy="55" r={r} fill="none" stroke={incColor} strokeWidth="11" strokeLinecap="round"
+                          strokeDasharray={circ} strokeDashoffset={circ-(circ*incPct/100)} style={{transition:"stroke .4s, stroke-dashoffset .4s"}}/>
                       </svg>
                       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
-                        <div style={{fontSize:19,fontWeight:900,color:"#1a6b4a"}}>{Math.round(incPct)}%</div>
+                        <div style={{fontSize:19,fontWeight:900,color:incColor}}>{Math.round(incPctRaw)}%</div>
                         <div style={{fontSize:9,color:"#888888"}}>وصلت</div>
                       </div>
                     </div>
                     <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a"}}>💰 هدف الدخل</div>
                     <div style={{fontSize:10,color:"#666666"}}>{fmt(pInc)} / {fmt(incGoalAdj)}</div>
+                    <div style={{fontSize:10,fontWeight:700,color:incRemaining>0?"#888888":"#10b981",marginTop:2}}>
+                      {incRemaining>0?`باقي ${fmt(incRemaining)}`:`✅ تجاوزت بـ ${fmt(Math.abs(incRemaining))}`}
+                    </div>
                   </div>
                   <div style={{width:1,height:70,background:"#e8e8e4"}}/>
                   <div style={{flex:1,textAlign:"center"}}>
                     <div style={{position:"relative",width:110,height:110,margin:"0 auto 10px"}}>
                       <svg width="110" height="110" viewBox="0 0 110 110" style={{transform:"rotate(-90deg)"}}>
                         <circle cx="55" cy="55" r={r} fill="none" stroke="#e8e8e4" strokeWidth="11"/>
-                        <circle cx="55" cy="55" r={r} fill="none" stroke={expPct>90?"#ef4444":"#f59e0b"} strokeWidth="11" strokeLinecap="round"
-                          strokeDasharray={circ} strokeDashoffset={circ-(circ*expPct/100)}/>
+                        <circle cx="55" cy="55" r={r} fill="none" stroke={expColor} strokeWidth="11" strokeLinecap="round"
+                          strokeDasharray={circ} strokeDashoffset={circ-(circ*expPct/100)} style={{transition:"stroke .4s, stroke-dashoffset .4s"}}/>
                       </svg>
                       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
-                        <div style={{fontSize:19,fontWeight:900,color:expPct>90?"#ef4444":"#f59e0b"}}>{Math.round(expPct)}%</div>
+                        <div style={{fontSize:19,fontWeight:900,color:expColor}}>{Math.round(expPctRaw)}%</div>
                         <div style={{fontSize:9,color:"#888888"}}>صرفت</div>
                       </div>
                     </div>
                     <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a"}}>💸 هدف المصاريف</div>
                     <div style={{fontSize:10,color:"#666666"}}>{fmt(pExp)} / {fmt(expGoalAdj)}</div>
+                    <div style={{fontSize:10,fontWeight:700,color:expRemaining>0?"#10b981":"#ef4444",marginTop:2}}>
+                      {expRemaining>0?`باقي ${fmt(expRemaining)}`:`⚠️ تجاوزت بـ ${fmt(Math.abs(expRemaining))}`}
+                    </div>
                   </div>
                 </div>
               </div>
             );
           })()}
-          {/* Budget Widget */}
+          {/* Budget Widget - bucket المصاريف بنظام الشرائح */}
           {(()=>{
             const allMonths=[...new Set(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل").map(t=>t.date.slice(0,7)))];
-            const threshold=budgetSettings.threshold;
-            const expAlloc=budgetSettings.allocations.find(a=>a.name==="المصاريف");
-            const expPct=expAlloc?.pct||30;
+            const expAlloc=(budgetSettings.allocations||[]).find(a=>a.type==="expenses");
             const totBudget=allMonths.reduce((s,m)=>{
-              const mI=txs.filter(t=>t.type==="income"&&t.date.startsWith(m)&&!t.isTransfer&&t.pm!=="تحويل").reduce((ss,t)=>ss+t.amount,0);
-              return s+(mI<=threshold?mI:threshold+(mI-threshold)*(expPct/100));
+              const mI=txs.filter(t=>t.type==="income"&&t.date.startsWith(m)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((ss,t)=>ss+t.amount,0);
+              const tr=(budgetSettings.tranches||[]).find(tt=>mI>=tt.min&&mI<=tt.max)||(budgetSettings.tranches?.length>0?budgetSettings.tranches[budgetSettings.tranches.length-1]:null);
+              const fixedM=tr?.fix||0;
+              const surplusM=Math.max(mI-fixedM,0);
+              const pctM=tr?.pcts?.[expAlloc?.id]||0;
+              return s+(fixedM+(surplusM*pctM/100));
             },0);
-            const totExpReal=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
+            const totExpReal=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest&&!t.isLoan&&!(t.desc||"").includes("رجوع سلفة")).reduce((s,t)=>s+t.amount,0);
             const remaining=totBudget-totExpReal;
             const pct=totBudget>0?Math.min((totExpReal/totBudget)*100,100):0;
-            const color=pct>90?"#ef4444":pct>70?"#f59e0b":"#10b981";
+            const pctReal=totBudget>0?(totExpReal/totBudget)*100:0;
+            const color=pctReal>=100?"#ef4444":pctReal>=70?"#f59e0b":"#10b981";
             if(totBudget===0)return null;
             return(
               <div style={{...S.card,cursor:"pointer"}} onClick={()=>setPage("budget")}>
@@ -929,13 +946,17 @@ export default function App(){
                   </div>
                   <div style={{textAlign:"left"}}>
                     <div style={{fontSize:11,color:"#888888"}}>الباقي</div>
-                    <div style={{fontSize:18,fontWeight:900,color:remaining>=0?color:"#ef4444"}}>{fmt(Math.abs(remaining))}</div>
+                    <div style={{fontSize:18,fontWeight:900,color:remaining>=0?color:"#ef4444"}}>{remaining>=0?"":"-"}{fmt(Math.abs(remaining))}</div>
                   </div>
                 </div>
                 <div className="pbar"><div className="pfill" style={{width:pct+"%",background:color}}/></div>
                 <div style={{...S.row,marginTop:6}}>
                   <span style={{fontSize:11,color:"#888888"}}>مصروف: {fmt(totExpReal)}</span>
                   <span style={{fontSize:11,color:"#888888"}}>الميزانية: {fmt(totBudget)}</span>
+                </div>
+                <div style={{...S.row,marginTop:4}}>
+                  <span style={{fontSize:11,fontWeight:700,color}}>{Math.round(pctReal)}% مصروفة</span>
+                  <span style={{fontSize:11,color:"#888888"}}>{remaining>=0?`متبقي ${Math.round(100-pctReal)}%`:"⚠️ تجاوزت الميزانية"}</span>
                 </div>
               </div>
             );

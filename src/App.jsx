@@ -107,7 +107,7 @@ export default function App(){
     return allAcc.filter(ac=>(a.accountKeys||[]).includes(ac.key)).reduce((s,ac)=>s+(ac.balance||0),0);
   };
   const filterByPeriod=(txList)=>{if(period.type==="month")return txList.filter(t=>t.date.startsWith(period.month));if(period.type==="year")return txList.filter(t=>t.date.startsWith(period.year));return txList;};
-  const[fontScale,setFontScale]=useState(()=>parseFloat(localStorage.getItem("mhf_fontScale"))||1);
+  const[fontScale,setFontScale]=useState(()=>parseFloat(localStorage.getItem("mhf_fontScale"))||1.1);
   useEffect(()=>{localStorage.setItem("mhf_fontScale",fontScale);},[fontScale]);
   const[hideBalance,setHideBalance]=useState(false);
   const[showActions,setShowActions]=useState(false);
@@ -498,16 +498,15 @@ export default function App(){
   const Btn=({label,onClick,bg="#e8e8e4",color="#666666",style={}})=><button onClick={onClick} style={{background:bg,border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color,fontSize:11,fontFamily:"Tajawal",...style}}>{label}</button>;
 
   // خانتين: 1) نوع الحساب (بنك/كاش) 2) الحساب نفسه
-  const AccPicker=({value,onChange,accList,border="#6366f1"})=>{
+  const AccPicker=({value,onChange,accList,border="#6366f1",pickerKey="akey"})=>{
     const list=accList||allAcc;
     const selAcc=list.find(a=>a.key===value);
-    const curType=selAcc?selAcc.ref.k:(typeof window!=="undefined"&&window.__accPickerType)||"";
-    const [typeSel,setTypeSel]=useState(selAcc?selAcc.ref.k:"");
-    useEffect(()=>{if(selAcc&&selAcc.ref.k!==typeSel)setTypeSel(selAcc.ref.k);},[value]);
+    const typeStateKey=pickerKey+"Type";
+    const typeSel=form[typeStateKey]!==undefined?form[typeStateKey]:(selAcc?selAcc.ref.k:"");
     const filtered=list.filter(a=>a.ref.k===typeSel);
     return(
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
-        <select style={{...S.sel,border:`2px solid ${border}`}} value={typeSel} onChange={e=>{setTypeSel(e.target.value);onChange("");}}>
+        <select style={{...S.sel,border:`2px solid ${border}`}} value={typeSel} onChange={e=>{F(typeStateKey,e.target.value);onChange("");}}>
           <option value="">⚠️ نوع الحساب (إجباري)</option>
           <option value="bank">🏦 بنك</option>
           <option value="cash">💵 كاش</option>
@@ -591,7 +590,7 @@ export default function App(){
   );
 
   return (
-    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:"100vh",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden",fontSize:fontScale+"em",zoom:fontScale}}>
+    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:"100vh",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale}}>
       <style>{CSS}</style>
       <input ref={fRef} type="file" accept=".json" style={{display:"none"}} onChange={impData}/>
       <input ref={iRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("ci",b));e.target.value="";}}/>
@@ -1202,12 +1201,12 @@ export default function App(){
           <div style={S.card}>
             <div style={{fontSize:11,color:"#888888",fontWeight:700,letterSpacing:1,marginBottom:10}}>🔠 حجم الخط</div>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-              <button onClick={()=>setFontScale(p=>Math.max(0.8,Math.round((p-0.1)*10)/10))} style={{width:38,height:38,borderRadius:10,border:"none",background:"#e8e8e4",color:"#1a1a1a",fontSize:18,fontWeight:900,cursor:"pointer"}}>－</button>
-              <div style={{flex:1,textAlign:"center",fontSize:14,fontWeight:700,color:"#1a6b4a"}}>{Math.round(fontScale*100)}%</div>
-              <button onClick={()=>setFontScale(p=>Math.min(1.4,Math.round((p+0.1)*10)/10))} style={{width:38,height:38,borderRadius:10,border:"none",background:"#e8e8e4",color:"#1a1a1a",fontSize:18,fontWeight:900,cursor:"pointer"}}>＋</button>
+              <button onClick={()=>setFontScale(p=>Math.max(0.9,Math.round((p-0.1)*10)/10))} style={{width:38,height:38,borderRadius:10,border:"none",background:"#e8e8e4",color:"#1a1a1a",fontSize:18,fontWeight:900,cursor:"pointer"}}>－</button>
+              <div style={{flex:1,textAlign:"center",fontSize:16,fontWeight:900,color:"#1a6b4a"}}>{Math.round(fontScale*100)}%</div>
+              <button onClick={()=>setFontScale(p=>Math.min(1.6,Math.round((p+0.1)*10)/10))} style={{width:38,height:38,borderRadius:10,border:"none",background:"#e8e8e4",color:"#1a1a1a",fontSize:18,fontWeight:900,cursor:"pointer"}}>＋</button>
             </div>
             <div style={{display:"flex",gap:6}}>
-              {[0.9,1,1.1,1.2].map(v=>(
+              {[1,1.1,1.2,1.3,1.4].map(v=>(
                 <button key={v} onClick={()=>setFontScale(v)} style={{flex:1,padding:"7px",borderRadius:8,border:`1.5px solid ${fontScale===v?"#1a6b4a":"#e8e8e4"}`,background:fontScale===v?"#e8f5ee":"white",color:fontScale===v?"#1a6b4a":"#888888",fontFamily:"Tajawal",fontSize:11,fontWeight:700,cursor:"pointer"}}>{Math.round(v*100)}%</button>
               ))}
             </div>
@@ -2203,10 +2202,10 @@ export default function App(){
             {modal==="transfer"&&<div style={S.col}>
               <div style={{padding:"10px 14px",background:"#6366f122",borderRadius:10,fontSize:14,color:"#6366f1",fontWeight:700,textAlign:"center"}}>⇄ تحويل بين الحسابات</div>
               <div><div style={{fontSize:12,color:"#475569",marginBottom:6}}>من حساب:</div>
-              <AccPicker value={form.fromKey} onChange={v=>F("fromKey",v)} border="#6366f1"/></div>
+              <AccPicker value={form.fromKey} onChange={v=>F("fromKey",v)} border="#6366f1" pickerKey="fromKey"/></div>
               <div style={{textAlign:"center",fontSize:24,color:"#6366f1"}}>↓</div>
               <div><div style={{fontSize:12,color:"#475569",marginBottom:6}}>إلى حساب:</div>
-              <AccPicker value={form.toKey} onChange={v=>F("toKey",v)} border="#6366f1" accList={allAcc.filter(a=>a.key!==form.fromKey)}/></div>
+              <AccPicker value={form.toKey} onChange={v=>F("toKey",v)} border="#6366f1" pickerKey="toKey" accList={allAcc.filter(a=>a.key!==form.fromKey)}/></div>
               <input style={S.inp} placeholder="المبلغ" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
               <input style={S.inp} type="date" value={form.transferDate||new Date().toISOString().split("T")[0]} onChange={e=>F("transferDate",e.target.value)}/>
               {form.fromKey&&form.toKey&&form.amount&&(

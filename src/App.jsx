@@ -858,7 +858,8 @@ export default function App(){
             const incGoal=goals.incomeAuto?Math.round(avgInc):goals.incomeGoal;
             const expGoal=goals.expenseAuto?Math.round(avgExp):goals.expenseGoal;
             const filtP=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
-            const goalMult=period.type==="year"?12:period.type==="all"?Math.max(allMonths.length,1):1;
+            const curMonthNum=new Date().getMonth()+1; // الشهر الحالي 1-12
+            const goalMult=period.type==="year"?curMonthNum:period.type==="all"?Math.max(allMonths.length,1):1;
             const pInc=filtP.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
             const pExp=filtP.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
             const incGoalAdj=incGoal*goalMult;
@@ -884,9 +885,10 @@ export default function App(){
                         <circle cx="55" cy="55" r={r} fill="none" stroke="#e8e8e4" strokeWidth="11"/>
                         <circle cx="55" cy="55" r={r} fill="none" stroke={incColor} strokeWidth="11" strokeLinecap="round"
                           strokeDasharray={circ} strokeDashoffset={circ-(circ*incPct/100)} style={{transition:"stroke .4s, stroke-dashoffset .4s"}}/>
+                        <circle cx={55+r*Math.cos(2*Math.PI*incPct/100)} cy={55+r*Math.sin(2*Math.PI*incPct/100)} r="7" fill={incColor} stroke="white" strokeWidth="2"/>
                       </svg>
                       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
-                        <div style={{fontSize:19,fontWeight:900,color:incColor}}>{Math.round(incPctRaw)}%</div>
+                        <div style={{fontSize:24,fontWeight:900,color:incColor}}>{Math.round(incPctRaw)}%</div>
                         <div style={{fontSize:9,color:"#888888"}}>وصلت</div>
                       </div>
                     </div>
@@ -903,9 +905,10 @@ export default function App(){
                         <circle cx="55" cy="55" r={r} fill="none" stroke="#e8e8e4" strokeWidth="11"/>
                         <circle cx="55" cy="55" r={r} fill="none" stroke={expColor} strokeWidth="11" strokeLinecap="round"
                           strokeDasharray={circ} strokeDashoffset={circ-(circ*expPct/100)} style={{transition:"stroke .4s, stroke-dashoffset .4s"}}/>
+                        <circle cx={55+r*Math.cos(2*Math.PI*expPct/100)} cy={55+r*Math.sin(2*Math.PI*expPct/100)} r="7" fill={expColor} stroke="white" strokeWidth="2"/>
                       </svg>
                       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
-                        <div style={{fontSize:19,fontWeight:900,color:expColor}}>{Math.round(expPctRaw)}%</div>
+                        <div style={{fontSize:24,fontWeight:900,color:expColor}}>{Math.round(expPctRaw)}%</div>
                         <div style={{fontSize:9,color:"#888888"}}>صرفت</div>
                       </div>
                     </div>

@@ -1679,6 +1679,19 @@ export default function App(){
           const tranche=(budgetSettings.tranches||[]).find(tr=>mInc>=tr.min&&mInc<=tr.max)||(budgetSettings.tranches?.length>0?budgetSettings.tranches[budgetSettings.tranches.length-1]:null);
           const fixedAmt=tranche?.fix||0;
           const surplus=Math.max(mInc-fixedAmt,0);
+          // حساب الميزانية المخصصة لكل bucket — لكل شهر بشريحته الخاصة، ثم تجميعها على الفترة
+          const periodMonths=[...new Set(filtTxs.map(t=>t.date.slice(0,7)))];
+          const getAllocatedForPeriod=allocId=>{
+            return periodMonths.reduce((s,m)=>{
+              const mI=txs.filter(t=>t.type==="income"&&t.date.startsWith(m)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((ss,t)=>ss+t.amount,0);
+              const tr=(budgetSettings.tranches||[]).find(tt=>mI>=tt.min&&mI<=tt.max)||(budgetSettings.tranches?.length>0?budgetSettings.tranches[budgetSettings.tranches.length-1]:null);
+              const fixedM=tr?.fix||0;
+              const surplusM=Math.max(mI-fixedM,0);
+              const pctM=tr?.pcts?.[allocId]||0;
+              const allocM=(budgetSettings.allocations||[]).find(a=>a.id===allocId);
+              return s+(allocM?.type==="expenses"?fixedM+(surplusM*pctM/100):surplusM*pctM/100);
+            },0);
+          };
           const getBal=a=>{
             if(!a?.accountKeys?.length)return 0;
             console.log('accountKeys:',a.name, JSON.stringify(a.accountKeys));
@@ -1702,10 +1715,7 @@ export default function App(){
           const expBal=getBal(expAlloc);
           const needsEmergency=expBal>0&&expBal<=(expAlloc?.minAlert||300)&&(expAlloc?.emergencyTransfer||0)>0;
           const curPeriodKey=period.type==="month"?period.month:period.type==="year"?period.year:null;
-          const totalAllocated=(budgetSettings.allocations||[]).reduce((s,a)=>{
-            const pct=tranche?.pcts?.[a.id]||0;
-            return s+(a.type==="expenses"?fixedAmt+(surplus*pct/100):surplus*pct/100);
-          },0);
+          const totalAllocated=(budgetSettings.allocations||[]).reduce((s,a)=>s+getAllocatedForPeriod(a.id),0);
           const totalOut=mExp;
           const totalRem=totalAllocated-totalOut;
           return <>
@@ -1746,8 +1756,7 @@ export default function App(){
             {/* 5 buckets */}
             <div style={{fontSize:13,color:"#666666",fontWeight:700,marginBottom:10}}>💼 توزيع الدخل</div>
             {(budgetSettings.allocations||[]).map(a=>{
-              const pct=tranche?.pcts?.[a.id]||0;
-              const allocated=a.type==="expenses"?fixedAmt+(surplus*pct/100):surplus*pct/100;
+              const allocated=getAllocatedForPeriod(a.id);
               const accOut=getAccOut(a,curPeriodKey);
               const remaining=allocated-accOut;
               const fillPct=allocated>0?Math.min((accOut/allocated)*100,100):0;

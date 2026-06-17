@@ -107,6 +107,8 @@ export default function App(){
     return allAcc.filter(ac=>(a.accountKeys||[]).includes(ac.key)).reduce((s,ac)=>s+(ac.balance||0),0);
   };
   const filterByPeriod=(txList)=>{if(period.type==="month")return txList.filter(t=>t.date.startsWith(period.month));if(period.type==="year")return txList.filter(t=>t.date.startsWith(period.year));return txList;};
+  const[fontScale,setFontScale]=useState(()=>parseFloat(localStorage.getItem("mhf_fontScale"))||1);
+  useEffect(()=>{localStorage.setItem("mhf_fontScale",fontScale);},[fontScale]);
   const[hideBalance,setHideBalance]=useState(false);
   const[showActions,setShowActions]=useState(false);
   const[distModal,setDistModal]=useState(null); // {income, step:1-5}
@@ -495,6 +497,29 @@ export default function App(){
   const Dot=({color})=><div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>;
   const Btn=({label,onClick,bg="#e8e8e4",color="#666666",style={}})=><button onClick={onClick} style={{background:bg,border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color,fontSize:11,fontFamily:"Tajawal",...style}}>{label}</button>;
 
+  // خانتين: 1) نوع الحساب (بنك/كاش) 2) الحساب نفسه
+  const AccPicker=({value,onChange,accList,border="#6366f1"})=>{
+    const list=accList||allAcc;
+    const selAcc=list.find(a=>a.key===value);
+    const curType=selAcc?selAcc.ref.k:(typeof window!=="undefined"&&window.__accPickerType)||"";
+    const [typeSel,setTypeSel]=useState(selAcc?selAcc.ref.k:"");
+    useEffect(()=>{if(selAcc&&selAcc.ref.k!==typeSel)setTypeSel(selAcc.ref.k);},[value]);
+    const filtered=list.filter(a=>a.ref.k===typeSel);
+    return(
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        <select style={{...S.sel,border:`2px solid ${border}`}} value={typeSel} onChange={e=>{setTypeSel(e.target.value);onChange("");}}>
+          <option value="">⚠️ نوع الحساب (إجباري)</option>
+          <option value="bank">🏦 بنك</option>
+          <option value="cash">💵 كاش</option>
+        </select>
+        {typeSel&&<select style={{...S.sel,border:`2px solid ${border}`}} value={value||""} onChange={e=>onChange(e.target.value)}>
+          <option value="">⚠️ اختر الحساب (إجباري)</option>
+          {filtered.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
+        </select>}
+      </div>
+    );
+  };
+
   const PmBtns=({val,onChange})=>(
     <div style={{display:"flex",gap:8}}>
       {["نقدي","كريدي"].map(m=><button key={m} onClick={()=>onChange(m)} style={{flex:1,padding:10,border:"2px solid",borderColor:val===m?(m==="نقدي"?"#10b981":"#f59e0b"):"#e8e8e4",borderRadius:10,background:val===m?(m==="نقدي"?"#10b98122":"#f59e0b22"):"transparent",color:val===m?(m==="نقدي"?"#10b981":"#f59e0b"):"#888888",fontFamily:"Tajawal",fontWeight:700,cursor:"pointer",fontSize:13}}>{m==="نقدي"?"💵 نقدي":"💳 كريدي"}</button>)}
@@ -566,7 +591,7 @@ export default function App(){
   );
 
   return (
-    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:"100vh",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden"}}>
+    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:"100vh",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden",fontSize:fontScale+"em",zoom:fontScale}}>
       <style>{CSS}</style>
       <input ref={fRef} type="file" accept=".json" style={{display:"none"}} onChange={impData}/>
       <input ref={iRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("ci",b));e.target.value="";}}/>
@@ -1173,6 +1198,19 @@ export default function App(){
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
             <span style={{fontWeight:800,fontSize:18}}>الإعدادات</span>
             <button onClick={()=>setPage("dashboard")} style={{background:"#e8e8e4",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:13}}>← رجوع</button>
+          </div>
+          <div style={S.card}>
+            <div style={{fontSize:11,color:"#888888",fontWeight:700,letterSpacing:1,marginBottom:10}}>🔠 حجم الخط</div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+              <button onClick={()=>setFontScale(p=>Math.max(0.8,Math.round((p-0.1)*10)/10))} style={{width:38,height:38,borderRadius:10,border:"none",background:"#e8e8e4",color:"#1a1a1a",fontSize:18,fontWeight:900,cursor:"pointer"}}>－</button>
+              <div style={{flex:1,textAlign:"center",fontSize:14,fontWeight:700,color:"#1a6b4a"}}>{Math.round(fontScale*100)}%</div>
+              <button onClick={()=>setFontScale(p=>Math.min(1.4,Math.round((p+0.1)*10)/10))} style={{width:38,height:38,borderRadius:10,border:"none",background:"#e8e8e4",color:"#1a1a1a",fontSize:18,fontWeight:900,cursor:"pointer"}}>＋</button>
+            </div>
+            <div style={{display:"flex",gap:6}}>
+              {[0.9,1,1.1,1.2].map(v=>(
+                <button key={v} onClick={()=>setFontScale(v)} style={{flex:1,padding:"7px",borderRadius:8,border:`1.5px solid ${fontScale===v?"#1a6b4a":"#e8e8e4"}`,background:fontScale===v?"#e8f5ee":"white",color:fontScale===v?"#1a6b4a":"#888888",fontFamily:"Tajawal",fontSize:11,fontWeight:700,cursor:"pointer"}}>{Math.round(v*100)}%</button>
+              ))}
+            </div>
           </div>
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
             <div style={{padding:"10px 16px 6px",fontSize:11,color:"#888888",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الأموال والممتلكات</div>
@@ -2078,11 +2116,9 @@ export default function App(){
                 {cats[modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense")].map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}
               </select>
               {(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx")F("subId",e.target.value);else setEi(p=>({...p,subId:e.target.value}));}}><option value="">الفرع (اختياري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
-              {modal==="addTx"&&(form.pm||"نقدي")!=="كريدي"&&<select style={{...S.sel,border:"2px solid #6366f1"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}>
-                <option value="">⚠️ اختر الحساب (إجباري)</option>
-                {(form.txType==="invest"?getBucketAccs("investment"):form.txType==="retire"?getBucketAccs("retirement"):form.txType==="emergency"?getBucketAccs("emergency"):form.txType==="assets_buy"?getBucketAccs("assets"):getBucketAccs("expenses")).map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
-              </select>}
-              {modal==="addTx"&&(form.txType||"expense")==="income"&&<select style={{...S.sel,border:"2px solid #10b981"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}><option value="">⚠️ اختر الحساب (إجباري)</option>{allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}</select>}
+              {modal==="addTx"&&(form.pm||"نقدي")!=="كريدي"&&(form.txType||"expense")!=="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"
+                accList={form.txType==="invest"?getBucketAccs("investment"):form.txType==="retire"?getBucketAccs("retirement"):form.txType==="emergency"?getBucketAccs("emergency"):form.txType==="assets_buy"?getBucketAccs("assets"):getBucketAccs("expenses")}/>}
+              {modal==="addTx"&&(form.txType||"expense")==="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981"/>}
               <input style={S.inp} placeholder="الوصف" value={modal==="addTx"?form.desc||"":ei?.desc||""} onChange={e=>modal==="addTx"?F("desc",e.target.value):setEi(p=>({...p,desc:e.target.value}))}/>
               <input style={S.inp} type="date" value={modal==="addTx"?form.date||new Date().toISOString().split("T")[0]:ei?.date||""} onChange={e=>modal==="addTx"?F("date",e.target.value):setEi(p=>({...p,date:e.target.value}))}/>
               {(modal==="addTx"?(form.txType||"expense"):ei?.type)==="expense"&&<PmBtns val={modal==="addTx"?form.pm||"نقدي":ei?.pm||"نقدي"} onChange={v=>modal==="addTx"?F("pm",v):setEi(p=>({...p,pm:v}))}/>}
@@ -2130,10 +2166,7 @@ export default function App(){
               <div style={{display:"flex",gap:8}}>{["أعطيت","أخذت"].map(k=><button key={k} onClick={()=>F("kind",k)} style={{flex:1,padding:10,border:"2px solid",borderColor:form.kind===k?(k==="أعطيت"?"#10b981":"#ef4444"):"#e8e8e4",borderRadius:10,background:form.kind===k?(k==="أعطيت"?"#10b98122":"#ef444422"):"transparent",color:form.kind===k?(k==="أعطيت"?"#10b981":"#ef4444"):"#888888",fontFamily:"Tajawal",fontWeight:700,cursor:"pointer",fontSize:13}}>{k}</button>)}</div>
               <input style={S.inp} placeholder="الشخص / الجهة" value={form.person||""} onChange={e=>F("person",e.target.value)}/>
               <input style={S.inp} placeholder="المبلغ" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
-              <select style={{...S.sel,border:"2px solid #6366f1"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}>
-                <option value="">⚠️ اختر الحساب (إجباري)</option>
-                {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
-              </select>
+              <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"/>
               <div style={{fontSize:11,color:"#6366f1",marginTop:-4,fontWeight:600}}>{form.kind==="أعطيت"?"↓ سيتقطع المبلغ من الحساب":"↑ سيضاف المبلغ للحساب"}</div>
               <input style={S.inp} placeholder="ملاحظة" value={form.note||""} onChange={e=>F("note",e.target.value)}/>
               <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
@@ -2170,10 +2203,10 @@ export default function App(){
             {modal==="transfer"&&<div style={S.col}>
               <div style={{padding:"10px 14px",background:"#6366f122",borderRadius:10,fontSize:14,color:"#6366f1",fontWeight:700,textAlign:"center"}}>⇄ تحويل بين الحسابات</div>
               <div><div style={{fontSize:12,color:"#475569",marginBottom:6}}>من حساب:</div>
-              <select style={S.sel} value={form.fromKey||""} onChange={e=>F("fromKey",e.target.value)}><option value="">اختر الحساب المصدر</option>{allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}</select></div>
+              <AccPicker value={form.fromKey} onChange={v=>F("fromKey",v)} border="#6366f1"/></div>
               <div style={{textAlign:"center",fontSize:24,color:"#6366f1"}}>↓</div>
               <div><div style={{fontSize:12,color:"#475569",marginBottom:6}}>إلى حساب:</div>
-              <select style={S.sel} value={form.toKey||""} onChange={e=>F("toKey",e.target.value)}><option value="">اختر الحساب الوجهة</option>{allAcc.filter(a=>a.key!==form.fromKey).map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}</select></div>
+              <AccPicker value={form.toKey} onChange={v=>F("toKey",v)} border="#6366f1" accList={allAcc.filter(a=>a.key!==form.fromKey)}/></div>
               <input style={S.inp} placeholder="المبلغ" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
               <input style={S.inp} type="date" value={form.transferDate||new Date().toISOString().split("T")[0]} onChange={e=>F("transferDate",e.target.value)}/>
               {form.fromKey&&form.toKey&&form.amount&&(
@@ -2189,7 +2222,7 @@ export default function App(){
               <input style={S.inp} placeholder="اسم الممتلك" value={form.astName||""} onChange={e=>F("astName",e.target.value)}/>
               <select style={S.sel} value={form.astType||""} onChange={e=>F("astType",e.target.value)}><option value="">نوع الممتلك</option>{["عقار","سيارة","ذهب","أرض","معدات","أخرى"].map(t=><option key={t} value={t}>{t}</option>)}</select>
               <input style={S.num} placeholder="0.00" type="number" step="0.01" value={form.astAmt||""} onChange={e=>F("astAmt",e.target.value)}/>
-              <select style={{...S.sel,border:"2px solid #14b8a6"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}><option value="">⚠️ اختر الحساب (إجباري)</option>{allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}</select>
+              <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#14b8a6"/>
               <input style={S.inp} placeholder="ملاحظة" value={form.astNote||""} onChange={e=>F("astNote",e.target.value)}/>
               <input style={S.inp} type="date" value={form.astDate||new Date().toISOString().split("T")[0]} onChange={e=>F("astDate",e.target.value)}/>
               <button style={S.btn("#14b8a6")} onClick={()=>{
@@ -2214,10 +2247,7 @@ export default function App(){
               </select>
               <input style={S.num} placeholder="0.00" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
               <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
-              <select style={{...S.sel,border:"2px solid #10b981"}} value={form.akey||""} onChange={e=>F("akey",e.target.value)}>
-                <option value="">⚠️ اختر الحساب (إجباري)</option>
-                {getBucketAccs("investment").map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
-              </select>
+              <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981" accList={getBucketAccs("investment")}/>
               <input style={S.inp} placeholder="ملاحظة (اختياري)" value={form.note||""} onChange={e=>F("note",e.target.value)}/>
               <button style={S.btn()} onClick={()=>{
                 const amt=parseFloat(form.amount);
@@ -2238,10 +2268,7 @@ export default function App(){
                 <div style={{fontWeight:700,fontSize:16,color:"#1a1a1a"}}>{ei.person}</div>
                 <div style={{color:"#1a6b4a",marginTop:4}}>المتبقي: {fmt(ei.remaining)}</div>
               </div>
-              <select style={S.sel} value={form.akey||""} onChange={e=>F("akey",e.target.value)}>
-                <option value="">اختر الحساب اللي يدخل فيه المبلغ</option>
-                {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name}</option>)}
-              </select>
+              <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981"/>
               <input style={S.inp} type="number" placeholder="المبلغ المرجع" value={form.amount||""} onChange={e=>F("amount",e.target.value)} max={ei.remaining}/>
               <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
               <button style={S.btn("#10b981")} onClick={()=>{

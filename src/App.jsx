@@ -1706,14 +1706,11 @@ export default function App(){
               return(
               <div key={t.id}>
                 {/* سطر مضغوط: ايقونة - تاريخ - الفئة - المبلغ */}
-                <div className="tx" style={{cursor:"pointer"}} onClick={()=>setOpenTxId(isOpen?null:t.id)}>
+                <div className="tx" style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10}} onClick={()=>setOpenTxId(isOpen?null:t.id)}>
                   <div style={{width:36,height:36,borderRadius:10,background:isPositive?"#10b98122":"#ef444422",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}><Ico src={hi?ic:null} fb={ic||typeIcon}/></div>
-                  <div style={{flex:1,minWidth:0,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                    <span style={{fontSize:11,color:"#888888",whiteSpace:"nowrap"}}>{t.date}</span>
-                    <span style={{fontSize:11,color:"#888888"}}>-</span>
-                    <span style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||cn}</span>
-                  </div>
-                  <span style={{fontSize:13,fontWeight:700,color:isPositive?"#10b981":"#ef4444",whiteSpace:"nowrap"}}>{isPositive?"+":"-"}{fmt(t.amount)} د.م</span>
+                  <span style={{fontSize:11,color:"#888888",whiteSpace:"nowrap",flexShrink:0}}>{t.date.slice(2).split("-").reverse().join("/")}</span>
+                  <span style={{fontSize:13,fontWeight:600,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||cn}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:isPositive?"#10b981":"#ef4444",whiteSpace:"nowrap",flexShrink:0}}>{isPositive?"+":"-"}{fmt(t.amount)} د.م</span>
                 </div>
                 {/* تفاصيل كاملة عند الكليك */}
                 {isOpen&&<div style={{background:"#f8fafc",borderRadius:10,padding:12,margin:"4px 0 8px",border:"1px solid #e2e8f0"}}>

@@ -122,6 +122,8 @@ export default function App(){
   const[selSv,setSelSv]=useState(null);
   const[selBk,setSelBk]=useState(null);
   const[ovExp,setOvExp]=useState({});
+  const[openTxId,setOpenTxId]=useState(null);
+  const[txTypeFilter,setTxTypeFilter]=useState("all");
   const[bkMsg,setBkMsg]=useState(null);
   const[budgetSec,setBudgetSec]=useState({goals:false,tranches:false,alloc:false});
   const[selBucket,setSelBucket]=useState(null);
@@ -1671,32 +1673,58 @@ export default function App(){
           </>;
         })()}
 
-        {page==="transactions"&&<>
+        {page==="transactions"&&(()=>{
+          const getTxType=t=>{
+            if(t.isLoan)return"loan";
+            if(t.isInvest)return"invest";
+            if(t.isAsset)return"asset";
+            if(t.isTransfer||t.pm==="تحويل")return"transfer";
+            if(t.pm==="كريدي")return"credit";
+            return t.type==="income"?"income":"expense";
+          };
+          const periodTxs=filterByPeriod(txs);
+          const typeFiltered=txTypeFilter==="all"?periodTxs:periodTxs.filter(t=>getTxType(t)===txTypeFilter);
+          const mInc=periodTxs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
+          const mExp=periodTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
+          const typeLabels={all:"الكل",income:"💰 المداخل",expense:"💸 المصاريف",transfer:"🔄 التحويلات",credit:"💳 الكريدي",loan:"🤝 السلف",asset:"🏠 الممتلكات",invest:"📈 الاستثمار"};
+          return(<>
           <div style={{...S.row}}><span style={{fontWeight:700,fontSize:16}}>المعاملات</span></div>
+          <PeriodSelector/>
+          <select style={{...S.sel,marginBottom:10}} value={txTypeFilter} onChange={e=>{setTxTypeFilter(e.target.value);setOpenTxId(null);}}>
+            {Object.entries(typeLabels).map(([k,l])=><option key={k} value={k}>{l}</option>)}
+          </select>
           <div style={{display:"flex",gap:8}}>
             {[["الدخل",mInc,"#10b981"],["المصاريف",mExp,"#ef4444"],["الصافي",mInc-mExp,mInc-mExp>=0?"#10b981":"#ef4444"]].map(([l,v,c])=>(
               <div key={l} style={{...S.card,flex:1,textAlign:"center",padding:"10px 4px"}}><div style={{fontSize:10,color:c}}>{l}</div><div style={{fontSize:12,fontWeight:700,color:c}}>{fmt(Math.abs(v))}</div></div>
             ))}
           </div>
           <div style={S.card}>
-            {txs.map(t=>{const{cn,sn,ic,hi}=tl(t);const ac=al(t.ref);const isOpen=ovExp[`tx_${t.id}`];return(
+            {typeFiltered.length===0&&<div style={{textAlign:"center",color:"#888888",padding:20,fontSize:13}}>ما كاينش معاملات</div>}
+            {typeFiltered.map(t=>{const{cn,sn,ic,hi}=tl(t);const ac=al(t.ref);const isOpen=openTxId===t.id;const txType=getTxType(t);
+              const typeIcon={income:"💰",expense:"💸",transfer:"🔄",credit:"💳",loan:"🤝",asset:"🏠",invest:"📈"}[txType];
+              const isPositive=t.type==="income";
+              return(
               <div key={t.id}>
-                {/* سطر مضغوط */}
-                <div className="tx" style={{cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`tx_${t.id}`]:!p[`tx_${t.id}`]}))}>
-                  <div style={{width:36,height:36,borderRadius:10,background:t.type==="income"?"#10b98122":"#ef444422",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}><Ico src={hi?ic:null} fb={ic}/></div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||cn}</div>
-                    <div style={{fontSize:10,color:"#888888"}}>{t.date}</div>
+                {/* سطر مضغوط: ايقونة - تاريخ - الفئة - المبلغ */}
+                <div className="tx" style={{cursor:"pointer"}} onClick={()=>setOpenTxId(isOpen?null:t.id)}>
+                  <div style={{width:36,height:36,borderRadius:10,background:isPositive?"#10b98122":"#ef444422",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}><Ico src={hi?ic:null} fb={ic||typeIcon}/></div>
+                  <div style={{flex:1,minWidth:0,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                    <span style={{fontSize:11,color:"#888888",whiteSpace:"nowrap"}}>{t.date}</span>
+                    <span style={{fontSize:11,color:"#888888"}}>-</span>
+                    <span style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||cn}</span>
                   </div>
-                  <span style={{fontSize:13,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444",whiteSpace:"nowrap"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:isPositive?"#10b981":"#ef4444",whiteSpace:"nowrap"}}>{isPositive?"+":"-"}{fmt(t.amount)} د.م</span>
                 </div>
-                {/* تفاصيل عند الكليك */}
+                {/* تفاصيل كاملة عند الكليك */}
                 {isOpen&&<div style={{background:"#f8fafc",borderRadius:10,padding:12,margin:"4px 0 8px",border:"1px solid #e2e8f0"}}>
-                  <div style={{fontSize:12,color:"#666666",marginBottom:8}}>
-                    <div>{cn}{sn&&` ← ${sn}`}</div>
-                    {ac&&<div style={{marginTop:2}}>📍 {ac}</div>}
-                    {t.pm&&<div style={{marginTop:2}}>💳 {t.pm}</div>}
-                    {t.note&&<div style={{marginTop:2}}>📝 {t.note}</div>}
+                  <div style={{fontSize:12,color:"#666666",marginBottom:8,display:"flex",flexDirection:"column",gap:4}}>
+                    <div>🏷️ {typeIcon} {typeLabels[txType]}</div>
+                    <div>📂 {cn}{sn&&` ← ${sn}`}</div>
+                    {ac&&<div>📍 {ac}</div>}
+                    {t.pm&&<div>💳 طريقة الدفع: {t.pm}</div>}
+                    <div>📅 {t.date}</div>
+                    <div style={{fontWeight:700,color:isPositive?"#10b981":"#ef4444"}}>💵 {isPositive?"+":"-"}{fmt(t.amount)} د.م</div>
+                    {t.note&&<div>📝 {t.note}</div>}
                   </div>
                   <div style={{display:"flex",gap:8}}>
                     <button style={{...S.btn("#6366f1"),flex:1,padding:"8px",fontSize:12}} onClick={e=>{e.stopPropagation();setEi({...t,amount:t.amount.toString(),catId:t.catId?.toString(),subId:t.subId?.toString()});om("edTx");}}>✏️ تعديل</button>
@@ -1706,7 +1734,8 @@ export default function App(){
               </div>
             );})}
           </div>
-        </>}
+          </>);
+        })()}
 
         {page==="budget"&&(()=>{
           const filtTxs=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset));

@@ -375,12 +375,25 @@ export default function App(){
     setCd(null);
   };
 
-  const expData=()=>{
+  const expData=async()=>{
     const d=JSON.stringify({banks,cash,assets,loans,cats,txs,budgetSettings},null,2);
+    const fileName="محفظتي-"+new Date().toISOString().split("T")[0]+".json";
+    const file=new File([d],fileName,{type:"application/json"});
+    // إذا المتصفح كيدعم المشاركة المباشرة (أندرويد) - نفتح قائمة المشاركة فيها Google Drive
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file],title:"نسخة محفظتي"});
+        setBkMsg("تم المشاركة ✅");setTimeout(()=>setBkMsg(null),3000);
+        return;
+      }catch(e){
+        if(e.name==="AbortError")return; // المستخدم سد القائمة
+      }
+    }
+    // fallback: تحميل عادي للملف
     const b=new Blob([d],{type:"application/json"});
     const u=URL.createObjectURL(b);
     const a=document.createElement("a");
-    a.href=u;a.download="محفظتي-"+new Date().toISOString().split("T")[0]+".json";a.click();
+    a.href=u;a.download=fileName;a.click();
     URL.revokeObjectURL(u);
     setBkMsg("تم التحميل ✅");setTimeout(()=>setBkMsg(null),3000);
   };

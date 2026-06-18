@@ -1963,13 +1963,13 @@ export default function App(){
             const selYear=ovExp.repYear||(years[0]||"2026");
             const selMonth=ovExp.repMonth||null;
             const yTxs=txs.filter(t=>t.date.startsWith(selYear)&&!t.isTransfer&&t.pm!=="تحويل");
-            const yInc=yTxs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-            const yExp=yTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+            const yInc=yTxs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&t.pm!=="سلف"&&!t.isLoan&&!t.isInvest&&!t.isAsset&&!(t.desc||"").includes("رجوع سلفة")&&!(t.desc||"").includes("تحويل")).reduce((s,t)=>s+t.amount,0);
+            const yExp=yTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&t.pm!=="سلف"&&!t.isLoan&&!t.isInvest&&!t.isAsset&&!(t.desc||"").includes("تحويل")).reduce((s,t)=>s+t.amount,0);
             const monthsData=Array.from({length:12},(_,i)=>{
               const m=`${selYear}-${String(i+1).padStart(2,"0")}`;
               const mTxs=yTxs.filter(t=>t.date.startsWith(m));
-              const inc=mTxs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-              const exp=mTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+              const inc=mTxs.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&t.pm!=="سلف"&&!t.isLoan&&!t.isInvest&&!t.isAsset&&!(t.desc||"").includes("رجوع سلفة")&&!(t.desc||"").includes("تحويل")).reduce((s,t)=>s+t.amount,0);
+              const exp=mTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&t.pm!=="سلف"&&!t.isLoan&&!t.isInvest&&!t.isAsset&&!(t.desc||"").includes("تحويل")).reduce((s,t)=>s+t.amount,0);
               return{m,lbl:new Date(m+"-01").toLocaleString("ar-MA",{month:"long"}),inc,exp,save:inc-exp,txs:mTxs};
             });
             return <>

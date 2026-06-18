@@ -34,7 +34,8 @@ const S={
 
 const CSS=`
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
-*{box-sizing:border-box;margin:0;padding:0;}
+*{box-sizing:border-box;margin:0;padding:0;font-weight:600;}
+input,select,textarea{font-weight:700;}
 body{background:linear-gradient(135deg,#f0f4ff 0%,#e8f5f0 50%,#f0f4ff 100%);min-height:100vh;}
 ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
 .tx{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(226,232,240,0.6);}.tx:last-child{border-bottom:none;}

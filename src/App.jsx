@@ -1,8 +1,58 @@
 import React, { useState, useRef, useEffect } from "react";
-import { createClient } from '@supabase/supabase-js';
-const _sb = createClient('https://fgcxhsqflbgpmjqoipol.supabase.co','sb_publishable_OiS-RS4qaOtmkuWop1f5AA_Nk8mOGXP');
-const _save = async(k,v)=>{ try{ const r=await _sb.from('app_data').upsert({id:k,data:JSON.stringify(v)}); console.log('saved',k,r.error||'ok'); }catch(e){console.log('save err',k,e);} };
-const _load = async(k)=>{ try{ const{data,error}=await _sb.from('app_data').select('data').eq('id',k).single(); console.log('load',k,error||'ok'); return data?.data?JSON.parse(data.data):null; }catch(e){console.log('load err',k,e);return null;} };
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+
+// ========== نظام تخزين محلي آمن (بحال تطبيقات Play Store) ==========
+// كل البيانات تتخزن فملف واحد JSON فالمساحة الخاصة بالتطبيق (Directory.Data)
+// + نسخة احتياطية تلقائية (.bak) قبل كل كتابة جديدة، باش إذا طاحت الكتابة الجديدة، نقدر نرجعو للنسخة السابقة
+const DATA_FILE="mahfazati_data.json";
+const BACKUP_FILE="mahfazati_data.bak.json";
+let _memCache=null; // كاش فالذاكرة لتفادي قراءة الملف فكل مرة
+
+const _readFullFile=async()=>{
+  if(_memCache)return _memCache;
+  try{
+    const r=await Filesystem.readFile({path:DATA_FILE,directory:Directory.Data,encoding:Encoding.UTF8});
+    const parsed=JSON.parse(r.data);
+    _memCache=parsed;
+    return parsed;
+  }catch(e){
+    // الملف الأساسي ماكاينش ولا تخرب - نحاول النسخة الاحتياطية
+    try{
+      const rb=await Filesystem.readFile({path:BACKUP_FILE,directory:Directory.Data,encoding:Encoding.UTF8});
+      const parsedB=JSON.parse(rb.data);
+      _memCache=parsedB;
+      console.log("⚠️ تم استرجاع البيانات من النسخة الاحتياطية");
+      return parsedB;
+    }catch(e2){
+      _memCache={};
+      return {};
+    }
+  }
+};
+
+const _writeFullFile=async(obj)=>{
+  try{
+    // أولاً نسخ الملف الحالي كـ backup قبل الكتابة (حماية من التعطل وقت الكتابة)
+    try{
+      const cur=await Filesystem.readFile({path:DATA_FILE,directory:Directory.Data,encoding:Encoding.UTF8});
+      await Filesystem.writeFile({path:BACKUP_FILE,directory:Directory.Data,data:cur.data,encoding:Encoding.UTF8});
+    }catch(e){/* أول مرة، ماكاينش ملف قديم - عادي */}
+    await Filesystem.writeFile({path:DATA_FILE,directory:Directory.Data,data:JSON.stringify(obj),encoding:Encoding.UTF8});
+    _memCache=obj;
+  }catch(e){
+    console.log("save err",e);
+  }
+};
+
+const _save = async(k,v)=>{
+  const all=await _readFullFile();
+  all[k]=v;
+  await _writeFullFile(all);
+};
+const _load = async(k)=>{
+  const all=await _readFullFile();
+  return all[k]!==undefined?all[k]:null;
+};
 import { X, Home, CreditCard, Wallet, Target, TrendingUp, BarChart3, ArrowUpRight, ArrowDownRight, Menu, ChevronLeft, ChevronRight, Plus, Trash2, Cloud, Settings, Building2, Coins, Package, HandCoins, Download, Upload, Check, Camera } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 

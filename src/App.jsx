@@ -375,27 +375,30 @@ export default function App(){
     setCd(null);
   };
 
-  const expData=async()=>{
+  const expData=()=>{
+    // تحميل مباشر للملف - الطريقة الأضمن والمضبوطة دايماً
     const d=JSON.stringify({banks,cash,assets,loans,cats,txs,budgetSettings},null,2);
     const fileName="محفظتي-"+new Date().toISOString().split("T")[0]+".json";
-    const file=new File([d],fileName,{type:"application/json"});
-    // إذا المتصفح كيدعم المشاركة المباشرة (أندرويد) - نفتح قائمة المشاركة فيها Google Drive
-    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-      try{
-        await navigator.share({files:[file],title:"نسخة محفظتي"});
-        setBkMsg("تم المشاركة ✅");setTimeout(()=>setBkMsg(null),3000);
-        return;
-      }catch(e){
-        if(e.name==="AbortError")return; // المستخدم سد القائمة
-      }
-    }
-    // fallback: تحميل عادي للملف
     const b=new Blob([d],{type:"application/json"});
     const u=URL.createObjectURL(b);
     const a=document.createElement("a");
     a.href=u;a.download=fileName;a.click();
     URL.revokeObjectURL(u);
-    setBkMsg("تم التحميل ✅");setTimeout(()=>setBkMsg(null),3000);
+    setBkMsg("تم التحميل ✅ شوف فولدر Downloads");setTimeout(()=>setBkMsg(null),3500);
+  };
+  const shareData=async()=>{
+    const d=JSON.stringify({banks,cash,assets,loans,cats,txs,budgetSettings},null,2);
+    const fileName="محفظتي-"+new Date().toISOString().split("T")[0]+".json";
+    const file=new File([d],fileName,{type:"application/json"});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file],title:"نسخة محفظتي"});
+      }catch(e){
+        if(e.name!=="AbortError")setBkMsg("❌ فشلت المشاركة، استعمل تحميل الملف");setTimeout(()=>setBkMsg(null),3000);
+      }
+    }else{
+      setBkMsg("⚠️ المشاركة المباشرة ماخدماش هنا، استعمل تحميل الملف");setTimeout(()=>setBkMsg(null),3500);
+    }
   };
   const impData=e=>{
     const file=e.target.files[0];if(!file)return;
@@ -800,7 +803,7 @@ export default function App(){
             <div className="mi" onClick={()=>setDp(null)}><ChevronRight size={16}/> رجوع</div>
             <div style={{fontWeight:700,color:"#1a1a1a",margin:"12px 0"}}>السحابة والنسخ</div>
             {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",marginBottom:12,fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
-            <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📤 تصدير</div><button style={S.btn("#10b981")} onClick={expData}>تحميل النسخة</button></div>
+            <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📤 تصدير</div><div style={{display:"flex",gap:8}}><button style={{...S.btn("#10b981"),flex:1}} onClick={expData}>تحميل النسخة</button><button style={{...S.btn("#6366f1"),flex:1}} onClick={shareData}>مشاركة 📱</button></div></div>
             <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📥 استيراد</div><button style={S.btn("#6366f1")} onClick={()=>fRef.current.click()}>اختر ملف JSON</button></div>
             <div style={{...S.card,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}>
               <div style={{fontWeight:600,color:"#ef4444",marginBottom:8}}>🗑️ إعادة ضبط كامل</div>
@@ -1514,6 +1517,7 @@ export default function App(){
                   </div>
                   {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
                   <button style={{...S.btn("#10b981"),padding:"13px"}} onClick={expData}>📤 تحميل نسخة احتياطية</button>
+                  <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={shareData}>📱 مشاركة (واتساب/درايف)</button>
                   <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>fRef.current.click()}>📥 استيراد من ملف</button>
                   <div style={{background:"#1a1d27",borderRadius:14,padding:16,border:"1px solid #ef444433"}}>
                     <div style={{fontWeight:700,color:"#ef4444",marginBottom:8,fontSize:15}}>🗑️ إعادة ضبط كامل</div>

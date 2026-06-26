@@ -450,6 +450,12 @@ export default function App(){
       setBkMsg("⚠️ المشاركة المباشرة ماخدماش هنا، استعمل تحميل الملف");setTimeout(()=>setBkMsg(null),3500);
     }
   };
+  const openDriveAfterExport=()=>{
+    expData(); // أولاً نحمل الملف
+    setTimeout(()=>{
+      window.open("https://drive.google.com/drive/my-drive","_blank");
+    },800); // نخلي وقت صغير للتحميل قبل فتح درايف
+  };
   const impData=e=>{
     const file=e.target.files[0];if(!file)return;
     const r=new FileReader();
@@ -853,7 +859,7 @@ export default function App(){
             <div className="mi" onClick={()=>setDp(null)}><ChevronRight size={16}/> رجوع</div>
             <div style={{fontWeight:700,color:"#1a1a1a",margin:"12px 0"}}>السحابة والنسخ</div>
             {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",marginBottom:12,fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
-            <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📤 تصدير</div><div style={{display:"flex",gap:8}}><button style={{...S.btn("#10b981"),flex:1}} onClick={expData}>تحميل النسخة</button><button style={{...S.btn("#6366f1"),flex:1}} onClick={shareData}>مشاركة 📱</button></div></div>
+            <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📤 تصدير</div><div style={{display:"flex",gap:8,marginBottom:8}}><button style={{...S.btn("#10b981"),flex:1}} onClick={expData}>تحميل النسخة</button><button style={{...S.btn("#6366f1"),flex:1}} onClick={shareData}>مشاركة 📱</button></div><button style={{...S.btn("#0ea5e9"),width:"100%"}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button></div>
             <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📥 استيراد</div><button style={S.btn("#6366f1")} onClick={()=>fRef.current.click()}>اختر ملف JSON</button></div>
             <div style={{...S.card,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}>
               <div style={{fontWeight:600,color:"#ef4444",marginBottom:8}}>🗑️ إعادة ضبط كامل</div>
@@ -1568,6 +1574,7 @@ export default function App(){
                   {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
                   <button style={{...S.btn("#10b981"),padding:"13px"}} onClick={expData}>📤 تحميل نسخة احتياطية</button>
                   <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={shareData}>📱 مشاركة (واتساب/درايف)</button>
+                  <button style={{...S.btn("#0ea5e9"),padding:"13px"}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button>
                   <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>fRef.current.click()}>📥 استيراد من ملف</button>
                   <div style={{background:"#1a1d27",borderRadius:14,padding:16,border:"1px solid #ef444433"}}>
                     <div style={{fontWeight:700,color:"#ef4444",marginBottom:8,fontSize:15}}>🗑️ إعادة ضبط كامل</div>

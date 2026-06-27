@@ -847,8 +847,7 @@ export default function App(){
                   <span style={{fontSize:12,color:"rgba(255,255,255,.4)"}}>الأصل: {fmt(l.amount)}</span>
                 </div>
                 <div style={{display:"flex",gap:6}}>
-                  <input placeholder="مبلغ السداد..." style={{...S.inp,flex:1,padding:"7px 10px",fontSize:12}} id={`lp${l.id}`} type="number"/>
-                  <button style={S.btn("#10b981",false)} onClick={()=>{const el=document.getElementById(`lp${l.id}`);if(el?.value){setLoans(p=>p.map(x=>x.id===l.id?{...x,remaining:Math.max(0,x.remaining-parseFloat(el.value))}:x));el.value="";}}}> سدد</button>
+                  <button style={{...S.btn("#10b981",false),flex:1,padding:"9px"}} onClick={()=>{setEi(l);om("returnLoan");}}>💰 تسجيل رجوع/سداد</button>
                 </div>
               </div>
             ))}
@@ -1330,6 +1329,16 @@ export default function App(){
                 <div style={{height:"100%",width:pct+"%",background:loan.kind==="أعطيت"?"#10b981":"#ef4444",borderRadius:4}}/>
               </div>
               <div style={{fontSize:12,color:"#888888",textAlign:"center"}}>تم رجوع {fmt(paidBack)} ({Math.round(pct)}%)</div>
+              {(()=>{
+                const txTotal=loanTxs.reduce((s,t)=>s+t.amount,0);
+                const diff=paidBack-txTotal;
+                if(Math.abs(diff)>0.01)return(
+                  <div style={{...S.card,background:"#fef3c7",border:"1px solid #f59e0b33",padding:10,fontSize:11,color:"#92400e"}}>
+                    ⚠️ كاين {fmt(Math.abs(diff))} د.م متسجلة فالسلفة لكن بلا معاملة (سجلات قديمة) — هاد المبلغ ماشي مبين فاللائحة تحت
+                  </div>
+                );
+                return null;
+              })()}
               <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل الدفعات ({loanTxs.length})</div>
               {loanTxs.map(t=>(
                 <div key={t.id} style={{...S.card,padding:"12px 16px"}}>

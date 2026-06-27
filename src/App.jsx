@@ -354,6 +354,13 @@ export default function App(){
   const delTx=(id)=>{
     const t=txs.find(x=>x.id===id);if(!t)return;
     updBal(t.ref,t.amount,t.type,"remove");
+    // إذا كانت معاملة مرتبطة بسلفة (رجوع/سداد)، نرجعو remaining للسلفة الأصلية
+    if(t.isLoan&&(t.desc||"").includes("رجوع سلفة")){
+      const personMatch=loans.find(l=>(t.desc||"").includes(l.person));
+      if(personMatch){
+        setLoans(p=>p.map(l=>l.id===personMatch.id?{...l,remaining:Math.min(l.amount,l.remaining+t.amount)}:l));
+      }
+    }
     setTxs(p=>p.filter(x=>x.id!==id));
   };
   const saveTxEdit=()=>{
@@ -1334,7 +1341,12 @@ export default function App(){
                 const diff=paidBack-txTotal;
                 if(Math.abs(diff)>0.01)return(
                   <div style={{...S.card,background:"#fef3c7",border:"1px solid #f59e0b33",padding:10,fontSize:11,color:"#92400e"}}>
-                    ⚠️ كاين {fmt(Math.abs(diff))} د.م متسجلة فالسلفة لكن بلا معاملة (سجلات قديمة) — هاد المبلغ ماشي مبين فاللائحة تحت
+                    <div style={{marginBottom:8}}>⚠️ كاين {fmt(Math.abs(diff))} د.م متسجلة فالسلفة لكن بلا معاملة (سجلات قديمة من bug تصلح دابا)</div>
+                    <button style={{...S.btn("#f59e0b",false),padding:"7px 12px",fontSize:11}} onClick={()=>{
+                      if(window.confirm(`واش بغيتي تصلح الباقي ديال السلفة ليطابق ${fmt(txTotal)} د.م رجوع مسجل؟`)){
+                        setLoans(p=>p.map(l=>l.id===loan.id?{...l,remaining:Math.max(0,l.amount-txTotal)}:l));
+                      }
+                    }}>✓ تصحيح الباقي ليطابق السجل</button>
                   </div>
                 );
                 return null;

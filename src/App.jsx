@@ -344,11 +344,13 @@ export default function App(){
     setTxs(p=>[tx,...p]);
     if(tx.pm!=="كريدي"&&acc)updBal(acc.ref,tx.amount,tx.type,"add");
     cm();
-    // توزيع الدخل تلقائياً
+    // توزيع الدخل تلقائياً - بمجموع الشهر الكامل
     if(tx.type==="income"&&!tx.isTransfer){
-      const tr=budgetSettings.tranches?.find(t=>tx.amount>=t.min&&tx.amount<=t.max)||budgetSettings.tranches?.[budgetSettings.tranches.length-1];
+      const curMonth=tx.date.slice(0,7);
+      const monthInc=txs.filter(t=>t.type==="income"&&!t.isTransfer&&t.date.startsWith(curMonth)).reduce((s,t)=>s+t.amount,0)+tx.amount;
+      const tr=budgetSettings.tranches?.find(t=>monthInc>=t.min&&monthInc<=t.max)||budgetSettings.tranches?.[budgetSettings.tranches.length-1];
       const initPcts={2:tr?.pcts[2]||20,3:tr?.pcts[3]||15,4:tr?.pcts[4]||15,5:tr?.pcts[5]||10};
-      setDistModal({income:tx.amount,step:1,customPcts:initPcts});
+      setDistModal({income:monthInc,step:1,customPcts:initPcts});
     }
   };
   const delTx=(id)=>{
@@ -499,10 +501,10 @@ export default function App(){
   if(!isAuth) return (
     <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"linear-gradient(135deg,#f5f5f0,#e8f5ee)",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');*{box-sizing:border-box;margin:0;padding:0;}`}</style>
-      <div style={{background:"#1a1d27",borderRadius:24,padding:36,width:"100%",maxWidth:340,border:"1px solid #e8e8e4",textAlign:"center"}}>
+      <div style={{background:"white",borderRadius:24,padding:36,width:"100%",maxWidth:340,boxShadow:"0 8px 32px rgba(26,107,74,.12)",textAlign:"center"}}>
         <div style={{fontSize:50,marginBottom:16}}>💰</div>
-        <div style={{fontSize:22,fontWeight:900,color:"#1a1a1a",marginBottom:6}}>محفظتي</div>
-        <div style={{fontSize:13,color:"#475569",marginBottom:28}}>أدخل كلمة السر للدخول</div>
+        <div style={{fontSize:22,fontWeight:900,color:"#1a6b4a",marginBottom:6}}>محفظتي</div>
+        <div style={{fontSize:13,color:"#888888",marginBottom:28}}>أدخل كلمة السر للدخول</div>
         <div style={{position:"relative",marginBottom:8}}>
           <input type={showPw?"text":"password"} placeholder="كلمة السر" value={pwInput}
             onChange={e=>{setPwInput(e.target.value);setPwErr(false);}}
@@ -620,44 +622,44 @@ export default function App(){
         <button style={{...S.btn(isE?"#ef4444":"#10b981"),padding:"11px"}} onClick={()=>om("addMCat",{catType})}>+ إضافة تصنيف جديد</button>
       </div>
       {cats[catType].map(cat=>(
-        <div key={cat.id} style={{borderBottom:"1px solid rgba(255,255,255,.07)"}}>
-          <div style={{display:"flex",alignItems:"center",padding:"16px 14px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`cat_${cat.id}`]:!p[`cat_${cat.id}`]}))}>
-            <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,255,255,.12)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",fontSize:22,marginLeft:14,flexShrink:0}}>
+        <div key={cat.id} style={{background:"white",borderRadius:16,margin:"0 14px 8px",boxShadow:"0 1px 6px rgba(0,0,0,.06)",overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",padding:"14px 14px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`cat_${cat.id}`]:!p[`cat_${cat.id}`]}))}>
+            <div style={{width:44,height:44,borderRadius:13,background:cat.color+"22"||"#10b98122",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",fontSize:22,marginLeft:14,flexShrink:0}}>
               <Ico src={cat.ci} fb={cat.icon}/>
             </div>
             <span style={{flex:1,fontWeight:800,fontSize:16,color:"#1a1a1a"}}>{cat.name}</span>
-            <div style={{display:"flex",gap:8,opacity:ovExp[`del_cat_${cat.id}`]?1:0,transition:"opacity .2s"}} onClick={e=>e.stopPropagation()}>
-              <button style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:8,padding:"5px 10px",cursor:"pointer",color:"#1a1a1a",fontSize:12,fontFamily:"Tajawal"}} onClick={()=>{setEi({...cat,catType});om("edMCat");}}>تعديل</button>
-              <button style={{background:"rgba(239,68,68,.25)",border:"none",borderRadius:8,padding:"5px 8px",cursor:"pointer",color:"#fca5a5",fontSize:12,fontFamily:"Tajawal"}} onClick={()=>ask("mcat",cat.id,cat.name,catType)}>حذف</button>
+            <div style={{display:"flex",gap:6,opacity:ovExp[`del_cat_${cat.id}`]?1:0,transition:"opacity .2s"}} onClick={e=>e.stopPropagation()}>
+              <button style={{background:"#e8f5ee",border:"none",borderRadius:8,padding:"5px 10px",cursor:"pointer",color:"#1a6b4a",fontSize:12,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>{setEi({...cat,catType});om("edMCat");}}>تعديل</button>
+              <button style={{background:"#fef2f2",border:"none",borderRadius:8,padding:"5px 8px",cursor:"pointer",color:"#ef4444",fontSize:12,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>ask("mcat",cat.id,cat.name,catType)}>حذف</button>
             </div>
             <div style={{width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={e=>{e.stopPropagation();setOvExp(p=>({...p,[`del_cat_${cat.id}`]:!p[`del_cat_${cat.id}`]}));}}>
-              <span style={{fontSize:18,color:"rgba(255,255,255,.3)"}}>⋯</span>
+              <span style={{fontSize:18,color:"#888888"}}>⋯</span>
             </div>
-            <span style={{color:"rgba(255,255,255,.35)",fontSize:15}}>{ovExp[`cat_${cat.id}`]?"▲":"▼"}</span>
+            <span style={{color:"#888888",fontSize:15}}>{ovExp[`cat_${cat.id}`]?"▲":"▼"}</span>
           </div>
           {ovExp[`cat_${cat.id}`]&&<>
             {cat.subs.map(s=>{
               const used=txs.some(t=>t.subId===s.id);
-              return <div key={s.id} style={{display:"flex",alignItems:"center",padding:"13px 14px 13px 28px",borderBottom:"1px solid rgba(255,255,255,.04)"}}>
-                <div style={{width:6,height:6,borderRadius:"50%",background:"rgba(255,255,255,.3)",marginLeft:12,flexShrink:0}}/>
-                <span style={{flex:1,fontSize:15,color:"rgba(255,255,255,.85)"}}>{s.name}</span>
-                {used&&<span style={{fontSize:10,color:"#fcd34d",marginLeft:6}}>●</span>}
-                <div style={{display:"flex",gap:8,opacity:ovExp[`del_sub_${s.id}`]?1:0,transition:"opacity .2s"}} onClick={e=>e.stopPropagation()}>
-                  <button style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"#1a1a1a",fontSize:11,fontFamily:"Tajawal"}} onClick={()=>{setEi({...s,catType,catId:cat.id});om("edSCat");}}>تعديل</button>
-                  <button style={{background:"rgba(239,68,68,.2)",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"#fca5a5",fontSize:11,fontFamily:"Tajawal"}} onClick={()=>ask("scat",s.id,s.name,{ct:catType,cid:cat.id})}>حذف</button>
+              return <div key={s.id} style={{display:"flex",alignItems:"center",padding:"11px 14px 11px 28px",borderTop:"1px solid #f0f0f0",background:"#fafafa"}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:"#1a6b4a",marginLeft:12,flexShrink:0,opacity:.5}}/>
+                <span style={{flex:1,fontSize:14,color:"#333333",fontWeight:600}}>{s.name}</span>
+                {used&&<span style={{fontSize:10,color:"#f59e0b",marginLeft:6}}>●</span>}
+                <div style={{display:"flex",gap:6,opacity:ovExp[`del_sub_${s.id}`]?1:0,transition:"opacity .2s"}} onClick={e=>e.stopPropagation()}>
+                  <button style={{background:"#e8f5ee",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"#1a6b4a",fontSize:11,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>{setEi({...s,catType,catId:cat.id});om("edSCat");}}>تعديل</button>
+                  <button style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:11,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>ask("scat",s.id,s.name,{ct:catType,cid:cat.id})}>حذف</button>
                 </div>
                 <div style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`del_sub_${s.id}`]:!p[`del_sub_${s.id}`]}))}>
-                  <span style={{fontSize:16,color:"rgba(255,255,255,.25)"}}>⋯</span>
+                  <span style={{fontSize:16,color:"#888888"}}>⋯</span>
                 </div>
               </div>;
             })}
-            <div style={{padding:"8px 14px 10px 28px"}}>
-              <button style={{background:"rgba(255,255,255,.06)",border:"1px dashed rgba(255,255,255,.2)",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"rgba(255,255,255,.5)",fontSize:13,fontFamily:"Tajawal",width:"100%"}} onClick={()=>om("addSCat",{catType,catId:cat.id,catName:cat.name})}>+ إضافة فرع</button>
+            <div style={{padding:"8px 14px 10px"}}>
+              <button style={{background:"#f0fdf4",border:"1px dashed #1a6b4a66",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#1a6b4a",fontSize:13,fontFamily:"Tajawal",fontWeight:700,width:"100%"}} onClick={()=>om("addSCat",{catType,catId:cat.id,catName:cat.name})}>+ إضافة فرع</button>
             </div>
           </>}
         </div>
       ))}
-      {cats[catType].length===0&&<div style={{textAlign:"center",padding:30,color:"rgba(255,255,255,.3)",fontSize:14}}>لا توجد تصنيفات — أضف تصنيفاً</div>}
+      {cats[catType].length===0&&<div style={{textAlign:"center",padding:30,color:"#888888",fontSize:14}}>لا توجد تصنيفات — أضف تصنيفاً</div>}
     </>;
   };
 
@@ -2339,7 +2341,7 @@ export default function App(){
                 <option value="">اختر التصنيف</option>
                 {cats[modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense")].map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}
               </select>
-              {(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx")F("subId",e.target.value);else setEi(p=>({...p,subId:e.target.value}));}}><option value="">الفرع (اختياري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
+              {(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx")F("subId",e.target.value);else setEi(p=>({...p,subId:e.target.value}));}}><option value="">⚠️ الفرع (إجباري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
               {modal==="addTx"&&(form.pm||"نقدي")!=="كريدي"&&(form.txType||"expense")!=="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"
                 accList={form.txType==="invest"?getBucketAccs("investment"):form.txType==="retire"?getBucketAccs("retirement"):form.txType==="emergency"?getBucketAccs("emergency"):form.txType==="assets_buy"?getBucketAccs("assets"):getBucketAccs("expenses")}/>}
               {modal==="addTx"&&(form.txType||"expense")==="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981"/>}

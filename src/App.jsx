@@ -434,16 +434,29 @@ export default function App(){
     setCd(null);
   };
 
-  const expData=()=>{
-    // تحميل مباشر للملف - الطريقة الأضمن والمضبوطة دايماً
+  const expData=async()=>{
     const d=JSON.stringify({banks,cash,assets,loans,cats,txs,budgetSettings},null,2);
-    const fileName="محفظتي-"+new Date().toISOString().split("T")[0]+".json";
-    const b=new Blob([d],{type:"application/json"});
-    const u=URL.createObjectURL(b);
-    const a=document.createElement("a");
-    a.href=u;a.download=fileName;a.click();
-    URL.revokeObjectURL(u);
-    setBkMsg("تم التحميل ✅ شوف فولدر Downloads");setTimeout(()=>setBkMsg(null),3500);
+    const fileName="mahfazati-backup-"+new Date().toISOString().split("T")[0]+".json";
+    try{
+      // محاولة الكتابة فـ Downloads الحقيقي ديال الهاتف (Capacitor)
+      const {Filesystem,Directory,Encoding}=await import("@capacitor/filesystem");
+      await Filesystem.writeFile({
+        path:fileName,
+        data:d,
+        directory:Directory.Documents,
+        encoding:Encoding.UTF8,
+        recursive:true
+      });
+      setBkMsg("✅ تم الحفظ فـ Documents/"+fileName);setTimeout(()=>setBkMsg(null),4000);
+    }catch(e){
+      // fallback للمتصفح العادي
+      const b=new Blob([d],{type:"application/json"});
+      const u=URL.createObjectURL(b);
+      const a=document.createElement("a");
+      a.href=u;a.download=fileName;a.click();
+      URL.revokeObjectURL(u);
+      setBkMsg("✅ تم التحميل — شوف Downloads");setTimeout(()=>setBkMsg(null),3500);
+    }
   };
   const shareData=async()=>{
     const d=JSON.stringify({banks,cash,assets,loans,cats,txs,budgetSettings},null,2);

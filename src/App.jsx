@@ -498,10 +498,11 @@ export default function App(){
           }));
         }
         if(d.txs&&d.txs.length>0){
+          // نحدث المعاملات الموجودة + نزيد الجديدة
           setTxs(p=>{
-            const existingIds=new Set(p.map(t=>t.id));
-            const newTxs=d.txs.filter(t=>!existingIds.has(t.id));
-            return [...p,...newTxs].sort((a,b)=>b.date.localeCompare(a.date));
+            const existingMap=new Map(p.map(t=>[t.id,t]));
+            d.txs.forEach(t=>existingMap.set(t.id,t)); // override بالملف المستورد
+            return [...existingMap.values()].sort((a,b)=>b.date.localeCompare(a.date));
           });
         }
         setBkMsg(`تم الاستيراد ✅ — ${d.txs?.length||0} معاملة`);

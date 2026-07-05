@@ -1283,6 +1283,47 @@ export default function App(){
             </>;
           }
 
+          if(ovPage==="invDetail"&&ovExp.ovInv){
+            const invName=ovExp.ovInv;
+            const invTxsOut=txs.filter(t=>t.isInvest&&t.type==="expense"&&((t.invName||"")==invName||(t.desc||"").replace("استثمار: ","")==invName));
+            const invTxsIn=txs.filter(t=>t.isInvest&&t.type==="income"&&((t.invName||"")==invName||(t.desc||"").replace("ربح: ","").replace("عائد: ","")==invName));
+            const invested=invTxsOut.reduce((s,t)=>s+t.amount,0);
+            const returned=invTxsIn.reduce((s,t)=>s+t.amount,0);
+            const net=returned-invested;
+            const allInvTxs=[...invTxsOut,...invTxsIn].sort((a,b)=>b.date.localeCompare(a.date));
+            return <>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
+                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"invest",ovInv:null}))}>← رجوع</button>
+                <span style={{fontWeight:800,fontSize:17}}>📈 {invName}</span>
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:8}}>
+                <div style={{...S.card,flex:1,textAlign:"center",background:"#ef444410",padding:12}}>
+                  <div style={{fontSize:10,color:"#ef4444"}}>📉 مستثمر</div>
+                  <div style={{fontSize:18,fontWeight:900,color:"#ef4444"}}>{fmt(invested)}</div>
+                </div>
+                <div style={{...S.card,flex:1,textAlign:"center",background:"#10b98110",padding:12}}>
+                  <div style={{fontSize:10,color:"#10b981"}}>📈 عائد</div>
+                  <div style={{fontSize:18,fontWeight:900,color:"#10b981"}}>{fmt(returned)}</div>
+                </div>
+              </div>
+              <div style={{...S.card,textAlign:"center",background:net>=0?"#10b98110":"#ef444410",border:`1px solid ${net>=0?"#10b98133":"#ef444433"}`,padding:12,marginBottom:8}}>
+                <div style={{fontSize:11,color:net>=0?"#1a6b4a":"#ef4444"}}>{net>=0?"💚 صافي الربح":"🔴 صافي الخسارة"}</div>
+                <div style={{fontSize:22,fontWeight:900,color:net>=0?"#1a6b4a":"#ef4444"}}>{net>=0?"+":""}{fmt(net)}</div>
+              </div>
+              <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل المعاملات ({allInvTxs.length})</div>
+              {allInvTxs.map(t=>(
+                <div key={t.id} style={{...S.card,padding:"12px 16px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:38,height:38,borderRadius:10,background:t.type==="income"?"#10b98120":"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{t.type==="income"?"💰":"📈"}</div>
+                    <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc}</div><div style={{fontSize:11,color:"#888888"}}>{t.date}</div></div>
+                    <span style={{fontSize:14,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
+                  </div>
+                </div>
+              ))}
+              {allInvTxs.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>ما كاينش معاملات</div>}
+            </>;
+          }
+
           if(ovPage==="invest") return <>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
               <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
@@ -1291,10 +1332,26 @@ export default function App(){
             {(()=>{
               const invTxsOut=txs.filter(t=>t.isInvest&&t.type==="expense");
               const invTxsIn=txs.filter(t=>t.isInvest&&t.type==="income");
-              const invTotal=invTxsOut.reduce((s,t)=>s+t.amount,0); // مجموع ما استثمرتي
-              const invReturn=invTxsIn.reduce((s,t)=>s+t.amount,0); // مجموع ما رجع
-              const invNet=invReturn-invTotal; // الربح/الخسارة الصافية
-              const invTxsAll=[...invTxsOut,...invTxsIn].sort((a,b)=>b.date.localeCompare(a.date));
+              const invTotal=invTxsOut.reduce((s,t)=>s+t.amount,0);
+              const invReturn=invTxsIn.reduce((s,t)=>s+t.amount,0);
+              const invNet=invReturn-invTotal;
+
+              // تجميع الاستثمارات بالاسم
+              const invMap={};
+              invTxsOut.forEach(t=>{
+                const name=t.invName||(t.desc||"").replace("استثمار: ","");
+                if(!invMap[name])invMap[name]={name,type:t.pm||t.invType||"",invested:0,returned:0,txs:[]};
+                invMap[name].invested+=t.amount;
+                invMap[name].txs.push(t);
+              });
+              invTxsIn.forEach(t=>{
+                const name=t.invName||(t.desc||"").replace("ربح: ","").replace("عائد: ","");
+                if(!invMap[name])invMap[name]={name,type:"",invested:0,returned:0,txs:[]};
+                invMap[name].returned+=t.amount;
+                invMap[name].txs.push(t);
+              });
+              const invList=Object.values(invMap);
+
               return <>
                 <div style={{display:"flex",gap:8,marginBottom:8}}>
                   <div style={{...S.card,flex:1,textAlign:"center",background:"#ef444410",padding:12}}>
@@ -1310,19 +1367,33 @@ export default function App(){
                   <div style={{fontSize:11,color:invNet>=0?"#1a6b4a":"#ef4444"}}>{invNet>=0?"💚 صافي الربح":"🔴 صافي الخسارة"}</div>
                   <div style={{fontSize:22,fontWeight:900,color:invNet>=0?"#1a6b4a":"#ef4444"}}>{invNet>=0?"+":""}{fmt(invNet)}</div>
                 </div>
-                {invTxsAll.length>0&&<>
-                  <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل الاستثمارات ({invTxsAll.length})</div>
-                  {invTxsAll.map(t=>(
-                    <div key={t.id} style={{...S.card,padding:"12px 16px"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <div style={{width:38,height:38,borderRadius:10,background:t.type==="income"?"#10b98120":"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{t.type==="income"?"💰":"📈"}</div>
-                        <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc}</div><div style={{fontSize:11,color:"#888888"}}>{t.date}</div></div>
-                        <span style={{fontSize:14,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
+
+                {invList.length>0&&<>
+                  <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 الاستثمارات ({invList.length})</div>
+                  {invList.map(inv=>{
+                    const net=inv.returned-inv.invested;
+                    return(
+                      <div key={inv.name} style={{...S.card,padding:"14px 16px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,ovPage:"invDetail",ovInv:inv.name}))}>
+                        <div style={{display:"flex",alignItems:"center",gap:12}}>
+                          <div style={{width:44,height:44,borderRadius:13,background:"#10b98122",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>📈</div>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:700,fontSize:15}}>{inv.name}</div>
+                            <div style={{fontSize:11,color:"#888888"}}>{inv.type||"استثمار"}</div>
+                          </div>
+                          <div style={{textAlign:"left"}}>
+                            <div style={{fontSize:15,fontWeight:900,color:"#ef4444"}}>-{fmt(inv.invested)}</div>
+                            {inv.returned>0&&<div style={{fontSize:12,fontWeight:700,color:"#10b981"}}>+{fmt(inv.returned)}</div>}
+                          </div>
+                          <span style={{color:"#888888",fontSize:18}}>›</span>
+                        </div>
+                        {net!==0&&<div style={{marginTop:8,padding:"6px 10px",borderRadius:8,background:net>=0?"#10b98110":"#ef444410",fontSize:12,fontWeight:700,color:net>=0?"#1a6b4a":"#ef4444",textAlign:"center"}}>
+                          {net>=0?"💚 ربح ":"🔴 خسارة "}{fmt(Math.abs(net))} د.م
+                        </div>}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </>}
-                {invTxsAll.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>ما كاينش معاملات استثمار</div>}
+                {invList.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>ما كاينش استثمارات</div>}
               </>;
             })()}
           </>;
@@ -2519,10 +2590,13 @@ export default function App(){
                 if(!form.akey){showErr("خاصك تختار الحساب");return;}
                 const acc=allAcc.find(a=>a.key===form.akey);
                 if(!acc){showErr("الحساب غير موجود");return;}
-                setTxs(p=>[{id:Date.now(),type:"expense",amount:amt,catId:null,subId:null,
+                const invTx={id:Date.now(),type:"expense",amount:amt,catId:null,subId:null,
                   desc:`استثمار: ${form.invName}`,date:form.date||new Date().toISOString().split("T")[0],
-                  pm:"استثمار",ref:acc.ref,isAsset:false,isInvest:true,note:form.note||""},...p]);
-                cm();
+                  pm:form.invType||"استثمار",ref:acc.ref,isAsset:false,isInvest:true,
+                  invName:form.invName,invType:form.invType||"",note:form.note||""};
+                setTxs(p=>[invTx,...p]);
+                updBal(acc.ref,amt,"expense","add"); // تحيد المبلغ من الحساب
+                cm();showErr("✅ تم تسجيل الاستثمار وتحديث الرصيد");
               }}>تأكيد الاستثمار 📈</button>
             </div>}
             {modal==="returnLoan"&&ei&&<div style={S.col}>

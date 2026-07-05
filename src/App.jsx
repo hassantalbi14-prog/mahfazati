@@ -1161,8 +1161,16 @@ export default function App(){
             const accInfo=allAcc.find(a=>a.ref.k===ref.k&&(ref.k==="bank"?(a.ref.bid===ref.bid&&a.ref.aid===ref.aid):a.ref.cid===ref.cid));
             if(!accInfo)return null;
             const accTxs=txs.filter(t=>t.ref&&t.ref.k===ref.k&&(ref.k==="bank"?(t.ref.bid===ref.bid&&t.ref.aid===ref.aid):t.ref.cid===ref.cid)).sort((a,b)=>b.date.localeCompare(a.date));
-            const accIn=accTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
-            const accOut=accTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
+            // نفصل بين المعاملات العادية، التحويلات، الاستثمارات، السلف
+            const realAccIn=accTxs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+            const realAccOut=accTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+            const transferIn=accTxs.filter(t=>t.type==="income"&&t.isTransfer).reduce((s,t)=>s+t.amount,0);
+            const transferOut=accTxs.filter(t=>t.type==="expense"&&t.isTransfer).reduce((s,t)=>s+t.amount,0);
+            const investOut=accTxs.filter(t=>t.isInvest&&t.type==="expense").reduce((s,t)=>s+t.amount,0);
+            const loanIn=accTxs.filter(t=>t.isLoan&&t.type==="income").reduce((s,t)=>s+t.amount,0);
+            const loanOut=accTxs.filter(t=>t.isLoan&&t.type==="expense").reduce((s,t)=>s+t.amount,0);
+            const accIn=realAccIn;
+            const accOut=realAccOut;
             return <>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
                 <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:ref.k==="bank"?"bank":"cash",ovAcc:null}))}>← رجوع</button>
@@ -1173,8 +1181,14 @@ export default function App(){
                 <div style={{fontSize:26,fontWeight:900,color:"#6366f1"}}>{fmt(accInfo.balance)}</div>
               </div>
               <div style={{display:"flex",gap:8}}>
-                <div style={{...S.card,flex:1,textAlign:"center",background:"#10b98110",padding:10}}><div style={{fontSize:10,color:"#10b981"}}>الدخل الكلي</div><div style={{fontSize:15,fontWeight:900,color:"#10b981"}}>{fmt(accIn)}</div></div>
-                <div style={{...S.card,flex:1,textAlign:"center",background:"#ef444410",padding:10}}><div style={{fontSize:10,color:"#ef4444"}}>الخروج الكلي</div><div style={{fontSize:15,fontWeight:900,color:"#ef4444"}}>{fmt(accOut)}</div></div>
+                <div style={{...S.card,flex:1,textAlign:"center",background:"#10b98110",padding:10}}><div style={{fontSize:10,color:"#10b981"}}>💰 دخل</div><div style={{fontSize:15,fontWeight:900,color:"#10b981"}}>{fmt(realAccIn)}</div></div>
+                <div style={{...S.card,flex:1,textAlign:"center",background:"#ef444410",padding:10}}><div style={{fontSize:10,color:"#ef4444"}}>💸 مصاريف</div><div style={{fontSize:15,fontWeight:900,color:"#ef4444"}}>{fmt(realAccOut)}</div></div>
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:8}}>
+                {transferIn>0&&<div style={{...S.card,flex:1,textAlign:"center",background:"#3b82f610",padding:8}}><div style={{fontSize:9,color:"#3b82f6"}}>🔄 تحويل وارد</div><div style={{fontSize:13,fontWeight:900,color:"#3b82f6"}}>{fmt(transferIn)}</div></div>}
+                {transferOut>0&&<div style={{...S.card,flex:1,textAlign:"center",background:"#3b82f610",padding:8}}><div style={{fontSize:9,color:"#3b82f6"}}>🔄 تحويل صادر</div><div style={{fontSize:13,fontWeight:900,color:"#3b82f6"}}>{fmt(transferOut)}</div></div>}
+                {investOut>0&&<div style={{...S.card,flex:1,textAlign:"center",background:"#10b98110",padding:8}}><div style={{fontSize:9,color:"#10b981"}}>📈 استثمار</div><div style={{fontSize:13,fontWeight:900,color:"#10b981"}}>{fmt(investOut)}</div></div>}
+                {(loanIn>0||loanOut>0)&&<div style={{...S.card,flex:1,textAlign:"center",background:"#f59e0b10",padding:8}}><div style={{fontSize:9,color:"#f59e0b"}}>🤝 سلف</div><div style={{fontSize:13,fontWeight:900,color:"#f59e0b"}}>{fmt(loanIn||loanOut)}</div></div>}
               </div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل المعاملات ({accTxs.length})</div>
               {accTxs.map(t=>(
@@ -1261,37 +1275,40 @@ export default function App(){
               <span style={{fontWeight:800,fontSize:17}}>📈 الاستثمار</span>
             </div>
             {(()=>{
-              const invAlloc=(budgetSettings.allocations||[]).find(a=>a.type==="investment");
-              const invAccs=allAcc.filter(ac=>(invAlloc?.accountKeys||[]).includes(ac.key));
-              const invTotal=invAccs.reduce((s,a)=>s+a.balance,0);
-              const invTxs=txs.filter(t=>t.isInvest);
+              const invTxsOut=txs.filter(t=>t.isInvest&&t.type==="expense");
+              const invTxsIn=txs.filter(t=>t.isInvest&&t.type==="income");
+              const invTotal=invTxsOut.reduce((s,t)=>s+t.amount,0); // مجموع ما استثمرتي
+              const invReturn=invTxsIn.reduce((s,t)=>s+t.amount,0); // مجموع ما رجع
+              const invNet=invReturn-invTotal; // الربح/الخسارة الصافية
+              const invTxsAll=[...invTxsOut,...invTxsIn].sort((a,b)=>b.date.localeCompare(a.date));
               return <>
-                <div style={{...S.card,textAlign:"center",background:"#10b98110",border:"1px solid #10b98133",padding:12}}>
-                  <div style={{fontSize:11,color:"#1a6b4a"}}>إجمالي الاستثمار</div>
-                  <div style={{fontSize:22,fontWeight:900,color:"#1a6b4a"}}>{fmt(invTotal)}</div>
-                </div>
-                {invAccs.map(a=>(
-                  <div key={a.key} style={{...S.card,padding:"14px 16px"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:12}}>
-                      <Dot color={a.color}/>
-                      <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{a.name}</div><div style={{fontSize:12,color:"#888888"}}>{a.bn}</div></div>
-                      <span style={{fontSize:18,fontWeight:900,color:"#1a6b4a"}}>{fmt(a.balance)}</span>
-                    </div>
+                <div style={{display:"flex",gap:8,marginBottom:8}}>
+                  <div style={{...S.card,flex:1,textAlign:"center",background:"#ef444410",padding:12}}>
+                    <div style={{fontSize:10,color:"#ef4444"}}>📉 إجمالي المستثمر</div>
+                    <div style={{fontSize:18,fontWeight:900,color:"#ef4444"}}>{fmt(invTotal)}</div>
                   </div>
-                ))}
-                {invTxs.length>0&&<>
-                  <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل الاستثمارات</div>
-                  {invTxs.map(t=>(
+                  <div style={{...S.card,flex:1,textAlign:"center",background:"#10b98110",padding:12}}>
+                    <div style={{fontSize:10,color:"#10b981"}}>📈 العائد</div>
+                    <div style={{fontSize:18,fontWeight:900,color:"#10b981"}}>{fmt(invReturn)}</div>
+                  </div>
+                </div>
+                <div style={{...S.card,textAlign:"center",background:invNet>=0?"#10b98110":"#ef444410",border:`1px solid ${invNet>=0?"#10b98133":"#ef444433"}`,padding:12,marginBottom:8}}>
+                  <div style={{fontSize:11,color:invNet>=0?"#1a6b4a":"#ef4444"}}>{invNet>=0?"💚 صافي الربح":"🔴 صافي الخسارة"}</div>
+                  <div style={{fontSize:22,fontWeight:900,color:invNet>=0?"#1a6b4a":"#ef4444"}}>{invNet>=0?"+":""}{fmt(invNet)}</div>
+                </div>
+                {invTxsAll.length>0&&<>
+                  <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل الاستثمارات ({invTxsAll.length})</div>
+                  {invTxsAll.map(t=>(
                     <div key={t.id} style={{...S.card,padding:"12px 16px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <div style={{width:38,height:38,borderRadius:10,background:"#10b98120",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>📈</div>
+                        <div style={{width:38,height:38,borderRadius:10,background:t.type==="income"?"#10b98120":"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{t.type==="income"?"💰":"📈"}</div>
                         <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc}</div><div style={{fontSize:11,color:"#888888"}}>{t.date}</div></div>
-                        <span style={{fontSize:14,fontWeight:700,color:"#ef4444"}}>-{fmt(t.amount)}</span>
+                        <span style={{fontSize:14,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
                       </div>
                     </div>
                   ))}
                 </>}
-                {invAccs.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>ما كاينش حسابات استثمار مربوطة</div>}
+                {invTxsAll.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>ما كاينش معاملات استثمار</div>}
               </>;
             })()}
           </>;

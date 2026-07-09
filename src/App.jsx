@@ -1997,42 +1997,46 @@ export default function App(){
           const periodExp = filterByPeriod(txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset)).reduce((s,t)=>s+t.amount,0);
 
           // رصيد كل bucket = (نسبته × دخل كلي) - مصاريفه المرتبطة
-          // بناء ref map لكل حساب
-          const accRefMap = {};
-          allAcc.forEach(a=>{accRefMap[a.key]=a.ref;});
-
           const getBucketData = b=>{
             const allocated = totalInc * (b.pct/100);
-            const accKeys = b.accountKeys||[];
-
+            // الميزانية فقط هي اللي فيها مصاريف
+            // باقي الأقسام: الخروج والدخول يتتبعو من خلال الاستثمار/الممتلكات/السلف
             if(b.type==="expenses"){
-              // الميزانية: المصاريف العادية هي الخروج
               const spent = txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-              // التحويلات الواردة (من الطوارئ مثلاً)
-              const transferIn = txs.filter(t=>t.isTransfer&&t.type==="income"&&accKeys.some(k=>{
-                const r=accRefMap[k]; return r&&t.ref&&JSON.stringify(r)===JSON.stringify(t.ref);
-              })).reduce((s,t)=>s+t.amount,0);
-              const transferOut = txs.filter(t=>t.isTransfer&&t.type==="expense"&&accKeys.some(k=>{
-                const r=accRefMap[k]; return r&&t.ref&&JSON.stringify(r)===JSON.stringify(t.ref);
-              })).reduce((s,t)=>s+t.amount,0);
-              const balance = allocated + transferIn - transferOut - spent;
-              return {allocated, spent, transferIn, transferOut, balance,
-                bucketTxs: txs.filter(t=>!t.isTransfer&&t.type==="expense"&&!t.isLoan&&!t.isInvest&&!t.isAsset)
+              const balance = allocated - spent;
+              return {allocated, spent, transferIn:0, balance,
+                bucketTxs: txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).slice(0,20)
               };
-            } else {
-              // باقي الأقسام: الخروج = استثمار/ممتلكات/سلف مرتبطة بحساباتهم
-              // + التحويلات (إعاشة الطوارئ)
-              const matchRef = t => accKeys.some(k=>{
-                const r=accRefMap[k];
-                return r&&t.ref&&JSON.stringify(r)===JSON.stringify(t.ref);
-              });
-              const out = txs.filter(t=>t.type==="expense"&&(t.isInvest||t.isAsset||t.isLoan||t.isTransfer)&&matchRef(t)).reduce((s,t)=>s+t.amount,0);
-              const inBack = txs.filter(t=>t.type==="income"&&(t.isInvest||t.isAsset||t.isLoan||t.isTransfer)&&matchRef(t)).reduce((s,t)=>s+t.amount,0);
+            } else if(b.type==="emergency"){
+              // الطوارئ: ما فيها مصاريف — فقط المخصص والباقي
+              const balance = allocated;
+              return {allocated, spent:0, transferIn:0, balance, bucketTxs:[]};
+            } else if(b.type==="assets"){
+              // الممتلكات: ما خرج كـ isAsset
+              const out = txs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);
+              const inBack = txs.filter(t=>t.type==="income"&&t.isAsset).reduce((s,t)=>s+t.amount,0);
               const balance = allocated - out + inBack;
-              return {allocated, spent:out, transferIn:inBack, transferOut:0, balance,
-                bucketTxs: txs.filter(t=>(t.isInvest||t.isAsset||t.isLoan||t.isTransfer)&&matchRef(t))
+              return {allocated, spent:out, transferIn:inBack, balance,
+                bucketTxs: txs.filter(t=>t.isAsset).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20)
+              };
+            } else if(b.type==="investment"){
+              // الاستثمار: ما خرج كـ isInvest
+              const out = txs.filter(t=>t.type==="expense"&&t.isInvest).reduce((s,t)=>s+t.amount,0);
+              const inBack = txs.filter(t=>t.type==="income"&&t.isInvest).reduce((s,t)=>s+t.amount,0);
+              const balance = allocated - out + inBack;
+              return {allocated, spent:out, transferIn:inBack, balance,
+                bucketTxs: txs.filter(t=>t.isInvest).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20)
+              };
+            } else if(b.type==="retirement"){
+              // التقاعد: السلف الخارجة والراجعة
+              const out = txs.filter(t=>t.type==="expense"&&t.isLoan).reduce((s,t)=>s+t.amount,0);
+              const inBack = txs.filter(t=>t.type==="income"&&t.isLoan).reduce((s,t)=>s+t.amount,0);
+              const balance = allocated - out + inBack;
+              return {allocated, spent:out, transferIn:inBack, balance,
+                bucketTxs: txs.filter(t=>t.isLoan).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20)
               };
             }
+            return {allocated, spent:0, transferIn:0, balance:allocated, bucketTxs:[]};
           };
 
           const getBucketBalance = b => getBucketData(b);

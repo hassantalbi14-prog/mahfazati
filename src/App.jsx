@@ -325,6 +325,9 @@ export default function App(){
   const addTx=()=>{
     if(!form.amount){showErr("⛔ أدخل المبلغ");return;}
     if(!form.catId){showErr("⛔ اختر التصنيف");return;}
+    // تحقق من الفرع إذا كان التصنيف عنده فروع
+    const _selCat=gc(form.txType||"expense",parseInt(form.catId));
+    if(_selCat?.subs?.length>0&&!form.subId){showErr("⛔ الفرع إجباري — اختر الفرع");return;}
     if(form.pm!=="كريدي"&&!form.akey){showErr("⛔ اختر الحساب");return;}
     const acc=form.akey?allAcc.find(a=>a.key===form.akey):null;
     if(form.pm!=="كريدي"&&!acc)return;
@@ -344,7 +347,7 @@ export default function App(){
         showErr(`⚠️ تجاوزت ميزانية الشهر — الباقي: ${fmt(Math.max(0,budget-curMonthExp))}`);
       }
     }
-    const tx={id:uid(),type:form.txType||"expense",amount:amt,catId:parseInt(form.catId),subId:form.subId?parseInt(form.subId):null,desc:form.desc||"",date:form.date||new Date().toISOString().split("T")[0],pm:form.pm||"نقدي",ref:acc?.ref||null};
+    const tx={id:uid(),type:form.txType||"expense",amount:amt,catId:(isNaN(parseInt(form.catId))?form.catId:parseInt(form.catId)),subId:form.subId?(isNaN(parseInt(form.subId))?form.subId:parseInt(form.subId)):null,desc:form.desc||"",date:form.date||new Date().toISOString().split("T")[0],pm:form.pm||"نقدي",ref:acc?.ref||null};
     setTxs(p=>[tx,...p]);
     if(tx.pm!=="كريدي"&&acc)updBal(acc.ref,tx.amount,tx.type,"add");
     cm();
@@ -371,6 +374,8 @@ export default function App(){
   };
   const saveTxEdit=()=>{
     if(!ei||!ei.amount)return;
+    const _editCat=gc(ei.type||"expense",ei.catId);
+    if(_editCat?.subs?.length>0&&!ei.subId){showErr("⛔ الفرع إجباري — اختر الفرع");return;}
     const old=txs.find(x=>x.id===ei.id);if(!old)return;
     const diff=parseFloat(ei.amount)-old.amount;
     const sign=old.type==="income"?1:-1;
@@ -490,25 +495,20 @@ export default function App(){
     r.onload=ev=>{
       try{
         const d=JSON.parse(ev.target.result);
-        if(d.banks&&d.banks.length>0){setBanks(d.banks);_save('banks',d.banks);}
-        if(d.cash&&d.cash.length>0){setCash(d.cash);_save('cash',d.cash);}
+        if(d.banks){setBanks(d.banks);_save('banks',d.banks);}
+        if(d.cash){setCash(d.cash);_save('cash',d.cash);}
         if(d.assets&&d.assets.length>0){setAssets(d.assets);_save('assets',d.assets);}
         if(d.loans&&d.loans.length>0){setLoans(d.loans);_save('loans',d.loans);}
         if(d.budgetSettings){setBudgetSettings(d.budgetSettings);_save('budgetSettings',d.budgetSettings);}
         if(d.investments){setInvestments(d.investments);_save('investments',d.investments);}
         if(d.cats){
-          setCats(p=>({
-            expense:[...p.expense,...(d.cats.expense||[]).filter(nc=>!p.expense.some(ec=>ec.name===nc.name))],
-            income:[...p.income,...(d.cats.income||[]).filter(nc=>!p.income.some(ec=>ec.name===nc.name))]
-          }));
+          // نبدل التصنيفات كاملة بالملف المستورد
+          const newCats={expense:d.cats.expense||[],income:d.cats.income||[]};
+          setCats(newCats);_save('cats',newCats);
         }
         if(d.txs&&d.txs.length>0){
-          // نحدث المعاملات الموجودة + نزيد الجديدة
-          setTxs(p=>{
-            const existingMap=new Map(p.map(t=>[t.id,t]));
-            d.txs.forEach(t=>existingMap.set(t.id,t)); // override بالملف المستورد
-            return [...existingMap.values()].sort((a,b)=>b.date.localeCompare(a.date));
-          });
+          const sortedTxs=[...d.txs].sort((a,b)=>b.date.localeCompare(a.date));
+          setTxs(sortedTxs);_save('txs',sortedTxs);
         }
         setBkMsg(`تم الاستيراد ✅ — ${d.txs?.length||0} معاملة`);
       }catch(err){setBkMsg("خطأ في الملف ❌");}

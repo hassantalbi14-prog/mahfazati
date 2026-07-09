@@ -1319,14 +1319,10 @@ export default function App(){
                 </div>
               </div>
               {inv.note&&<div style={{...S.card,fontSize:12,color:"#666666",padding:10}}>📝 {inv.note}</div>}
-              <button style={{...S.btn("#10b981"),marginBottom:8}} onClick={()=>{
-                const profitStr=prompt("أدخل مبلغ الربح/العائد:");
-                if(!profitStr)return;
-                const profit=parseFloat(profitStr);
-                if(isNaN(profit)||profit<=0){showErr("⛔ مبلغ غير صحيح");return;}
-                setInvestments(p=>p.map(i=>i.id===inv.id?{...i,profit:(i.profit||0)+profit}:i));
-                showErr("✅ تم تسجيل الربح");
-              }}>💰 + تسجيل ربح</button>
+              <div style={{display:"flex",gap:8,marginBottom:8}}>
+                <button style={{...S.btn("#10b981"),flex:1}} onClick={()=>{setEi(inv);om("addProfit");}}>💰 + تسجيل ربح</button>
+                <button style={{...S.btn("#6366f1"),flex:1}} onClick={()=>{setEi(inv);om("returnInvest");}}>🏦 استرداد رأس المال</button>
+              </div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل المعاملات ({invTxs.length})</div>
               {invTxs.map(t=>(
                 <div key={t.id} style={{...S.card,padding:"12px 16px"}}>
@@ -2616,6 +2612,59 @@ export default function App(){
                 cm();showErr("✅ تم تسجيل الاستثمار");
               }}>تأكيد الاستثمار 📈</button>
             </div>}
+            {modal==="addProfit"&&ei&&<div style={S.col}>
+              <div style={{padding:"10px 14px",background:"#10b98115",borderRadius:10,fontSize:13,color:"#1a6b4a",fontWeight:700,textAlign:"center"}}>💰 تسجيل ربح — {ei.name}</div>
+              <div style={{fontSize:12,color:"#888888",textAlign:"center"}}>رأس المال: {fmt(ei.amount)} | أرباح سابقة: {fmt(ei.profit||0)}</div>
+              <input style={S.num} placeholder="مبلغ الربح/العائد" type="number" step="0.01" value={form.profitAmt||""} onChange={e=>F("profitAmt",e.target.value)}/>
+              <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981"/>
+              <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
+              <input style={S.inp} placeholder="ملاحظة (اختياري)" value={form.note||""} onChange={e=>F("note",e.target.value)}/>
+              <button style={S.btn("#10b981")} onClick={()=>{
+                const profit=parseFloat(form.profitAmt);
+                if(!profit||profit<=0){showErr("⛔ أدخل مبلغ الربح");return;}
+                if(!form.akey){showErr("⛔ اختر الحساب اللي سيدخل فيه الربح");return;}
+                const acc=allAcc.find(a=>a.key===form.akey);
+                if(!acc)return;
+                const date=form.date||new Date().toISOString().split("T")[0];
+                // تحديث الأرباح فالـ record
+                setInvestments(p=>p.map(i=>i.id===ei.id?{...i,profit:(i.profit||0)+profit}:i));
+                // تسجيل معاملة دخل isInvest:true
+                setTxs(p=>[{id:uid(),type:"income",amount:profit,catId:null,subId:null,
+                  desc:`ربح: ${ei.name}`,date,pm:"استثمار",ref:acc.ref,
+                  isAsset:false,isInvest:true,invId:ei.id,invName:ei.name,note:form.note||""
+                },...p]);
+                // دخول الربح للحساب
+                updBal(acc.ref,profit,"income","add");
+                cm();showErr("✅ تم تسجيل الربح وإضافته للحساب");
+              }}>تأكيد الربح 💰</button>
+            </div>}
+
+            {modal==="returnInvest"&&ei&&<div style={S.col}>
+              <div style={{padding:"10px 14px",background:"#6366f115",borderRadius:10,fontSize:13,color:"#6366f1",fontWeight:700,textAlign:"center"}}>🏦 استرداد رأس المال — {ei.name}</div>
+              <div style={{fontSize:12,color:"#888888",textAlign:"center"}}>رأس المال: {fmt(ei.amount)}</div>
+              <input style={S.num} placeholder="المبلغ المسترد" type="number" step="0.01" value={form.returnAmt||String(ei.amount)} onChange={e=>F("returnAmt",e.target.value)}/>
+              <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"/>
+              <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
+              <button style={S.btn("#6366f1")} onClick={()=>{
+                const returnAmt=parseFloat(form.returnAmt||ei.amount);
+                if(!returnAmt||returnAmt<=0){showErr("⛔ أدخل المبلغ المسترد");return;}
+                if(!form.akey){showErr("⛔ اختر الحساب");return;}
+                const acc=allAcc.find(a=>a.key===form.akey);
+                if(!acc)return;
+                const date=form.date||new Date().toISOString().split("T")[0];
+                // تسجيل معاملة دخل استرداد
+                setTxs(p=>[{id:uid(),type:"income",amount:returnAmt,catId:null,subId:null,
+                  desc:`استرداد: ${ei.name}`,date,pm:"استثمار",ref:acc.ref,
+                  isAsset:false,isInvest:true,invId:ei.id,invName:ei.name,note:""
+                },...p]);
+                // دخول المبلغ للحساب
+                updBal(acc.ref,returnAmt,"income","add");
+                // تحديث رأس المال
+                setInvestments(p=>p.map(i=>i.id===ei.id?{...i,amount:Math.max(0,i.amount-returnAmt)}:i));
+                cm();showErr("✅ تم الاسترداد وإضافته للحساب");
+              }}>تأكيد الاسترداد 🏦</button>
+            </div>}
+
             {modal==="returnLoan"&&ei&&<div style={S.col}>
               <div style={{padding:"12px 14px",background:"#f5f5f0",borderRadius:10,fontSize:13}}>
                 <div style={{color:"#888888",marginBottom:4}}>رجوع سلفة من:</div>

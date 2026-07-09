@@ -1617,7 +1617,7 @@ export default function App(){
               <button style={S.btn()} onClick={()=>{
                 const tot=(budgetSettings.buckets||[]).reduce((s,b)=>s+(b.pct||0),0);
                 if(tot!==100){showErr(`⛔ مجموع النسب ${tot}% — خاص يكون 100%`);return;}
-                _save('budgetSettings',budgetSettings);cm();showErr("✅ تم حفظ إعدادات الميزانية");setTimeout(()=>setErr(null),3000);
+                _save('budgetSettings',budgetSettings);showErr("✅ تم حفظ إعدادات الميزانية ✓");setTimeout(()=>setErr(null),3000);
               }}>✅ حفظ إعدادات الميزانية</button>
             </div>
           </div>
@@ -1999,14 +1999,10 @@ export default function App(){
           // رصيد كل bucket = (نسبته × دخل كلي) - مصاريفه المرتبطة
           const getBucketBalance = b=>{
             const allocated = totalInc * (b.pct/100);
-            const accKeys = b.accountKeys||[];
             let spent = 0;
+            // المصروف كيخرج غير من الميزانية فقط — باقي الأقسام spent = 0
             if(b.type==="expenses"){
-              // الميزانية: كل المصاريف العادية
               spent = txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-            } else {
-              // باقي الأقسام: المصاريف المرتبطة بحساباتهم
-              spent = txs.filter(t=>t.type==="expense"&&accKeys.some(k=>JSON.stringify(t.ref)===JSON.stringify(allAcc.find(a=>a.key===k)?.ref))).reduce((s,t)=>s+t.amount,0);
             }
             return {allocated, spent, balance: allocated - spent};
           };
@@ -2020,11 +2016,30 @@ export default function App(){
             <PeriodSelector/>
 
             {/* تنبيه نفاذ الميزانية */}
-            {expBalance < 0 && emergBucket && <div style={{...S.card,background:"#fef3c7",border:"2px solid #f59e0b",padding:14,marginBottom:10}}>
-              <div style={{fontWeight:700,color:"#d97706",marginBottom:4}}>⚠️ الميزانية نفذت!</div>
-              <div style={{fontSize:12,color:"#78350f",marginBottom:8}}>العجز: {fmt(Math.abs(expBalance))} — سيتم أخذ {emergBucket.emergencyPct||20}% من الطوارئ</div>
-              <div style={{fontSize:11,color:"#888888"}}>رصيد الطوارئ المتاح: {fmt(getBucketBalance(emergBucket).balance)}</div>
-            </div>}
+            {expBalance < 0 && emergBucket && (()=>{
+              const emergBal = getBucketBalance(emergBucket).balance;
+              const transferAmt = emergBal * ((emergBucket.emergencyPct||20)/100);
+              return <div style={{...S.card,background:"#fef3c7",border:"2px solid #f59e0b",padding:14,marginBottom:10}}>
+                <div style={{fontWeight:700,color:"#d97706",marginBottom:4}}>⚠️ الميزانية نفذت!</div>
+                <div style={{fontSize:12,color:"#78350f",marginBottom:8}}>العجز: {fmt(Math.abs(expBalance))} د.م</div>
+                <div style={{fontSize:11,color:"#888888",marginBottom:10}}>رصيد الطوارئ: {fmt(emergBal)} — يمكن تحويل {fmt(transferAmt)} ({emergBucket.emergencyPct||20}%)</div>
+                <button style={{...S.btn("#f59e0b"),padding:"10px",fontSize:13}} onClick={()=>{
+                  // تحويل من الطوارئ للميزانية كتحويل داخلي
+                  const fromAcc = allAcc.find(a=>(emergBucket.accountKeys||[]).includes(a.key));
+                  const toAcc = allAcc.find(a=>((expBucket||{}).accountKeys||[]).includes(a.key));
+                  if(!fromAcc||!toAcc){showErr("⛔ ربط الحسابات ناقص — ربط حسابات الميزانية والطوارئ أولاً");return;}
+                  const txDate=new Date().toISOString().split("T")[0];
+                  setTxs(p=>[
+                    {id:uid(),type:"expense",amount:transferAmt,desc:"إعاشة من الطوارئ للميزانية",date:txDate,ref:fromAcc.ref,isTransfer:true,isLoan:false,isInvest:false,isAsset:false,catId:null,subId:null,note:"",pm:"تحويل"},
+                    {id:uid(),type:"income",amount:transferAmt,desc:"إعاشة من الطوارئ للميزانية",date:txDate,ref:toAcc.ref,isTransfer:true,isLoan:false,isInvest:false,isAsset:false,catId:null,subId:null,note:"",pm:"تحويل"},
+                    ...p
+                  ]);
+                  updBal(fromAcc.ref,transferAmt,"expense","add");
+                  updBal(toAcc.ref,transferAmt,"income","add");
+                  showErr(`✅ تم تحويل ${fmt(transferAmt)} من الطوارئ للميزانية`);setTimeout(()=>setErr(null),4000);
+                }}>🔄 تحويل {fmt(transferAmt)} من الطوارئ للميزانية</button>
+              </div>;
+            })()}
 
             {/* ملخص الفترة */}
             <div style={{background:"linear-gradient(135deg,#0f172a,#1e293b)",borderRadius:20,padding:18,marginBottom:12}}>

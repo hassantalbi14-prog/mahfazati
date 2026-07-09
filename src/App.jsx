@@ -228,14 +228,27 @@ export default function App(){
       const pw=await _load('appPassword'); if(pw){setAppPassword(pw);localStorage.setItem("mhf_pw",pw);}
       const rc=await _load('recoveryContact'); if(rc)setRecoveryContact(rc);
       const bs=await _load('budgetSettings');
+      const defaultBuckets=[
+        {id:1,name:"الميزانية",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],type:"expenses"},
+        {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
+        {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:15,accountKeys:[],type:"assets"},
+        {id:4,name:"الاستثمار",icon:"📈",color:"#1a6b4a",pct:15,accountKeys:[],type:"investment"},
+        {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement"}
+      ];
       if(bs){
-        // دعم النظام الجديد (buckets) والقديم (allocations)
-        if(bs.buckets){
+        if(bs.buckets&&bs.buckets.length>0){
+          // نظام جديد — حمل مباشرة
           setBudgetSettings({...bs,buckets:bs.buckets.map(b=>({...b,accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))});
-        } else if(bs.allocations){
-          // ترحيل من النظام القديم للجديد
+        } else if(bs.allocations&&bs.allocations.length>0){
+          // ترحيل من النظام القديم
           setBudgetSettings({buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))});
+        } else {
+          // ما فيهوش buckets ولا allocations — استعمل default
+          setBudgetSettings({buckets:defaultBuckets});
         }
+      } else {
+        // أول مرة — استعمل default
+        setBudgetSettings({buckets:defaultBuckets});
       }
       setLoaded(true);
     };

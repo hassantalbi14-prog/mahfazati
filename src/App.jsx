@@ -58,7 +58,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 
 const PAL=["#10b981","#6366f1","#f59e0b","#ef4444","#14b8a6","#f97316","#8b5cf6","#ec4899","#06b6d4","#84cc16"];
 const MONTH = new Date().toISOString().slice(0,7);
-const fmt=n=>(n||0).toLocaleString("ar-MA")+" د.م";
+const fmt=n=>(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const uid=()=>Date.now()+Math.floor(Math.random()*9999);
 const EE=["🍔","🚗","🏠","💊","🎓","👗","🎮","📱","💡","🛒","✈️","🎵","🍕","⚽","📚","💈","🧴","🐾","🎁","🏋️","🌿","🏥","💻","🎨","🔧"];
 const IE=["💼","💻","🏠","🚕","📦","🎨","🎓","💹","🤝","🏭","📊","🎵","🛍️","🌐","✍️","💰","🏆","🎯","🔑","📝"];
@@ -110,7 +110,7 @@ body{background:linear-gradient(135deg,#f0f4ff 0%,#e8f5f0 50%,#f0f4ff 100%);min-
 .fsi{display:flex;align-items:center;gap:12px;padding:15px 14px 15px 32px;border-bottom:1px solid rgba(255,255,255,.05);}
 .stg{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:4px 10px;font-size:12px;color:white;margin:3px;}
 .iu{border-radius:16px;border:2px dashed rgba(255,255,255,.25);background:rgba(0,0,0,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:all .2s;}
-.iu:hover{border-color:rgba(255,255,255,.5);background:rgba(0,0,0,.25);}
+.iu:hover{border-color:rgba(255,255,255,.75);background:rgba(0,0,0,.25);}
 .acc-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(30,41,59,.95);border-radius:12px;margin-bottom:6px;border:1px solid rgba(255,255,255,.08);box-shadow:0 2px 8px rgba(0,0,0,.15);}
 `;
 
@@ -198,10 +198,10 @@ export default function App(){
   const[savings,setSavings]=useState(ISV);
   const[budgetSettings,setBudgetSettings]=useState({
     buckets:[
-      {id:1,name:"الميزانية",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],type:"expenses"},
-      {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
+      {id:1,name:"الميزانية",icon:"🛒",color:"#3b82f6",pct:40,accountKeys:[],type:"expenses"},
+      {id:2,name:"الطوارئ",icon:"🚨",color:"#f97316",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
       {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:15,accountKeys:[],type:"assets"},
-      {id:4,name:"الاستثمار",icon:"📈",color:"#1a6b4a",pct:15,accountKeys:[],type:"investment"},
+      {id:4,name:"الاستثمار",icon:"📈",color:"#8b5cf6",pct:15,accountKeys:[],type:"investment"},
       {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement"}
     ]
   });
@@ -227,13 +227,15 @@ export default function App(){
       const pw=await _load('appPassword'); if(pw){setAppPassword(pw);localStorage.setItem("mhf_pw",pw);}
       const rc=await _load('recoveryContact'); if(rc)setRecoveryContact(rc);
       const bs=await _load('budgetSettings');
+      const OLD2NEW_COLOR={"#ef4444":"#3b82f6","#f59e0b":"#f97316","#1a6b4a":"#8b5cf6"};
+      const migrateColor=c=>OLD2NEW_COLOR[c]||c;
       const defaultBuckets=[
-        ...[{"id":1,"name":"الميزانية","icon":"🛒","color":"#ef4444","pct":50,"accountKeys":["b-1783600840182-1783600840122"],"type":"expenses"},{"id":2,"name":"الطوارئ","icon":"🚨","color":"#f59e0b","pct":10,"accountKeys":["b-1783600840182-1783600840163"],"type":"emergency","emergencyPct":20},{"id":3,"name":"الممتلكات","icon":"🏠","color":"#14b8a6","pct":17,"accountKeys":["b-1783600840132-1783600840193"],"type":"assets"},{"id":4,"name":"الاستثمار","icon":"📈","color":"#1a6b4a","pct":15,"accountKeys":["c-1783600840163"],"type":"investment"},{"id":5,"name":"التقاعد","icon":"🏦","color":"#6366f1","pct":8,"accountKeys":["c-1783600840161"],"type":"retirement"}].slice(0)
+        ...[{"id":1,"name":"الميزانية","icon":"🛒","color":"#3b82f6","pct":50,"accountKeys":["b-1783600840182-1783600840122"],"type":"expenses"},{"id":2,"name":"الطوارئ","icon":"🚨","color":"#f97316","pct":10,"accountKeys":["b-1783600840182-1783600840163"],"type":"emergency","emergencyPct":20},{"id":3,"name":"الممتلكات","icon":"🏠","color":"#14b8a6","pct":17,"accountKeys":["b-1783600840132-1783600840193"],"type":"assets"},{"id":4,"name":"الاستثمار","icon":"📈","color":"#8b5cf6","pct":15,"accountKeys":["c-1783600840163"],"type":"investment"},{"id":5,"name":"التقاعد","icon":"🏦","color":"#6366f1","pct":8,"accountKeys":["c-1783600840161"],"type":"retirement"}].slice(0)
       ];
       if(bs){
         if(bs.buckets&&bs.buckets.length>0){
-          // نظام جديد — حمل مباشرة
-          setBudgetSettings({...bs,buckets:bs.buckets.map(b=>({...b,accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))});
+          // نظام جديد — حمل مباشرة (مع تحديث الألوان القديمة تلقائيا)
+          setBudgetSettings({...bs,buckets:bs.buckets.map(b=>({...b,color:migrateColor(b.color),accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))});
         } else if(bs.allocations&&bs.allocations.length>0){
           // ترحيل من النظام القديم
           setBudgetSettings({buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))});
@@ -275,7 +277,7 @@ export default function App(){
 
   const gc=(tp,id)=>cats[tp]?.find(c=>c.id===id);
   const gs=(tp,cid,sid)=>gc(tp,cid)?.subs?.find(s=>s.id===sid);
-  const tl=t=>{const tp=t.type==="income"?"income":"expense";const c=gc(tp,t.catId);const s=gs(tp,t.catId,t.subId);return{cn:c?.name||"—",sn:s?.name||"",ic:c?.ci||c?.icon||"📌",hi:!!c?.ci,col:c?.color||"#888888"};};
+  const tl=t=>{const tp=t.type==="income"?"income":"expense";const c=gc(tp,t.catId);const s=gs(tp,t.catId,t.subId);return{cn:c?.name||"—",sn:s?.name||"",ic:c?.ci||c?.icon||"📌",hi:!!c?.ci,col:c?.color||"#64748b"};};
   const al=ref=>{if(!ref)return"";if(ref.k==="bank"){const b=banks.find(x=>x.id===ref.bid);const a=b?.accounts.find(x=>x.id===ref.aid);return`${b?.name} - ${a?.name}`;}if(ref.k==="cash"){return cash.find(x=>x.id===ref.cid)?.name;}return"";};
 
   const expByCat=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((acc,t)=>{const c=gc("expense",t.catId);const k=c?.name||"أخرى";acc[k]=(acc[k]||0)+t.amount;return acc;},{});
@@ -379,10 +381,10 @@ export default function App(){
     setCats({expense:[],income:[]});setTxs([]);
     setInvestments([]);setSavings([]);setBudgets([]);
     setBudgetSettings({buckets:[
-      {id:1,name:"الميزانية",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],type:"expenses"},
-      {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
+      {id:1,name:"الميزانية",icon:"🛒",color:"#3b82f6",pct:40,accountKeys:[],type:"expenses"},
+      {id:2,name:"الطوارئ",icon:"🚨",color:"#f97316",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
       {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:15,accountKeys:[],type:"assets"},
-      {id:4,name:"الاستثمار",icon:"📈",color:"#1a6b4a",pct:15,accountKeys:[],type:"investment"},
+      {id:4,name:"الاستثمار",icon:"📈",color:"#8b5cf6",pct:15,accountKeys:[],type:"investment"},
       {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement"}
     ]});
     setBkMsg("✅ تم إعادة الضبط الكامل");
@@ -546,14 +548,14 @@ export default function App(){
       <div style={{background:"white",borderRadius:24,padding:36,width:"100%",maxWidth:340,boxShadow:"0 8px 32px rgba(26,107,74,.12)",textAlign:"center"}}>
         <div style={{fontSize:50,marginBottom:16}}>💰</div>
         <div style={{fontSize:22,fontWeight:900,color:"#1a6b4a",marginBottom:6}}>محفظتي</div>
-        <div style={{fontSize:13,color:"#888888",marginBottom:28}}>أدخل كلمة السر للدخول</div>
+        <div style={{fontSize:13,color:"#64748b",marginBottom:28}}>أدخل كلمة السر للدخول</div>
         <div style={{position:"relative",marginBottom:8}}>
           <input type={showPw?"text":"password"} placeholder="كلمة السر" value={pwInput}
             onChange={e=>{setPwInput(e.target.value);setPwErr(false);}}
             onKeyDown={e=>{if(e.key==="Enter"){if(pwInput===appPassword){sessionStorage.setItem("mhf_auth","1");setIsAuth(true);}else setPwErr(true);}}}
             style={{background:"#f5f5f0",border:`2px solid ${pwErr?"#ef4444":"#e8e8e4"}`,borderRadius:12,padding:"12px 44px 12px 16px",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:16,width:"100%",outline:"none",textAlign:"center"}}
             autoFocus/>
-          <button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#888888",display:"flex",alignItems:"center",padding:0}}>
+          <button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#64748b",display:"flex",alignItems:"center",padding:0}}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               {showPw?<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>:<><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>}
             </svg>
@@ -577,7 +579,7 @@ export default function App(){
               if(resetCode===sentCode){setResetStep(2);setResetCode("");}
               else showErr("الكود غلط — حاول مرة أخرى");
             }}>تأكيد الكود ✅</button>
-          <button style={{width:"100%",marginTop:6,background:"none",border:"none",color:"#888888",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}
+          <button style={{width:"100%",marginTop:6,background:"none",border:"none",color:"#64748b",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}
             onClick={()=>{setResetStep(0);setSentCode("");setResetCode("");}}>إلغاء</button>
         </div>}
 
@@ -614,16 +616,16 @@ export default function App(){
     const months=[...new Set(txs.map(t=>t.date.slice(0,7)))].sort().reverse();
     return(
       <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:8}}>
-        <button onClick={()=>setPeriod(p=>({...p,type:"all"}))} style={{...S.btn(period.type==="all"?"#10b981":"#e8e8e4",false),padding:"6px 12px",fontSize:12,color:period.type==="all"?"white":"#666666"}}>الكل</button>
-        <button onClick={()=>setPeriod(p=>({...p,type:"year"}))} style={{...S.btn(period.type==="year"?"#6366f1":"#e8e8e4",false),padding:"6px 12px",fontSize:12,color:period.type==="year"?"white":"#666666"}}>سنوي</button>
-        <button onClick={()=>setPeriod(p=>({...p,type:"month"}))} style={{...S.btn(period.type==="month"?"#f59e0b":"#e8e8e4",false),padding:"6px 12px",fontSize:12,color:period.type==="month"?"white":"#666666"}}>شهري</button>
+        <button onClick={()=>setPeriod(p=>({...p,type:"all"}))} style={{...S.btn(period.type==="all"?"#10b981":"#e8e8e4",false),padding:"6px 12px",fontSize:12,color:period.type==="all"?"white":"#475569"}}>الكل</button>
+        <button onClick={()=>setPeriod(p=>({...p,type:"year"}))} style={{...S.btn(period.type==="year"?"#6366f1":"#e8e8e4",false),padding:"6px 12px",fontSize:12,color:period.type==="year"?"white":"#475569"}}>سنوي</button>
+        <button onClick={()=>setPeriod(p=>({...p,type:"month"}))} style={{...S.btn(period.type==="month"?"#f59e0b":"#e8e8e4",false),padding:"6px 12px",fontSize:12,color:period.type==="month"?"white":"#475569"}}>شهري</button>
         {period.type==="year"&&<select style={{...S.sel,flex:1,fontSize:12}} value={period.year} onChange={e=>setPeriod(p=>({...p,year:e.target.value}))}>{years.map(y=><option key={y} value={y}>{y}</option>)}</select>}
         {period.type==="month"&&<select style={{...S.sel,flex:1,fontSize:12}} value={period.month} onChange={e=>setPeriod(p=>({...p,month:e.target.value}))}>{months.map(m=><option key={m} value={m}>{m}</option>)}</select>}
       </div>
     );
   };
   const Dot=({color})=><div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>;
-  const Btn=({label,onClick,bg="#e8e8e4",color="#666666",style={}})=><button onClick={onClick} style={{background:bg,border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color,fontSize:11,fontFamily:"Tajawal",...style}}>{label}</button>;
+  const Btn=({label,onClick,bg="#e8e8e4",color="#475569",style={}})=><button onClick={onClick} style={{background:bg,border:"none",borderRadius:7,padding:"4px 8px",cursor:"pointer",color,fontSize:11,fontFamily:"Tajawal",...style}}>{label}</button>;
 
   // خانتين: 1) نوع الحساب (بنك/كاش) 2) الحساب نفسه
   const AccPicker=({value,onChange,accList,border="#6366f1",pickerKey="akey"})=>{
@@ -649,7 +651,7 @@ export default function App(){
 
   const PmBtns=({val,onChange})=>(
     <div style={{display:"flex",gap:8}}>
-      {["نقدي","كريدي"].map(m=><button key={m} onClick={()=>onChange(m)} style={{flex:1,padding:10,border:"2px solid",borderColor:val===m?(m==="نقدي"?"#10b981":"#f59e0b"):"#e8e8e4",borderRadius:10,background:val===m?(m==="نقدي"?"#10b98122":"#f59e0b22"):"transparent",color:val===m?(m==="نقدي"?"#10b981":"#f59e0b"):"#888888",fontFamily:"Tajawal",fontWeight:700,cursor:"pointer",fontSize:13}}>{m==="نقدي"?"💵 نقدي":"💳 كريدي"}</button>)}
+      {["نقدي","كريدي"].map(m=><button key={m} onClick={()=>onChange(m)} style={{flex:1,padding:10,border:"2px solid",borderColor:val===m?(m==="نقدي"?"#10b981":"#f59e0b"):"#e8e8e4",borderRadius:10,background:val===m?(m==="نقدي"?"#10b98122":"#f59e0b22"):"transparent",color:val===m?(m==="نقدي"?"#10b981":"#f59e0b"):"#64748b",fontFamily:"Tajawal",fontWeight:700,cursor:"pointer",fontSize:13}}>{m==="نقدي"?"💵 نقدي":"💳 كريدي"}</button>)}
     </div>
   );
 
@@ -675,9 +677,9 @@ export default function App(){
               <button style={{background:"#fef2f2",border:"none",borderRadius:8,padding:"5px 8px",cursor:"pointer",color:"#ef4444",fontSize:12,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>ask("mcat",cat.id,cat.name,catType)}>حذف</button>
             </div>
             <div style={{width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={e=>{e.stopPropagation();setOvExp(p=>({...p,[`del_cat_${cat.id}`]:!p[`del_cat_${cat.id}`]}));}}>
-              <span style={{fontSize:18,color:"#888888"}}>⋯</span>
+              <span style={{fontSize:18,color:"#64748b"}}>⋯</span>
             </div>
-            <span style={{color:"#888888",fontSize:15}}>{ovExp[`cat_${cat.id}`]?"▲":"▼"}</span>
+            <span style={{color:"#64748b",fontSize:15}}>{ovExp[`cat_${cat.id}`]?"▲":"▼"}</span>
           </div>
           {ovExp[`cat_${cat.id}`]&&<>
             {cat.subs.map(s=>{
@@ -691,7 +693,7 @@ export default function App(){
                   <button style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:11,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>ask("scat",s.id,s.name,{ct:catType,cid:cat.id})}>حذف</button>
                 </div>
                 <div style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`del_sub_${s.id}`]:!p[`del_sub_${s.id}`]}))}>
-                  <span style={{fontSize:16,color:"#888888"}}>⋯</span>
+                  <span style={{fontSize:16,color:"#64748b"}}>⋯</span>
                 </div>
               </div>;
             })}
@@ -701,7 +703,7 @@ export default function App(){
           </>}
         </div>
       ))}
-      {cats[catType].length===0&&<div style={{textAlign:"center",padding:30,color:"#888888",fontSize:14}}>لا توجد تصنيفات — أضف تصنيفاً</div>}
+      {cats[catType].length===0&&<div style={{textAlign:"center",padding:30,color:"#64748b",fontSize:14}}>لا توجد تصنيفات — أضف تصنيفاً</div>}
     </>;
   };
 
@@ -709,9 +711,9 @@ export default function App(){
     <div style={{...S.card,padding:0,overflow:"hidden",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[sec]:!p[sec]}))}>
       <div style={{display:"flex",alignItems:"center",gap:12,padding:"16px"}}>
         <div style={{width:44,height:44,borderRadius:12,background:color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{icon}</div>
-        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{label}</div><div style={{fontSize:11,color:"#888888",marginTop:2}}>{count}</div></div>
+        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{label}</div><div style={{fontSize:11,color:"#64748b",marginTop:2}}>{count}</div></div>
         <div style={{fontSize:17,fontWeight:900,color,marginLeft:8}}>{fmt(amount)}</div>
-        <div style={{color:"#888888",fontSize:22,transform:ovExp[sec]?"rotate(90deg)":"none",transition:"transform .2s"}}>›</div>
+        <div style={{color:"#64748b",fontSize:22,transform:ovExp[sec]?"rotate(90deg)":"none",transition:"transform .2s"}}>›</div>
       </div>
       {ovExp[sec]&&<div style={{borderTop:"1px solid #e2e8f0",padding:"12px 16px",background:"#f8fafc55"}}>{children}</div>}
     </div>
@@ -949,7 +951,7 @@ export default function App(){
             <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📥 استيراد</div><button style={S.btn("#6366f1")} onClick={()=>fRef.current.click()}>اختر ملف JSON</button></div>
             <div style={{...S.card,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}>
               <div style={{fontWeight:600,color:"#ef4444",marginBottom:8}}>🗑️ إعادة ضبط كامل</div>
-              <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginBottom:8}}>كتمسح كل البيانات وترجع للبيانات الافتراضية</div>
+              <div style={{fontSize:12,color:"rgba(255,255,255,.75)",marginBottom:8}}>كتمسح كل البيانات وترجع للبيانات الافتراضية</div>
               <input style={{...S.inp,marginBottom:8}} type="password" placeholder="كلمة السر للتأكيد" value={resetCode} onChange={e=>{setResetCode(e.target.value);setResetErr(false);}}/>
               {resetErr&&<div style={{color:"#ef4444",fontSize:12,marginBottom:6}}>❌ كلمة السر غلط</div>}
               <button style={S.btn("#ef4444")} onClick={()=>{if(resetCode!==appPassword){setResetErr(true);return;}resetData();setResetCode("");}}>تأكيد إعادة الضبط</button>
@@ -957,10 +959,10 @@ export default function App(){
                 const newBS={
                   goals:{incomeGoal:15000,incomeAuto:false,expenseGoal:5000,expenseAuto:false},
                   buckets:[
-                    {id:1,name:"الميزانية",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],type:"expenses"},
-                    {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
+                    {id:1,name:"الميزانية",icon:"🛒",color:"#3b82f6",pct:40,accountKeys:[],type:"expenses"},
+                    {id:2,name:"الطوارئ",icon:"🚨",color:"#f97316",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
                     {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:10,accountKeys:[],type:"assets"},
-                    {id:4,name:"الاستثمار",icon:"📈",color:"#1a6b4a",pct:20,accountKeys:[],type:"investment"},
+                    {id:4,name:"الاستثمار",icon:"📈",color:"#8b5cf6",pct:20,accountKeys:[],type:"investment"},
                     {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement"}
                   ]
                 };
@@ -971,10 +973,10 @@ export default function App(){
               <button style={{...S.btn("#f59e0b"),marginTop:8}} onClick={()=>{
                 setBudgetSettings(p=>({...p,
                   buckets:[
-                    {id:1,name:"الميزانية",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],type:"expenses"},
-                    {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
+                    {id:1,name:"الميزانية",icon:"🛒",color:"#3b82f6",pct:40,accountKeys:[],type:"expenses"},
+                    {id:2,name:"الطوارئ",icon:"🚨",color:"#f97316",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
                     {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:10,accountKeys:[],type:"assets"},
-                    {id:4,name:"الاستثمار",icon:"📈",color:"#1a6b4a",pct:20,accountKeys:[],type:"investment"},
+                    {id:4,name:"الاستثمار",icon:"📈",color:"#8b5cf6",pct:20,accountKeys:[],type:"investment"},
                     {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement"}
                   ]
                 }));
@@ -987,7 +989,7 @@ export default function App(){
 
       {/* HEADER */}
       <div style={{padding:"20px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div><div style={{fontSize:12,color:"#888888"}}>{new Date().toLocaleString("ar-MA",{month:"long",year:"numeric"})}</div><div style={{fontSize:22,fontWeight:900}}>محفظتي 💰</div></div>
+        <div><div style={{fontSize:12,color:"#64748b"}}>{new Date().toLocaleString("ar-MA",{month:"long",year:"numeric"})}</div><div style={{fontSize:22,fontWeight:900}}>محفظتي 💰</div></div>
         <button onClick={()=>{setDrw(true);setDp(null);}} style={{background:"#2e8fa8",border:"none",borderRadius:12,padding:"10px 16px",display:"flex",alignItems:"center",gap:6,cursor:"pointer",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:13,fontWeight:700}}>
           <Menu size={16}/> القائمة
         </button>
@@ -1007,14 +1009,14 @@ export default function App(){
                 {hideBalance?<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>:<><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>}
               </svg>
             </button>
-            <div style={{fontSize:12,color:"rgba(255,255,255,.8)",marginBottom:6}}>صافي الثروة الكلية</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,.9)",marginBottom:6}}>صافي الثروة الكلية</div>
             <div style={{fontSize:30,fontWeight:900,color:"#1a1a1a"}}>{hideBalance?"••••••":fmt(totBal+totAst+totInv+totGiv-totOwd)}</div>
             <div style={{display:"flex",gap:12,marginTop:10,flexWrap:"wrap"}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"rgba(255,255,255,.7)"}}>البنوك والكاش</div><div style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>{hideBalance?"•••":fmt(totBal)}</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"rgba(255,255,255,.85)"}}>البنوك والكاش</div><div style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>{hideBalance?"•••":fmt(totBal)}</div></div>
               <div style={{width:1,background:"rgba(255,255,255,.3)"}}/>
-              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"rgba(255,255,255,.7)"}}>الممتلكات</div><div style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>{hideBalance?"•••":fmt(totAst)}</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"rgba(255,255,255,.85)"}}>الممتلكات</div><div style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>{hideBalance?"•••":fmt(totAst)}</div></div>
               <div style={{width:1,background:"rgba(255,255,255,.3)"}}/>
-              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"rgba(255,255,255,.7)"}}>السلف</div><div style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>{hideBalance?"•••":fmt(totGiv-totOwd)}</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"rgba(255,255,255,.85)"}}>السلف</div><div style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>{hideBalance?"•••":fmt(totGiv-totOwd)}</div></div>
             </div>
           </div>
 
@@ -1060,12 +1062,12 @@ export default function App(){
                       </svg>
                       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
                         <div style={{fontSize:24,fontWeight:900,color:incColor}}>{Math.round(incPctRaw)}%</div>
-                        <div style={{fontSize:9,color:"#888888"}}>وصلت</div>
+                        <div style={{fontSize:9,color:"#64748b"}}>وصلت</div>
                       </div>
                     </div>
                     <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a"}}>💰 هدف الدخل</div>
-                    <div style={{fontSize:10,color:"#666666"}}>{fmt(pInc)} / {fmt(incGoalAdj)}</div>
-                    <div style={{fontSize:10,fontWeight:700,color:incRemaining>0?"#888888":"#10b981",marginTop:2}}>
+                    <div style={{fontSize:10,color:"#475569"}}>{fmt(pInc)} / {fmt(incGoalAdj)}</div>
+                    <div style={{fontSize:10,fontWeight:700,color:incRemaining>0?"#64748b":"#10b981",marginTop:2}}>
                       {incRemaining>0?`باقي ${fmt(incRemaining)}`:`✅ تجاوزت بـ ${fmt(Math.abs(incRemaining))}`}
                     </div>
                   </div>
@@ -1080,11 +1082,11 @@ export default function App(){
                       </svg>
                       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
                         <div style={{fontSize:24,fontWeight:900,color:expColor}}>{Math.round(expPctRaw)}%</div>
-                        <div style={{fontSize:9,color:"#888888"}}>صرفت</div>
+                        <div style={{fontSize:9,color:"#64748b"}}>صرفت</div>
                       </div>
                     </div>
                     <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a"}}>💸 هدف المصاريف</div>
-                    <div style={{fontSize:10,color:"#666666"}}>{fmt(pExp)} / {fmt(expGoalAdj)}</div>
+                    <div style={{fontSize:10,color:"#475569"}}>{fmt(pExp)} / {fmt(expGoalAdj)}</div>
                     <div style={{fontSize:10,fontWeight:700,color:expRemaining>0?"#10b981":"#ef4444",marginTop:2}}>
                       {expRemaining>0?`باقي ${fmt(expRemaining)}`:`⚠️ تجاوزت بـ ${fmt(Math.abs(expRemaining))}`}
                     </div>
@@ -1110,21 +1112,21 @@ export default function App(){
                 <div style={{...S.row,marginBottom:10}}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <div style={{width:38,height:38,borderRadius:10,background:"#10b98122",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🛒</div>
-                    <div><div style={{fontWeight:700,fontSize:14}}>ميزانية المصاريف</div><div style={{fontSize:11,color:"#888888"}}>إجمالي كلي — {expBkt.pct}% من الدخل</div></div>
+                    <div><div style={{fontWeight:700,fontSize:14}}>ميزانية المصاريف</div><div style={{fontSize:11,color:"#64748b"}}>إجمالي كلي — {expBkt.pct}% من الدخل</div></div>
                   </div>
                   <div style={{textAlign:"left"}}>
-                    <div style={{fontSize:11,color:"#888888"}}>الباقي</div>
+                    <div style={{fontSize:11,color:"#64748b"}}>الباقي</div>
                     <div style={{fontSize:18,fontWeight:900,color:remaining>=0?color:"#ef4444"}}>{remaining>=0?"":"-"}{fmt(Math.abs(remaining))}</div>
                   </div>
                 </div>
                 <div className="pbar"><div className="pfill" style={{width:pct+"%",background:color}}/></div>
                 <div style={{...S.row,marginTop:6}}>
-                  <span style={{fontSize:11,color:"#888888"}}>مصروف: {fmt(totExpReal)}</span>
-                  <span style={{fontSize:11,color:"#888888"}}>الميزانية: {fmt(totBudget)}</span>
+                  <span style={{fontSize:11,color:"#64748b"}}>مصروف: {fmt(totExpReal)}</span>
+                  <span style={{fontSize:11,color:"#64748b"}}>الميزانية: {fmt(totBudget)}</span>
                 </div>
                 <div style={{...S.row,marginTop:4}}>
                   <span style={{fontSize:11,fontWeight:700,color}}>{Math.round(pctReal)}% مصروفة</span>
-                  <span style={{fontSize:11,color:"#888888"}}>{remaining>=0?`متبقي ${Math.round(100-pctReal)}%`:"⚠️ تجاوزت الميزانية"}</span>
+                  <span style={{fontSize:11,color:"#64748b"}}>{remaining>=0?`متبقي ${Math.round(100-pctReal)}%`:"⚠️ تجاوزت الميزانية"}</span>
                 </div>
               </div>
             );
@@ -1154,7 +1156,7 @@ export default function App(){
                 <div style={{width:38,height:38,borderRadius:10,background:t.type==="income"?"#10b98122":"#ef444422",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}><Ico src={hi?ic:null} fb={ic} sz={18}/></div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:13,fontWeight:600}}>{t.desc||cn}</span>{t.pm==="كريدي"&&<span style={{fontSize:9,background:"#f59e0b22",color:"#f59e0b",padding:"1px 6px",borderRadius:10,fontWeight:700}}>💳</span>}</div>
-                  <div style={{fontSize:11,color:"#888888"}}>{t.date}{sn&&` • ${sn}`}</div>
+                  <div style={{fontSize:11,color:"#64748b"}}>{t.date}{sn&&` • ${sn}`}</div>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{fontSize:14,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
@@ -1171,7 +1173,7 @@ export default function App(){
 
           if(ovPage==="banks") return <>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
-              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main",ovBank:null}))}>← رجوع</button>
+              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main",ovBank:null}))}>← رجوع</button>
               <span style={{fontWeight:800,fontSize:17}}>🏦 البنوك</span>
             </div>
             <div style={{...S.card,textAlign:"center",background:"#10b98110",border:"1px solid #10b98133",padding:12}}>
@@ -1182,13 +1184,13 @@ export default function App(){
               <div key={b.id} style={{...S.card,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,ovPage:"bank",ovBank:b.id}))}>
                 <div style={{display:"flex",alignItems:"center",gap:12}}>
                   <div style={{width:44,height:44,borderRadius:12,background:"#10b98122",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🏦</div>
-                  <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{b.name}</div><div style={{fontSize:11,color:"#888888"}}>{b.accounts.length} حساب</div></div>
+                  <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{b.name}</div><div style={{fontSize:11,color:"#64748b"}}>{b.accounts.length} حساب</div></div>
                   <span style={{fontSize:16,fontWeight:900,color:"#1a6b4a"}}>{fmt(b.accounts.reduce((s,a)=>s+a.balance,0))}</span>
-                  <span style={{color:"#888888",fontSize:20}}>›</span>
+                  <span style={{color:"#64748b",fontSize:20}}>›</span>
                 </div>
               </div>
             ))}
-            {banks.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>لا توجد بنوك</div>}
+            {banks.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#64748b"}}>لا توجد بنوك</div>}
           </>;
 
           if(ovPage==="bank"&&ovBank){
@@ -1196,16 +1198,16 @@ export default function App(){
             if(!bank)return null;
             return <>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
-                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"banks",ovBank:null}))}>← رجوع</button>
+                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"banks",ovBank:null}))}>← رجوع</button>
                 <span style={{fontWeight:800,fontSize:17}}>🏦 {bank.name}</span>
               </div>
               {bank.accounts.map(a=>(
                 <div key={a.id} style={{...S.card,padding:"14px 16px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,ovPage:"accDetail",ovAcc:{k:"bank",bid:bank.id,aid:a.id}}))}>
                   <div style={{display:"flex",alignItems:"center",gap:12}}>
                     <Dot color={a.color}/>
-                    <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{a.name}</div><div style={{fontSize:12,color:"#888888"}}>{a.type}</div></div>
+                    <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{a.name}</div><div style={{fontSize:12,color:"#64748b"}}>{a.type}</div></div>
                     <span style={{fontSize:18,fontWeight:900,color:a.color}}>{fmt(a.balance)}</span>
-                    <span style={{color:"#888888",fontSize:18}}>›</span>
+                    <span style={{color:"#64748b",fontSize:18}}>›</span>
                   </div>
                 </div>
               ))}
@@ -1232,7 +1234,7 @@ export default function App(){
             const accOut=realAccOut;
             return <>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
-                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:ref.k==="bank"?"bank":"cash",ovAcc:null}))}>← رجوع</button>
+                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:ref.k==="bank"?"bank":"cash",ovAcc:null}))}>← رجوع</button>
                 <span style={{fontWeight:800,fontSize:17}}>{ref.k==="bank"?"🏦":"💵"} {accInfo.name}</span>
               </div>
               <div style={{...S.card,textAlign:"center",background:"#6366f110",border:"1px solid #6366f133",padding:14}}>
@@ -1257,49 +1259,49 @@ export default function App(){
                 <div key={t.id} style={{...S.card,padding:"12px 16px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                     <div style={{width:38,height:38,borderRadius:10,background:t.type==="income"?"#10b98120":"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{t.type==="income"?"↓":"↑"}</div>
-                    <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc||"معاملة"}</div><div style={{fontSize:11,color:"#888888"}}>{t.date}</div></div>
+                    <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc||"معاملة"}</div><div style={{fontSize:11,color:"#64748b"}}>{t.date}</div></div>
                     <span style={{fontSize:14,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
                   </div>
                 </div>
               ))}
-              {accTxs.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>ما كاينش معاملات على هاد الحساب</div>}
+              {accTxs.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#64748b"}}>ما كاينش معاملات على هاد الحساب</div>}
             </>;
           }
 
           if(ovPage==="cash") return <>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
-              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
+              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
               <span style={{fontWeight:800,fontSize:17}}>💵 الكاش</span>
             </div>
             {cash.map(c=>(
               <div key={c.id} style={{...S.card,padding:"14px 16px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,ovPage:"accDetail",ovAcc:{k:"cash",cid:c.id}}))}>
                 <div style={{display:"flex",alignItems:"center",gap:12}}>
                   <div style={{width:44,height:44,borderRadius:12,background:"#f59e0b22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>💵</div>
-                  <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{c.name}</div><div style={{fontSize:12,color:"#888888"}}>{c.type}</div></div>
+                  <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{c.name}</div><div style={{fontSize:12,color:"#64748b"}}>{c.type}</div></div>
                   <span style={{fontSize:18,fontWeight:900,color:c.color}}>{fmt(c.balance)}</span>
-                  <span style={{color:"#888888",fontSize:18}}>›</span>
+                  <span style={{color:"#64748b",fontSize:18}}>›</span>
                 </div>
               </div>
             ))}
-            {cash.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>لا توجد محافظ</div>}
+            {cash.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#64748b"}}>لا توجد محافظ</div>}
           </>;
 
           if(ovPage==="assets") return <>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
-              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
+              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
               <span style={{fontWeight:800,fontSize:17}}>🏠 الممتلكات</span>
             </div>
             {assets.map(a=>(
               <div key={a.id} style={{...S.card,padding:"14px 16px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,ovPage:"assetDetail",ovAst:a.id}))}>
                 <div style={{display:"flex",alignItems:"center",gap:12}}>
                   <div style={{width:44,height:44,borderRadius:12,background:"#14b8a622",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🏠</div>
-                  <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{a.name}</div><div style={{fontSize:12,color:"#888888"}}>{a.type}</div></div>
+                  <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{a.name}</div><div style={{fontSize:12,color:"#64748b"}}>{a.type}</div></div>
                   <span style={{fontSize:18,fontWeight:900,color:"#14b8a6"}}>{fmt(a.value)}</span>
-                  <span style={{color:"#888888",fontSize:18}}>›</span>
+                  <span style={{color:"#64748b",fontSize:18}}>›</span>
                 </div>
               </div>
             ))}
-            {assets.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>لا توجد ممتلكات</div>}
+            {assets.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#64748b"}}>لا توجد ممتلكات</div>}
           </>;
 
           if(ovPage==="assetDetail"&&ovExp.ovAst){
@@ -1308,26 +1310,26 @@ export default function App(){
             const astTxs=txs.filter(t=>t.isAsset&&(t.desc||"").includes(ast.name)).sort((a,b)=>b.date.localeCompare(a.date));
             return <>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
-                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"assets",ovAst:null}))}>← رجوع</button>
+                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"assets",ovAst:null}))}>← رجوع</button>
                 <span style={{fontWeight:800,fontSize:17}}>🏠 {ast.name}</span>
               </div>
               <div style={{...S.card,textAlign:"center",background:"#14b8a610",border:"1px solid #14b8a633",padding:14}}>
                 <div style={{fontSize:11,color:"#14b8a6"}}>القيمة الحالية</div>
                 <div style={{fontSize:26,fontWeight:900,color:"#14b8a6"}}>{fmt(ast.value)}</div>
-                <div style={{fontSize:12,color:"#888888",marginTop:4}}>النوع: {ast.type}</div>
-                {ast.note&&<div style={{fontSize:12,color:"#888888",marginTop:2}}>{ast.note}</div>}
+                <div style={{fontSize:12,color:"#64748b",marginTop:4}}>النوع: {ast.type}</div>
+                {ast.note&&<div style={{fontSize:12,color:"#64748b",marginTop:2}}>{ast.note}</div>}
               </div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل المعاملات ({astTxs.length})</div>
               {astTxs.map(t=>(
                 <div key={t.id} style={{...S.card,padding:"12px 16px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                     <div style={{width:38,height:38,borderRadius:10,background:"#14b8a620",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>🏠</div>
-                    <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc}</div><div style={{fontSize:11,color:"#888888"}}>{t.date}</div></div>
+                    <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc}</div><div style={{fontSize:11,color:"#64748b"}}>{t.date}</div></div>
                     <span style={{fontSize:14,fontWeight:700,color:"#ef4444"}}>-{fmt(t.amount)}</span>
                   </div>
                 </div>
               ))}
-              {astTxs.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>ما كاينش معاملات مرتبطة</div>}
+              {astTxs.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#64748b"}}>ما كاينش معاملات مرتبطة</div>}
               <button style={{...S.btn("#ef4444"),marginTop:8,width:"100%",padding:"12px"}} onClick={()=>{setEi(ast);om("sellAst");}}>🏷️ بيع هاد الممتلك</button>
             </>;
           }
@@ -1339,13 +1341,13 @@ export default function App(){
             const net=(inv.profit||0)-inv.amount;
             return <>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
-                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"invest",ovInv:null}))}>← رجوع</button>
+                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"invest",ovInv:null}))}>← رجوع</button>
                 <span style={{fontWeight:800,fontSize:17}}>📈 {inv.name}</span>
               </div>
               <div style={{...S.card,background:"#10b98110",border:"1px solid #10b98133",padding:14,marginBottom:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                  <span style={{fontSize:12,color:"#888888"}}>النوع: {inv.type||"استثمار"}</span>
-                  <span style={{fontSize:12,color:"#888888"}}>{inv.date}</span>
+                  <span style={{fontSize:12,color:"#64748b"}}>النوع: {inv.type||"استثمار"}</span>
+                  <span style={{fontSize:12,color:"#64748b"}}>{inv.date}</span>
                 </div>
                 <div style={{display:"flex",gap:8}}>
                   <div style={{flex:1,textAlign:"center"}}>
@@ -1362,7 +1364,7 @@ export default function App(){
                   </div>
                 </div>
               </div>
-              {inv.note&&<div style={{...S.card,fontSize:12,color:"#666666",padding:10}}>📝 {inv.note}</div>}
+              {inv.note&&<div style={{...S.card,fontSize:12,color:"#475569",padding:10}}>📝 {inv.note}</div>}
               <div style={{display:"flex",gap:8,marginBottom:8}}>
                 <button style={{...S.btn("#10b981"),flex:1}} onClick={()=>{setEi(inv);om("addProfit");}}>💰 + تسجيل ربح</button>
                 <button style={{...S.btn("#6366f1"),flex:1}} onClick={()=>{setEi(inv);om("returnInvest");}}>🏦 استرداد رأس المال</button>
@@ -1372,18 +1374,18 @@ export default function App(){
                 <div key={t.id} style={{...S.card,padding:"12px 16px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                     <div style={{width:38,height:38,borderRadius:10,background:t.type==="income"?"#10b98120":"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{t.type==="income"?"💰":"📈"}</div>
-                    <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc}</div><div style={{fontSize:11,color:"#888888"}}>{t.date}</div></div>
+                    <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc}</div><div style={{fontSize:11,color:"#64748b"}}>{t.date}</div></div>
                     <span style={{fontSize:14,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
                   </div>
                 </div>
               ))}
-              {invTxs.length===0&&<div style={{...S.card,textAlign:"center",padding:20,color:"#888888"}}>ما كاينش معاملات مرتبطة</div>}
+              {invTxs.length===0&&<div style={{...S.card,textAlign:"center",padding:20,color:"#64748b"}}>ما كاينش معاملات مرتبطة</div>}
             </>;
           }
 
           if(ovPage==="invest") return <>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
-              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
+              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
               <span style={{fontWeight:800,fontSize:17}}>📈 الاستثمار</span>
             </div>
             {(()=>{
@@ -1418,13 +1420,13 @@ export default function App(){
                           <div style={{width:44,height:44,borderRadius:13,background:"#10b98122",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>📈</div>
                           <div style={{flex:1}}>
                             <div style={{fontWeight:700,fontSize:15}}>{inv.name}</div>
-                            <div style={{fontSize:11,color:"#888888"}}>{inv.type||"استثمار"} • {inv.date}</div>
+                            <div style={{fontSize:11,color:"#64748b"}}>{inv.type||"استثمار"} • {inv.date}</div>
                           </div>
                           <div style={{textAlign:"left"}}>
                             <div style={{fontSize:15,fontWeight:900,color:"#ef4444"}}>-{fmt(inv.amount)}</div>
                             {(inv.profit||0)>0&&<div style={{fontSize:12,fontWeight:700,color:"#10b981"}}>+{fmt(inv.profit)}</div>}
                           </div>
-                          <span style={{color:"#888888",fontSize:18}}>›</span>
+                          <span style={{color:"#64748b",fontSize:18}}>›</span>
                         </div>
                         {net!==0&&<div style={{marginTop:8,padding:"6px 10px",borderRadius:8,background:net>=0?"#10b98110":"#ef444410",fontSize:12,fontWeight:700,color:net>=0?"#1a6b4a":"#ef4444",textAlign:"center"}}>
                           {net>=0?"💚 ربح ":"🔴 خسارة "}{fmt(Math.abs(net))} د.م
@@ -1433,14 +1435,14 @@ export default function App(){
                     );
                   })}
                 </>}
-                {investments.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>ما كاينش استثمارات — ضغط + باش تزيد</div>}
+                {investments.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#64748b"}}>ما كاينش استثمارات — ضغط + باش تزيد</div>}
               </>;
             })()}
           </>;
 
           if(ovPage==="loans") return <>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
-              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
+              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"main"}))}>← رجوع</button>
               <span style={{fontWeight:800,fontSize:17}}>🤝 السلف والقروض</span>
             </div>
             <div style={{display:"flex",gap:8}}>
@@ -1451,13 +1453,13 @@ export default function App(){
               <div key={l.id} style={{...S.card,padding:"14px 16px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,ovPage:"loanDetail",ovLoan:l.id}))}>
                 <div style={{display:"flex",alignItems:"center",gap:12}}>
                   <div style={{width:44,height:44,borderRadius:12,background:l.kind==="أعطيت"?"#10b98122":"#ef444422",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{l.kind==="أعطيت"?"↑":"↓"}</div>
-                  <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{l.person}</div><div style={{fontSize:12,color:"#888888"}}>{l.date}</div></div>
-                  <div style={{textAlign:"left"}}><div style={{fontSize:16,fontWeight:900,color:l.kind==="أعطيت"?"#10b981":"#ef4444"}}>{fmt(l.remaining)}</div><div style={{fontSize:10,color:"#888888"}}>من {fmt(l.amount)}</div></div>
-                  <span style={{color:"#888888",fontSize:18}}>›</span>
+                  <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{l.person}</div><div style={{fontSize:12,color:"#64748b"}}>{l.date}</div></div>
+                  <div style={{textAlign:"left"}}><div style={{fontSize:16,fontWeight:900,color:l.kind==="أعطيت"?"#10b981":"#ef4444"}}>{fmt(l.remaining)}</div><div style={{fontSize:10,color:"#64748b"}}>من {fmt(l.amount)}</div></div>
+                  <span style={{color:"#64748b",fontSize:18}}>›</span>
                 </div>
               </div>
             ))}
-            {loans.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>لا توجد سلف</div>}
+            {loans.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#64748b"}}>لا توجد سلف</div>}
           </>;
 
           if(ovPage==="loanDetail"&&ovExp.ovLoan){
@@ -1468,18 +1470,18 @@ export default function App(){
             const pct=loan.amount>0?Math.min((paidBack/loan.amount)*100,100):0;
             return <>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
-                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,ovPage:"loans",ovLoan:null}))}>← رجوع</button>
+                <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"loans",ovLoan:null}))}>← رجوع</button>
                 <span style={{fontWeight:800,fontSize:17}}>{loan.kind==="أعطيت"?"🤝":"💸"} {loan.person}</span>
               </div>
               <div style={{...S.card,textAlign:"center",background:loan.kind==="أعطيت"?"#10b98110":"#ef444410",border:`1px solid ${loan.kind==="أعطيت"?"#10b98133":"#ef444433"}`,padding:14}}>
                 <div style={{fontSize:11,color:loan.kind==="أعطيت"?"#10b981":"#ef4444"}}>{loan.kind==="أعطيت"?"باقي ليك عندو":"باقي عليك ليه"}</div>
                 <div style={{fontSize:26,fontWeight:900,color:loan.kind==="أعطيت"?"#10b981":"#ef4444"}}>{fmt(loan.remaining)}</div>
-                <div style={{fontSize:12,color:"#888888",marginTop:4}}>من أصل {fmt(loan.amount)} — {loan.date}</div>
+                <div style={{fontSize:12,color:"#64748b",marginTop:4}}>من أصل {fmt(loan.amount)} — {loan.date}</div>
               </div>
               <div style={{height:8,background:"#e8e8e4",borderRadius:4,overflow:"hidden"}}>
                 <div style={{height:"100%",width:pct+"%",background:loan.kind==="أعطيت"?"#10b981":"#ef4444",borderRadius:4}}/>
               </div>
-              <div style={{fontSize:12,color:"#888888",textAlign:"center"}}>تم رجوع {fmt(paidBack)} ({Math.round(pct)}%)</div>
+              <div style={{fontSize:12,color:"#64748b",textAlign:"center"}}>تم رجوع {fmt(paidBack)} ({Math.round(pct)}%)</div>
               {(()=>{
                 const txTotal=loanTxs.reduce((s,t)=>s+t.amount,0);
                 const diff=paidBack-txTotal;
@@ -1500,22 +1502,22 @@ export default function App(){
                 <div key={t.id} style={{...S.card,padding:"12px 16px"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                     <div style={{width:38,height:38,borderRadius:10,background:t.type==="income"?"#10b98120":"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{t.type==="income"?"↓":"↑"}</div>
-                    <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc}</div><div style={{fontSize:11,color:"#888888"}}>{t.date}</div></div>
+                    <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{t.desc}</div><div style={{fontSize:11,color:"#64748b"}}>{t.date}</div></div>
                     <span style={{fontSize:14,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
                   </div>
                 </div>
               ))}
-              {loanTxs.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>ما كاينش دفعات مسجلة بعد</div>}
+              {loanTxs.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#64748b"}}>ما كاينش دفعات مسجلة بعد</div>}
             </>;
           }
 
           return <>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
-              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setPage("dashboard")}>← رجوع</button>
+              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setPage("dashboard")}>← رجوع</button>
               <span style={{fontWeight:800,fontSize:17}}>الملخص المالي</span>
             </div>
             <div style={{borderRadius:18,padding:20,border:"1px solid #cbd5e1",textAlign:"center",background:"#f8fafc"}}>
-              <div style={{fontSize:11,color:"#666666",marginBottom:6}}>صافي الثروة</div>
+              <div style={{fontSize:11,color:"#475569",marginBottom:6}}>صافي الثروة</div>
               <div style={{fontSize:34,fontWeight:900,color:"#1a6b4a"}}>{fmt(totBal+totAst+totInv+totGiv-totOwd)}</div>
             </div>
             {[
@@ -1528,9 +1530,9 @@ export default function App(){
               <div key={item.key} style={{...S.card,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,ovPage:item.key,ovBank:null}))}>
                 <div style={{display:"flex",alignItems:"center",gap:12}}>
                   <div style={{width:48,height:48,borderRadius:14,background:item.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>{item.icon}</div>
-                  <div style={{flex:1}}><div style={{fontWeight:700,fontSize:16}}>{item.label}</div><div style={{fontSize:11,color:"#888888"}}>{item.sub}</div></div>
+                  <div style={{flex:1}}><div style={{fontWeight:700,fontSize:16}}>{item.label}</div><div style={{fontSize:11,color:"#64748b"}}>{item.sub}</div></div>
                   <span style={{fontSize:17,fontWeight:900,color:item.color}}>{fmt(item.amount)}</span>
-                  <span style={{color:"#888888",fontSize:20}}>›</span>
+                  <span style={{color:"#64748b",fontSize:20}}>›</span>
                 </div>
               </div>
             ))}
@@ -1542,7 +1544,7 @@ export default function App(){
             <button onClick={()=>setPage("dashboard")} style={{background:"#e8e8e4",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:13}}>← رجوع</button>
           </div>
           <div style={S.card}>
-            <div style={{fontSize:11,color:"#888888",fontWeight:700,letterSpacing:1,marginBottom:10}}>🔠 حجم الخط</div>
+            <div style={{fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,marginBottom:10}}>🔠 حجم الخط</div>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
               <button onClick={()=>setFontScale(p=>Math.max(0.9,Math.round((p-0.1)*10)/10))} style={{width:38,height:38,borderRadius:10,border:"none",background:"#e8e8e4",color:"#1a1a1a",fontSize:18,fontWeight:900,cursor:"pointer"}}>－</button>
               <div style={{flex:1,textAlign:"center",fontSize:16,fontWeight:900,color:"#1a6b4a"}}>{Math.round(fontScale*100)}%</div>
@@ -1550,33 +1552,33 @@ export default function App(){
             </div>
             <div style={{display:"flex",gap:6}}>
               {[1,1.1,1.2,1.3,1.4].map(v=>(
-                <button key={v} onClick={()=>setFontScale(v)} style={{flex:1,padding:"7px",borderRadius:8,border:`1.5px solid ${fontScale===v?"#1a6b4a":"#e8e8e4"}`,background:fontScale===v?"#e8f5ee":"white",color:fontScale===v?"#1a6b4a":"#888888",fontFamily:"Tajawal",fontSize:11,fontWeight:700,cursor:"pointer"}}>{Math.round(v*100)}%</button>
+                <button key={v} onClick={()=>setFontScale(v)} style={{flex:1,padding:"7px",borderRadius:8,border:`1.5px solid ${fontScale===v?"#1a6b4a":"#e8e8e4"}`,background:fontScale===v?"#e8f5ee":"white",color:fontScale===v?"#1a6b4a":"#64748b",fontFamily:"Tajawal",fontSize:11,fontWeight:700,cursor:"pointer"}}>{Math.round(v*100)}%</button>
               ))}
             </div>
           </div>
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#888888",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الأموال والممتلكات</div>
+            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الأموال والممتلكات</div>
             {[{id:"banks",icon:"🏦",label:"البنوك"},{id:"cash",icon:"💵",label:"الكاش"},{id:"assets",icon:"🏠",label:"الممتلكات"}].map((item,i,arr)=>(
               <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #e2e8f0":"none"}} onClick={()=>setDp(item.id)}>
                 <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
                 <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</span>
-                <ChevronLeft size={18} color="#888888"/>
+                <ChevronLeft size={18} color="#64748b"/>
               </div>
             ))}
           </div>
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#888888",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>التصنيفات</div>
+            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>التصنيفات</div>
             {[{id:"expCat",icon:"🔴",label:"تصنيفات النفقات",count:`${cats.expense.length} تصنيف`},{id:"incCat",icon:"🟢",label:"تصنيفات الدخل",count:`${cats.income.length} تصنيف`}].map((item,i,arr)=>(
               <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #e2e8f0":"none"}} onClick={()=>setDp(item.id)}>
                 <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
-                <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</div><div style={{fontSize:12,color:"#888888"}}>{item.count}</div></div>
-                <ChevronLeft size={18} color="#888888"/>
+                <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</div><div style={{fontSize:12,color:"#64748b"}}>{item.count}</div></div>
+                <ChevronLeft size={18} color="#64748b"/>
               </div>
             ))}
           </div>
           {/* ====== إعدادات الميزانية الجديدة ====== */}
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#888888",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>⚙️ توزيع الدخل — الأقسام الخمسة</div>
+            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>⚙️ توزيع الدخل — الأقسام الخمسة</div>
 
             {/* النسب */}
             <div style={{borderBottom:"1px solid #f1f5f9"}}>
@@ -1584,11 +1586,11 @@ export default function App(){
                 <div style={{fontWeight:700,fontSize:14}}>📊 نسب التوزيع</div>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
                   {(()=>{const tot=(budgetSettings.buckets||[]).reduce((s,b)=>s+(b.pct||0),0);return<span style={{color:tot===100?"#10b981":"#ef4444",fontWeight:700,fontSize:13}}>{tot}%</span>})()}
-                  <span style={{fontSize:16,color:"#888888"}}>{budgetSec.goals?"▲":"▼"}</span>
+                  <span style={{fontSize:16,color:"#64748b"}}>{budgetSec.goals?"▲":"▼"}</span>
                 </div>
               </div>
               {budgetSec.goals&&<div style={{padding:"0 16px 14px"}}>
-                <div style={{fontSize:11,color:"#888888",marginBottom:10}}>المجموع خاص يكون 100% — هاد النسب تطبق على كل الدخل من 2017 حتى دابا</div>
+                <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>المجموع خاص يكون 100% — هاد النسب تطبق على كل الدخل من 2017 حتى دابا</div>
                 {(budgetSettings.buckets||[]).map(b=>(
                   <div key={b.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
                     <div style={{width:38,height:38,borderRadius:10,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{b.icon}</div>
@@ -1596,7 +1598,7 @@ export default function App(){
                     <input style={{...S.inp,width:70,textAlign:"center",padding:"8px",fontSize:16,fontWeight:700,color:b.color,border:`2px solid ${b.color}44`}}
                       type="number" min="0" max="100" value={b.pct||0}
                       onChange={e=>setBudgetSettings(p=>({...p,buckets:(p.buckets||[]).map(x=>x.id===b.id?{...x,pct:parseInt(e.target.value)||0}:x)}))}/>
-                    <span style={{fontSize:13,color:"#888888"}}>%</span>
+                    <span style={{fontSize:13,color:"#64748b"}}>%</span>
                   </div>
                 ))}
                 {/* نسبة الطوارئ للميزانية */}
@@ -1608,7 +1610,7 @@ export default function App(){
                       <input style={{...S.inp,width:70,textAlign:"center",padding:"8px",fontSize:16,fontWeight:700,color:"#f59e0b",border:"2px solid #f59e0b44"}}
                         type="number" min="0" max="100" value={emg.emergencyPct||20}
                         onChange={e=>setBudgetSettings(p=>({...p,buckets:(p.buckets||[]).map(x=>x.id===emg.id?{...x,emergencyPct:parseInt(e.target.value)||20}:x)}))}/>
-                      <span style={{fontSize:13,color:"#888888"}}>%</span>
+                      <span style={{fontSize:13,color:"#64748b"}}>%</span>
                     </div>
                   </div>
                 );})()}
@@ -1619,7 +1621,7 @@ export default function App(){
             <div style={{borderBottom:"1px solid #f1f5f9"}}>
               <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setBudgetSec(p=>({...p,alloc:!p.alloc}))}>
                 <div style={{fontWeight:700,fontSize:14}}>🏦 ربط الحسابات</div>
-                <span style={{fontSize:16,color:"#888888"}}>{budgetSec.alloc?"▲":"▼"}</span>
+                <span style={{fontSize:16,color:"#64748b"}}>{budgetSec.alloc?"▲":"▼"}</span>
               </div>
               {budgetSec.alloc&&<div style={{padding:"0 16px 14px"}}>
                 {(budgetSettings.buckets||[]).map(b=>{
@@ -1670,16 +1672,16 @@ export default function App(){
           </div>
 
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#888888",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الحساب</div>
+            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الحساب</div>
             <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>om("changePw")}>
               <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🔑</div>
               <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>تغيير كلمة السر</span>
-              <ChevronLeft size={18} color="#888888"/>
+              <ChevronLeft size={18} color="#64748b"/>
             </div>
             {/* جهة الاسترجاع */}
             <div style={{padding:"14px 16px",borderTop:"1px solid #f1f5f9"}}>
               <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📱 جهة استرجاع كلمة السر</div>
-              <div style={{fontSize:11,color:"#888888",marginBottom:10}}>إيميل أو رقم الهاتف — كيبان ملي تنسى كلمة السر</div>
+              <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>إيميل أو رقم الهاتف — كيبان ملي تنسى كلمة السر</div>
               <input style={{...S.inp,marginBottom:8}} type="text"
                 placeholder="example@email.com أو 0600000000"
                 value={recoveryContact}
@@ -1693,12 +1695,12 @@ export default function App(){
             <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>setDp("cloud")}>
               <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>☁️</div>
               <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>النسخ الاحتياطي</span>
-              <ChevronLeft size={18} color="#888888"/>
+              <ChevronLeft size={18} color="#64748b"/>
             </div>
             <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>{sessionStorage.removeItem("mhf_auth");setIsAuth(false);}}>
               <div style={{width:42,height:42,borderRadius:12,background:"#fff0f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🚪</div>
               <span style={{flex:1,fontSize:16,fontWeight:700,color:"#ef4444"}}>تسجيل خروج</span>
-              <ChevronLeft size={18} color="#888888"/>
+              <ChevronLeft size={18} color="#64748b"/>
             </div>
           </div>
           {dp&&["banks","cash","assets","expCat","incCat","cloud"].includes(dp)&&(
@@ -1835,12 +1837,12 @@ export default function App(){
                 <div style={{flex:1,textAlign:"center",background:"#10b98110",borderRadius:12,padding:"12px 6px",border:"1px solid #10b98133"}}>
                   <div style={{fontSize:11,color:"#1a6b4a",fontWeight:700}}>سلفت</div>
                   <div style={{fontSize:18,fontWeight:900,color:"#1a6b4a"}}>{fmt(totSalaf)}</div>
-                  <div style={{fontSize:11,color:"#888888"}}>{salafGiven.length} شخص</div>
+                  <div style={{fontSize:11,color:"#64748b"}}>{salafGiven.length} شخص</div>
                 </div>
                 <div style={{flex:1,textAlign:"center",background:"#ef444410",borderRadius:12,padding:"12px 6px",border:"1px solid #ef444433"}}>
                   <div style={{fontSize:11,color:"#ef4444",fontWeight:700}}>عندي دَين</div>
                   <div style={{fontSize:18,fontWeight:900,color:"#ef4444"}}>{fmt(totDain-qorudh.reduce((s,l)=>s+l.remaining,0))}</div>
-                  <div style={{fontSize:11,color:"#888888"}}>{salafTaken.length} شخص</div>
+                  <div style={{fontSize:11,color:"#64748b"}}>{salafTaken.length} شخص</div>
                 </div>
               </div>
               <div style={{display:"flex",gap:8}}>
@@ -1852,11 +1854,11 @@ export default function App(){
                   <div style={{...S.row,marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <div style={{width:38,height:38,borderRadius:10,background:l.kind==="أعطيت"?"#10b98115":"#ef444415",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{l.kind==="أعطيت"?"↑":"↓"}</div>
-                      <div><div style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{l.person}</div><div style={{fontSize:11,color:"#888888"}}>{l.date}{l.note?` · ${l.note}`:""}</div></div>
+                      <div><div style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{l.person}</div><div style={{fontSize:11,color:"#64748b"}}>{l.date}{l.note?` · ${l.note}`:""}</div></div>
                     </div>
                     <div style={{textAlign:"left"}}>
                       <div style={{fontSize:16,fontWeight:900,color:l.kind==="أعطيت"?"#10b981":"#ef4444"}}>{fmt(l.remaining)}</div>
-                      {l.remaining<l.amount&&<div style={{fontSize:10,color:"#888888"}}>من {fmt(l.amount)}</div>}
+                      {l.remaining<l.amount&&<div style={{fontSize:10,color:"#64748b"}}>من {fmt(l.amount)}</div>}
                     </div>
                   </div>
                   <div style={{display:"flex",gap:8}}>
@@ -1867,7 +1869,7 @@ export default function App(){
                   </div>
                 </div>
               ))}
-              {salafGiven.length===0&&salafTaken.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>لا توجد سلف</div>}
+              {salafGiven.length===0&&salafTaken.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#64748b"}}>لا توجد سلف</div>}
             </>}
             {ovExp.debtPage==="qorudh"&&<>
               <button style={{...S.btn("#6366f1"),padding:"12px"}} onClick={()=>om("addLoan",{kind:"أخذت",wi:true})}>+ إضافة قرض جديد</button>
@@ -1876,13 +1878,13 @@ export default function App(){
                 return(
                   <div key={l.id} style={S.card}>
                     <div style={{...S.row,marginBottom:10}}>
-                      <div><div style={{fontSize:15,fontWeight:700,color:"#1a1a1a"}}>{l.person}</div><div style={{fontSize:12,color:"#888888"}}>فائدة {l.interest}%{l.inst?` · قسط ${fmt(l.minst)}/شهر`:""}</div></div>
-                      <div style={{textAlign:"left"}}><div style={{fontSize:17,fontWeight:900,color:"#ef4444"}}>{fmt(l.remaining)}</div><div style={{fontSize:11,color:"#888888"}}>من {fmt(l.amount)}</div></div>
+                      <div><div style={{fontSize:15,fontWeight:700,color:"#1a1a1a"}}>{l.person}</div><div style={{fontSize:12,color:"#64748b"}}>فائدة {l.interest}%{l.inst?` · قسط ${fmt(l.minst)}/شهر`:""}</div></div>
+                      <div style={{textAlign:"left"}}><div style={{fontSize:17,fontWeight:900,color:"#ef4444"}}>{fmt(l.remaining)}</div><div style={{fontSize:11,color:"#64748b"}}>من {fmt(l.amount)}</div></div>
                     </div>
                     <div className="pbar" style={{marginBottom:6}}><div className="pfill" style={{width:pct+"%",background:"#10b981"}}/></div>
                     <div style={{...S.row,marginBottom:10}}>
-                      <span style={{fontSize:11,color:"#888888"}}>مسدد {pct.toFixed(0)}%</span>
-                      <span style={{fontSize:11,color:"#888888"}}>متبقي {fmt(l.remaining)}</span>
+                      <span style={{fontSize:11,color:"#64748b"}}>مسدد {pct.toFixed(0)}%</span>
+                      <span style={{fontSize:11,color:"#64748b"}}>متبقي {fmt(l.remaining)}</span>
                     </div>
                     <div style={{display:"flex",gap:8}}>
                       <button style={{...S.btn("#10b981",false),padding:"9px 14px"}} onClick={()=>{setEi(l);om("returnLoan");}}> سدد</button>
@@ -1891,20 +1893,20 @@ export default function App(){
                   </div>
                 );
               })}
-              {qorudh.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>لا توجد قروض</div>}
+              {qorudh.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#64748b"}}>لا توجد قروض</div>}
             </>}
             {ovExp.debtPage==="credit"&&<>
               <div style={{...S.card,textAlign:"center",background:"#f59e0b10",border:"1px solid #f59e0b33"}}>
                 <div style={{fontSize:12,color:"#f59e0b",marginBottom:4,fontWeight:700}}>إجمالي الكريدي غير المخلص</div>
                 <div style={{fontSize:28,fontWeight:900,color:"#f59e0b"}}>{fmt(creditTotal)}</div>
-                <div style={{fontSize:11,color:"#888888",marginTop:4}}>{creditTxs.length} معاملة</div>
+                <div style={{fontSize:11,color:"#64748b",marginTop:4}}>{creditTxs.length} معاملة</div>
               </div>
               {creditTxs.length===0?
-                <div style={{...S.card,textAlign:"center",padding:30}}><div style={{fontSize:30,marginBottom:8}}>✅</div><div style={{color:"#888888"}}>ما كاين ديون كريدي</div></div>:
+                <div style={{...S.card,textAlign:"center",padding:30}}><div style={{fontSize:30,marginBottom:8}}>✅</div><div style={{color:"#64748b"}}>ما كاين ديون كريدي</div></div>:
                 creditTxs.map(t=>(
                   <div key={t.id} style={S.card}>
                     <div style={{...S.row,marginBottom:10}}>
-                      <div><div style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{t.desc}</div><div style={{fontSize:11,color:"#888888"}}>{t.date}</div></div>
+                      <div><div style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{t.desc}</div><div style={{fontSize:11,color:"#64748b"}}>{t.date}</div></div>
                       <div style={{fontSize:17,fontWeight:900,color:"#f59e0b"}}>{fmt(t.amount)}</div>
                     </div>
                     {ovExp[`pay_${t.id}`]?
@@ -1923,7 +1925,7 @@ export default function App(){
                           setTxs(p=>p.map(x=>x.id===t.id?{...x,creditPaid:true,ref:acc.ref}:x));
                           setOvExp(p=>({...p,[`pay_${t.id}`]:false,[`pacc_${t.id}`]:""}));
                         }}>✓ تأكيد الخلاص</button>
-                        <button style={{background:"none",border:"none",color:"#888888",fontFamily:"Tajawal",fontSize:12,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`pay_${t.id}`]:false}))}>إلغاء</button>
+                        <button style={{background:"none",border:"none",color:"#64748b",fontFamily:"Tajawal",fontSize:12,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`pay_${t.id}`]:false}))}>إلغاء</button>
                       </div>:
                       <button style={{...S.btn("#f59e0b"),padding:"10px",fontSize:13}} onClick={()=>setOvExp(p=>({...p,[`pay_${t.id}`]:true}))}>💳 خلصت — اختر الحساب</button>
                     }
@@ -1959,10 +1961,10 @@ export default function App(){
                   <div style={{width:50,height:50,borderRadius:14,background:item.color+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,marginLeft:14,flexShrink:0}}>{item.icon}</div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:16,fontWeight:800,color:"#1a1a1a"}}>{item.title}</div>
-                    <div style={{fontSize:12,color:"#888888",marginTop:2}}>{item.sub}</div>
+                    <div style={{fontSize:12,color:"#64748b",marginTop:2}}>{item.sub}</div>
                     <div style={{fontSize:12,fontWeight:700,color:item.color,marginTop:4}}>{item.count}</div>
                   </div>
-                  <ChevronLeft size={20} color="#888888"/>
+                  <ChevronLeft size={20} color="#64748b"/>
                 </div>
               </div>
             ))}
@@ -1995,7 +1997,7 @@ export default function App(){
             ))}
           </div>
           <div style={S.card}>
-            {typeFiltered.length===0&&<div style={{textAlign:"center",color:"#888888",padding:20,fontSize:13}}>ما كاينش معاملات</div>}
+            {typeFiltered.length===0&&<div style={{textAlign:"center",color:"#64748b",padding:20,fontSize:13}}>ما كاينش معاملات</div>}
             {typeFiltered.map(t=>{const{cn,sn,ic,hi}=tl(t);const ac=al(t.ref);const isOpen=openTxId===t.id;const txType=getTxType(t);
               const typeIcon={income:"💰",expense:"💸",transfer:"🔄",credit:"💳",loan:"🤝",asset:"🏠",invest:"📈"}[txType];
               const isPositive=t.type==="income";
@@ -2004,13 +2006,13 @@ export default function App(){
                 {/* سطر مضغوط: ايقونة - تاريخ - الفئة - المبلغ */}
                 <div className="tx" style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10}} onClick={()=>setOpenTxId(isOpen?null:t.id)}>
                   <div style={{width:36,height:36,borderRadius:10,background:isPositive?"#10b98122":"#ef444422",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}><Ico src={hi?ic:null} fb={ic||typeIcon}/></div>
-                  <span style={{fontSize:11,color:"#888888",whiteSpace:"nowrap",flexShrink:0}}>{t.date.slice(2).split("-").reverse().join("/")}</span>
+                  <span style={{fontSize:11,color:"#64748b",whiteSpace:"nowrap",flexShrink:0}}>{t.date.slice(2).split("-").reverse().join("/")}</span>
                   <span style={{fontSize:13,fontWeight:600,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||cn}</span>
                   <span style={{fontSize:13,fontWeight:700,color:isPositive?"#10b981":"#ef4444",whiteSpace:"nowrap",flexShrink:0}}>{isPositive?"+":"-"}{fmt(t.amount)} د.م</span>
                 </div>
                 {/* تفاصيل كاملة عند الكليك */}
                 {isOpen&&<div style={{background:"#f8fafc",borderRadius:10,padding:12,margin:"4px 0 8px",border:"1px solid #e2e8f0"}}>
-                  <div style={{fontSize:12,color:"#666666",marginBottom:8,display:"flex",flexDirection:"column",gap:4}}>
+                  <div style={{fontSize:12,color:"#475569",marginBottom:8,display:"flex",flexDirection:"column",gap:4}}>
                     <div>🏷️ {typeIcon} {typeLabels[txType]}</div>
                     <div>📂 {cn}{sn&&` ← ${sn}`}</div>
                     {ac&&<div>📍 {ac}</div>}
@@ -2102,7 +2104,7 @@ export default function App(){
               return <div style={{...S.card,background:"#fef3c7",border:"2px solid #f59e0b",padding:14,marginBottom:10}}>
                 <div style={{fontWeight:700,color:"#d97706",marginBottom:4}}>⚠️ الميزانية نفذت!</div>
                 <div style={{fontSize:12,color:"#78350f",marginBottom:8}}>العجز: {fmt(Math.abs(expBalance))} د.م</div>
-                <div style={{fontSize:11,color:"#888888",marginBottom:10}}>رصيد الطوارئ: {fmt(emergBal)} — يمكن تحويل {fmt(transferAmt)} ({emergBucket.emergencyPct||20}%)</div>
+                <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>رصيد الطوارئ: {fmt(emergBal)} — يمكن تحويل {fmt(transferAmt)} ({emergBucket.emergencyPct||20}%)</div>
                 <button style={{...S.btn("#f59e0b"),padding:"10px",fontSize:13}} onClick={()=>{
                   // تحويل من الطوارئ للميزانية كتحويل داخلي
                   const fromAcc = allAcc.find(a=>(emergBucket.accountKeys||[]).includes(a.key));
@@ -2123,11 +2125,11 @@ export default function App(){
 
             {/* ملخص الفترة */}
             <div style={{background:"linear-gradient(135deg,#0f172a,#1e293b)",borderRadius:20,padding:18,marginBottom:12}}>
-              <div style={{fontSize:12,color:"rgba(255,255,255,.5)",fontWeight:700,marginBottom:12}}>📊 ملخص {period.type==="month"?"الشهر":period.type==="year"?"السنة":"الكلي"}</div>
+              <div style={{fontSize:12,color:"rgba(255,255,255,.75)",fontWeight:700,marginBottom:12}}>📊 ملخص {period.type==="month"?"الشهر":period.type==="year"?"السنة":"الكلي"}</div>
               <div style={{display:"flex",gap:10,marginBottom:12}}>
                 {[["📥 الدخل",periodInc,"#10b981"],["📤 المصاريف",periodExp,"#ef4444"]].map(([l,v,c])=>(
                   <div key={l} style={{flex:1,background:"rgba(255,255,255,.07)",borderRadius:14,padding:"12px 10px",textAlign:"center"}}>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,.55)",marginBottom:4}}>{l}</div>
+                    <div style={{fontSize:10,color:"rgba(255,255,255,.75)",marginBottom:4}}>{l}</div>
                     <div style={{fontSize:16,fontWeight:900,color:c}}>{fmt(v)}</div>
                   </div>
                 ))}
@@ -2144,7 +2146,7 @@ export default function App(){
             </div>}
 
             {/* الأقسام الخمسة */}
-            <div style={{fontSize:13,color:"#666666",fontWeight:700,marginBottom:8}}>💼 الأقسام الخمسة</div>
+            <div style={{fontSize:13,color:"#475569",fontWeight:700,marginBottom:8}}>💼 الأقسام الخمسة</div>
             {buckets.map(b=>{
               const {allocated, spent, transferIn, balance, bucketTxs} = getBucketData(b);
               const pct_used = allocated>0?((spent)/allocated*100):0;
@@ -2157,13 +2159,13 @@ export default function App(){
                     <div style={{width:42,height:42,borderRadius:12,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{b.icon}</div>
                     <div style={{flex:1}}>
                       <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a"}}>{b.name}</div>
-                      <div style={{fontSize:11,color:"#888888"}}>التوزيع: {b.pct}% من الدخل</div>
+                      <div style={{fontSize:11,color:"#64748b"}}>التوزيع: {b.pct}% من الدخل</div>
                     </div>
                     <div style={{textAlign:"left"}}>
                       <div style={{fontSize:16,fontWeight:900,color:balance>=0?"#1a6b4a":"#ef4444"}}>{fmt(Math.abs(balance))}</div>
                       <div style={{fontSize:10,color:balance>=0?"#10b981":"#ef4444"}}>{balance>=0?"✅ متاح":"🔴 عجز"}</div>
                     </div>
-                    <span style={{color:"#888888",fontSize:16}}>{isOpen?"▲":"▼"}</span>
+                    <span style={{color:"#64748b",fontSize:16}}>{isOpen?"▲":"▼"}</span>
                   </div>
 
                   {/* شريط التقدم */}
@@ -2174,19 +2176,19 @@ export default function App(){
                   {/* أرقام مختصرة */}
                   <div style={{display:"flex",gap:6}}>
                     <div style={{flex:1,background:"#f8fafc",borderRadius:8,padding:"7px",textAlign:"center"}}>
-                      <div style={{fontSize:9,color:"#888888"}}>المخصص</div>
+                      <div style={{fontSize:9,color:"#64748b"}}>المخصص</div>
                       <div style={{fontSize:11,fontWeight:700,color:b.color}}>{fmt(allocated)}</div>
                     </div>
                     <div style={{flex:1,background:"#f8fafc",borderRadius:8,padding:"7px",textAlign:"center"}}>
-                      <div style={{fontSize:9,color:"#888888"}}>{b.type==="expenses"?"خرج":"استخدم"}</div>
+                      <div style={{fontSize:9,color:"#64748b"}}>{b.type==="expenses"?"خرج":"استخدم"}</div>
                       <div style={{fontSize:11,fontWeight:700,color:"#ef4444"}}>{fmt(spent)}</div>
                     </div>
                     {transferIn>0&&<div style={{flex:1,background:"#f8fafc",borderRadius:8,padding:"7px",textAlign:"center"}}>
-                      <div style={{fontSize:9,color:"#888888"}}>رجع</div>
+                      <div style={{fontSize:9,color:"#64748b"}}>رجع</div>
                       <div style={{fontSize:11,fontWeight:700,color:"#10b981"}}>{fmt(transferIn)}</div>
                     </div>}
                     <div style={{flex:1,background:"#f8fafc",borderRadius:8,padding:"7px",textAlign:"center"}}>
-                      <div style={{fontSize:9,color:"#888888"}}>الحسابات</div>
+                      <div style={{fontSize:9,color:"#64748b"}}>الحسابات</div>
                       <div style={{fontSize:11,fontWeight:700,color:"#6366f1"}}>{fmt(accBal)}</div>
                     </div>
                   </div>
@@ -2195,7 +2197,7 @@ export default function App(){
                   {isOpen&&<div style={{marginTop:10,borderTop:"1px solid #f0f0f0",paddingTop:10}}>
                     <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📋 سجل الحركات ({bucketTxs.length})</div>
                     {bucketTxs.length===0?
-                      <div style={{textAlign:"center",color:"#888888",padding:16,fontSize:12}}>ما كاينش حركات بعد</div>:
+                      <div style={{textAlign:"center",color:"#64748b",padding:16,fontSize:12}}>ما كاينش حركات بعد</div>:
                       bucketTxs.slice(0,10).map(t=>(
                         <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #f5f5f5"}}>
                           <div style={{width:30,height:30,borderRadius:8,background:t.type==="income"?"#10b98120":"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
@@ -2203,13 +2205,13 @@ export default function App(){
                           </div>
                           <div style={{flex:1}}>
                             <div style={{fontSize:12,fontWeight:600}}>{t.desc||"معاملة"}</div>
-                            <div style={{fontSize:10,color:"#888888"}}>{t.date}</div>
+                            <div style={{fontSize:10,color:"#64748b"}}>{t.date}</div>
                           </div>
                           <span style={{fontSize:13,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
                         </div>
                       ))
                     }
-                    {bucketTxs.length>10&&<div style={{textAlign:"center",fontSize:11,color:"#888888",marginTop:6}}>و{bucketTxs.length-10} معاملة أخرى...</div>}
+                    {bucketTxs.length>10&&<div style={{textAlign:"center",fontSize:11,color:"#64748b",marginTop:6}}>و{bucketTxs.length-10} معاملة أخرى...</div>}
                   </div>}
 
                   {/* طوارئ: زر الإعاشة */}
@@ -2255,18 +2257,18 @@ export default function App(){
             return <>
               <div style={{display:"flex",gap:8}}>
                 <button onClick={()=>setOvExp(p=>({...p,repTab:"yearly",repMonth:null}))} style={{...S.btn("#10b981",false),padding:"8px 14px",fontSize:13}}>📆 سنوي</button>
-                <button onClick={()=>setOvExp(p=>({...p,repTab:"filter"}))} style={{...S.btn("#e8e8e4",false),padding:"8px 14px",fontSize:13,color:"#666666"}}>🔍 فلتر</button>
-                <button onClick={()=>setOvExp(p=>({...p,repTab:"dashboard"}))} style={{...S.btn("#e8e8e4",false),padding:"8px 14px",fontSize:13,color:"#666666"}}>📊 لوحة</button>
+                <button onClick={()=>setOvExp(p=>({...p,repTab:"filter"}))} style={{...S.btn("#e8e8e4",false),padding:"8px 14px",fontSize:13,color:"#475569"}}>🔍 فلتر</button>
+                <button onClick={()=>setOvExp(p=>({...p,repTab:"dashboard"}))} style={{...S.btn("#e8e8e4",false),padding:"8px 14px",fontSize:13,color:"#475569"}}>📊 لوحة</button>
               </div>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                 <select style={{...S.sel,flex:1}} value={selYear} onChange={e=>setOvExp(p=>({...p,repYear:e.target.value,repMonth:null}))}>
                   {years.map(y=><option key={y} value={y}>{y}</option>)}
                 </select>
-                {selMonth&&<button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#666666"}} onClick={()=>setOvExp(p=>({...p,repMonth:null}))}>← رجوع</button>}
+                {selMonth&&<button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,repMonth:null}))}>← رجوع</button>}
               </div>
               {!selMonth&&<>
                 <div style={{...S.card,background:"#f8fafc"}}>
-                  <div style={{fontSize:12,color:"#666666",marginBottom:10,fontWeight:700}}>📅 ملخص {selYear}</div>
+                  <div style={{fontSize:12,color:"#475569",marginBottom:10,fontWeight:700}}>📅 ملخص {selYear}</div>
                   <div style={{display:"flex",gap:8}}>
                     <div style={{flex:1,textAlign:"center",background:"#10b98110",borderRadius:10,padding:"10px 4px"}}><div style={{fontSize:10,color:"#1a6b4a"}}>الدخل</div><div style={{fontSize:14,fontWeight:900,color:"#1a6b4a"}}>{fmt(yInc)}</div></div>
                     <div style={{flex:1,textAlign:"center",background:"#ef444410",borderRadius:10,padding:"10px 4px"}}><div style={{fontSize:10,color:"#ef4444"}}>المصاريف</div><div style={{fontSize:14,fontWeight:900,color:"#ef4444"}}>{fmt(yExp)}</div></div>
@@ -2283,14 +2285,14 @@ export default function App(){
                           <span style={{fontWeight:700,fontSize:14}}>{md.lbl}</span>
                           <div style={{display:"flex",alignItems:"center",gap:8}}>
                             <span style={{fontSize:12,fontWeight:700,color:md.save>=0?"#10b981":"#ef4444"}}>{fmt(Math.abs(md.save))}</span>
-                            <span style={{color:"#888888",fontSize:16}}>›</span>
+                            <span style={{color:"#64748b",fontSize:16}}>›</span>
                           </div>
                         </div>
                         {(md.inc>0||md.exp>0)&&<>
                           <div className="pbar"><div className="pfill" style={{width:pct+"%",background:color}}/></div>
                           <div style={{...S.row,marginTop:4}}>
-                            <span style={{fontSize:10,color:"#888888"}}>دخل: {fmt(md.inc)}</span>
-                            <span style={{fontSize:10,color:"#888888"}}>مصاريف: {fmt(md.exp)}</span>
+                            <span style={{fontSize:10,color:"#64748b"}}>دخل: {fmt(md.inc)}</span>
+                            <span style={{fontSize:10,color:"#64748b"}}>مصاريف: {fmt(md.exp)}</span>
                           </div>
                         </>}
                       </div>
@@ -2317,7 +2319,7 @@ export default function App(){
                     {incTxs.map(t=>{const c=gc("income",t.catId);return(
                       <div key={t.id} className="tx">
                         <div style={{width:36,height:36,borderRadius:10,background:"#10b98120",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{c?.icon||"💰"}</div>
-                        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{t.desc||c?.name||"—"}</div><div style={{fontSize:10,color:"#888888"}}>{t.date}</div></div>
+                        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{t.desc||c?.name||"—"}</div><div style={{fontSize:10,color:"#64748b"}}>{t.date}</div></div>
                         <span style={{fontSize:13,fontWeight:700,color:"#1a6b4a"}}>+{fmt(t.amount)}</span>
                       </div>
                     );})}
@@ -2327,7 +2329,7 @@ export default function App(){
                     {expTxs.map(t=>{const c=gc("expense",t.catId);return(
                       <div key={t.id} className="tx">
                         <div style={{width:36,height:36,borderRadius:10,background:"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{c?.icon||"💸"}</div>
-                        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{t.desc||c?.name||"—"}</div><div style={{fontSize:10,color:"#888888"}}>{t.date}</div></div>
+                        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{t.desc||c?.name||"—"}</div><div style={{fontSize:10,color:"#64748b"}}>{t.date}</div></div>
                         <span style={{fontSize:13,fontWeight:700,color:"#ef4444"}}>-{fmt(t.amount)}</span>
                       </div>
                     );})}
@@ -2349,38 +2351,38 @@ export default function App(){
             const total=catFilter==="salaf"?loans.reduce((s,l)=>s+l.remaining,0):filtTxs.reduce((s,t)=>s+t.amount,0);
             return <>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>setOvExp(p=>({...p,repTab:"yearly"}))} style={{...S.btn("#e8e8e4",false),padding:"8px 14px",fontSize:13,color:"#666666"}}>📆 سنوي</button>
+                <button onClick={()=>setOvExp(p=>({...p,repTab:"yearly"}))} style={{...S.btn("#e8e8e4",false),padding:"8px 14px",fontSize:13,color:"#475569"}}>📆 سنوي</button>
                 <button onClick={()=>setOvExp(p=>({...p,repTab:"filter"}))} style={{...S.btn("#10b981",false),padding:"8px 14px",fontSize:13}}>🔍 فلتر</button>
-                <button onClick={()=>setOvExp(p=>({...p,repTab:"dashboard"}))} style={{...S.btn("#e8e8e4",false),padding:"8px 14px",fontSize:13,color:"#666666"}}>📊 لوحة</button>
+                <button onClick={()=>setOvExp(p=>({...p,repTab:"dashboard"}))} style={{...S.btn("#e8e8e4",false),padding:"8px 14px",fontSize:13,color:"#475569"}}>📊 لوحة</button>
               </div>
               <div style={{...S.card,padding:"12px 16px"}}>
                 <div style={{display:"flex",gap:8,marginBottom:10}}>
-                  <div style={{flex:1}}><div style={{fontSize:10,color:"#888888",marginBottom:4}}>من</div><input style={{...S.inp,padding:"8px 10px",fontSize:12}} type="date" value={dateFrom} onChange={e=>setOvExp(p=>({...p,fDateFrom:e.target.value}))}/></div>
-                  <div style={{flex:1}}><div style={{fontSize:10,color:"#888888",marginBottom:4}}>إلى</div><input style={{...S.inp,padding:"8px 10px",fontSize:12}} type="date" value={dateTo} onChange={e=>setOvExp(p=>({...p,fDateTo:e.target.value}))}/></div>
+                  <div style={{flex:1}}><div style={{fontSize:10,color:"#64748b",marginBottom:4}}>من</div><input style={{...S.inp,padding:"8px 10px",fontSize:12}} type="date" value={dateFrom} onChange={e=>setOvExp(p=>({...p,fDateFrom:e.target.value}))}/></div>
+                  <div style={{flex:1}}><div style={{fontSize:10,color:"#64748b",marginBottom:4}}>إلى</div><input style={{...S.inp,padding:"8px 10px",fontSize:12}} type="date" value={dateTo} onChange={e=>setOvExp(p=>({...p,fDateTo:e.target.value}))}/></div>
                 </div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                   {[["all","كلشي","#10b981"],["income","مداخل","#10b981"],["expense","مصاريف","#ef4444"],["salaf","سلف","#8b5cf6"],["credit","كريدي","#f59e0b"]].map(([val,lbl,col])=>(
                     <button key={val} onClick={()=>setOvExp(p=>({...p,fCat:val}))}
-                      style={{...S.btn(catFilter===val?col:"#e8e8e4",false),padding:"7px 12px",fontSize:12,color:catFilter===val?"white":"#666666"}}>{lbl}</button>
+                      style={{...S.btn(catFilter===val?col:"#e8e8e4",false),padding:"7px 12px",fontSize:12,color:catFilter===val?"white":"#475569"}}>{lbl}</button>
                   ))}
                 </div>
               </div>
               <div style={{...S.card,textAlign:"center",background:"#10b98110",border:"1px solid #10b98133"}}>
-                <div style={{fontSize:12,color:"#666666",fontWeight:700,marginBottom:4}}>إجمالي الفترة</div>
+                <div style={{fontSize:12,color:"#475569",fontWeight:700,marginBottom:4}}>إجمالي الفترة</div>
                 <div style={{fontSize:26,fontWeight:900,color:"#1a6b4a"}}>{fmt(total)}</div>
-                <div style={{fontSize:11,color:"#888888",marginTop:4}}>{filtTxs.length} معاملة</div>
+                <div style={{fontSize:11,color:"#64748b",marginTop:4}}>{filtTxs.length} معاملة</div>
               </div>
               <div style={S.card}>
                 {filtTxs.slice(0,50).map(t=>{
                   const c=gc(t.type==="income"?"income":"expense",t.catId);
                   return(<div key={t.id} className="tx">
                     <div style={{width:36,height:36,borderRadius:10,background:t.type==="income"?"#10b98120":"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{c?.icon||(t.type==="income"?"💰":"💸")}</div>
-                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||c?.name||"—"}</div><div style={{fontSize:10,color:"#888888"}}>{t.date}</div></div>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||c?.name||"—"}</div><div style={{fontSize:10,color:"#64748b"}}>{t.date}</div></div>
                     <span style={{fontSize:13,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444",whiteSpace:"nowrap"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
                   </div>);
                 })}
-                {filtTxs.length===0&&<div style={{textAlign:"center",color:"#888888",padding:20}}>لا توجد بيانات</div>}
-                {filtTxs.length>50&&<div style={{textAlign:"center",color:"#888888",padding:10,fontSize:12}}>أول 50 من {filtTxs.length}</div>}
+                {filtTxs.length===0&&<div style={{textAlign:"center",color:"#64748b",padding:20}}>لا توجد بيانات</div>}
+                {filtTxs.length>50&&<div style={{textAlign:"center",color:"#64748b",padding:10,fontSize:12}}>أول 50 من {filtTxs.length}</div>}
               </div>
             </>;
           }
@@ -2536,15 +2538,15 @@ export default function App(){
 
               {/* الفلاتر */}
               <div style={{...S.card,padding:"14px 16px"}} className="no-print">
-                <div style={{fontSize:12,fontWeight:700,color:"#666666",marginBottom:8}}>📅 الفترة</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#475569",marginBottom:8}}>📅 الفترة</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
                   {[["today","اليوم"],["yesterday","أمس"],["week","هذا الأسبوع"],["lastweek","الأسبوع الماضي"],["month","هذا الشهر"],["lastmonth","الشهر الماضي"],["year","هذه السنة"],["lastyear","السنة الماضية"],["custom","مخصص"]].map(([v,l])=>(
-                    <button key={v} onClick={()=>setOvExp(p=>({...p,rfPeriod:v}))} style={{...S.btn(rfPeriod===v?"#10b981":"#e8e8e4",false),padding:"6px 10px",fontSize:11,color:rfPeriod===v?"white":"#666666"}}>{l}</button>
+                    <button key={v} onClick={()=>setOvExp(p=>({...p,rfPeriod:v}))} style={{...S.btn(rfPeriod===v?"#10b981":"#e8e8e4",false),padding:"6px 10px",fontSize:11,color:rfPeriod===v?"white":"#475569"}}>{l}</button>
                   ))}
                 </div>
                 {rfPeriod==="custom"&&<div style={{display:"flex",gap:8,marginBottom:10}}>
-                  <div style={{flex:1}}><div style={{fontSize:10,color:"#888888",marginBottom:4}}>من</div><input style={{...S.inp,padding:"8px 10px",fontSize:12}} type="date" value={ovExp.rfFrom||""} onChange={e=>setOvExp(p=>({...p,rfFrom:e.target.value}))}/></div>
-                  <div style={{flex:1}}><div style={{fontSize:10,color:"#888888",marginBottom:4}}>إلى</div><input style={{...S.inp,padding:"8px 10px",fontSize:12}} type="date" value={ovExp.rfTo||""} onChange={e=>setOvExp(p=>({...p,rfTo:e.target.value}))}/></div>
+                  <div style={{flex:1}}><div style={{fontSize:10,color:"#64748b",marginBottom:4}}>من</div><input style={{...S.inp,padding:"8px 10px",fontSize:12}} type="date" value={ovExp.rfFrom||""} onChange={e=>setOvExp(p=>({...p,rfFrom:e.target.value}))}/></div>
+                  <div style={{flex:1}}><div style={{fontSize:10,color:"#64748b",marginBottom:4}}>إلى</div><input style={{...S.inp,padding:"8px 10px",fontSize:12}} type="date" value={ovExp.rfTo||""} onChange={e=>setOvExp(p=>({...p,rfTo:e.target.value}))}/></div>
                 </div>}
                 <div style={{display:"flex",gap:8,marginBottom:10}}>
                   <select style={{...S.sel,flex:1,fontSize:12,padding:"8px 10px"}} value={rfAcc} onChange={e=>setOvExp(p=>({...p,rfAcc:e.target.value}))}>
@@ -2573,7 +2575,7 @@ export default function App(){
                 {catList.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                   {catList.map(c=>(
                     <button key={c.id} onClick={()=>setOvExp(p=>{const cur=p.rfCats||[];return{...p,rfCats:cur.includes(c.id)?cur.filter(x=>x!==c.id):[...cur,c.id]};})}
-                      style={{...S.btn(rfCats.includes(c.id)?c.color:"#e8e8e4",false),padding:"5px 9px",fontSize:11,color:rfCats.includes(c.id)?"white":"#666666"}}>{c.icon} {c.name}</button>
+                      style={{...S.btn(rfCats.includes(c.id)?c.color:"#e8e8e4",false),padding:"5px 9px",fontSize:11,color:rfCats.includes(c.id)?"white":"#475569"}}>{c.icon} {c.name}</button>
                   ))}
                 </div>}
                 <button className="no-print" style={{...S.btn("#6366f1"),marginTop:10,padding:"9px",fontSize:12}} onClick={()=>window.print()}>🖨️ طباعة التقرير</button>
@@ -2581,22 +2583,22 @@ export default function App(){
 
               {/* الملخص المالي */}
               <div style={{background:"linear-gradient(135deg,#0f172a,#1e293b)",borderRadius:20,padding:18}}>
-                <div style={{fontSize:12,color:"rgba(255,255,255,.5)",fontWeight:700,marginBottom:10}}>💼 الملخص المالي</div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,.75)",fontWeight:700,marginBottom:10}}>💼 الملخص المالي</div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
                   {[["📥 الدخل",totalIncome,"#10b981"],["📤 المصاريف",totalExpense,"#ef4444"],["💰 صافي",netBalance,netBalance>=0?"#10b981":"#ef4444"]].map(([l,v,c])=>(
                     <div key={l} style={{flex:1,minWidth:90,background:"rgba(255,255,255,.07)",borderRadius:14,padding:"10px 8px",textAlign:"center"}}>
-                      <div style={{fontSize:10,color:"rgba(255,255,255,.55)",marginBottom:4}}>{l}</div>
+                      <div style={{fontSize:10,color:"rgba(255,255,255,.75)",marginBottom:4}}>{l}</div>
                       <div style={{fontSize:14,fontWeight:900,color:c}}>{fmt(v)}</div>
                     </div>
                   ))}
                 </div>
                 <div style={{display:"flex",gap:8}}>
                   <div style={{flex:1,background:"rgba(255,255,255,.07)",borderRadius:14,padding:"10px 8px",textAlign:"center"}}>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,.55)"}}>💎 الثروة الكلية</div>
+                    <div style={{fontSize:10,color:"rgba(255,255,255,.75)"}}>💎 الثروة الكلية</div>
                     <div style={{fontSize:15,fontWeight:900,color:"#f5f5f0"}}>{fmt(wealthNow)}</div>
                   </div>
                   <div style={{flex:1,background:"rgba(255,255,255,.07)",borderRadius:14,padding:"10px 8px",textAlign:"center"}}>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,.55)"}}>📈 نسبة الادخار</div>
+                    <div style={{fontSize:10,color:"rgba(255,255,255,.75)"}}>📈 نسبة الادخار</div>
                     <div style={{fontSize:15,fontWeight:900,color:savingsRate>=0?"#10b981":"#ef4444"}}>{savingsRate.toFixed(1)}%</div>
                   </div>
                 </div>
@@ -2617,7 +2619,7 @@ export default function App(){
                 </div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginTop:6}}>
                   {pieData.map((p,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#666666"}}>
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#475569"}}>
                       <div style={{width:9,height:9,borderRadius:3,background:p.color}}/>{p.name}
                     </div>
                   ))}
@@ -2629,7 +2631,7 @@ export default function App(){
                 <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🛒 الميزانية</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                   {[["مخصص",expBkt.allocated,"#ef4444"],["مصروف",expBkt.spent,"#ef4444"],["الحالي",expBkt.balance,expBkt.balance>=0?"#10b981":"#ef4444"],["نسبة الاستهلاك",expBkt.allocated>0?(expBkt.spent/expBkt.allocated*100).toFixed(0)+"%":"0%","#f59e0b"]].map(([l,v,c])=>(
-                    <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#888888"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
+                    <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                   ))}
                 </div>
               </div>}
@@ -2639,7 +2641,7 @@ export default function App(){
                 <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🚨 صندوق الطوارئ</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                   {[["الرصيد الحالي",emgBkt.balance,"#10b981"],["مرات الاستخدام",emgUsage.length,"#f59e0b"],["المستخدم",emgUsedTotal,"#ef4444"],["نسبة الاعتماد",emgBkt.allocated>0?(emgUsedTotal/emgBkt.allocated*100).toFixed(0)+"%":"0%","#f59e0b"]].map(([l,v,c])=>(
-                    <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#888888"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
+                    <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                   ))}
                 </div>
               </div>}
@@ -2649,7 +2651,7 @@ export default function App(){
                 <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🏠 الممتلكات</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
                   {[["العدد",assets.length,"#14b8a6"],["القيمة الإجمالية",totAst,"#14b8a6"]].map(([l,v,c])=>(
-                    <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#888888"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"&&l!=="العدد"?fmt(v):v}</div></div>
+                    <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"&&l!=="العدد"?fmt(v):v}</div></div>
                   ))}
                 </div>
                 {assets.slice(0,6).map(a=>(
@@ -2664,7 +2666,7 @@ export default function App(){
                 <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📈 الاستثمار</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                   {[["رأس المال",totInv,"#1a6b4a"],["الأرباح",totInvProfit,totInvProfit>=0?"#10b981":"#ef4444"],["ROI",invROI.toFixed(1)+"%","#1a6b4a"],["نسبة النمو",invBkt.allocated>0?((invBkt.balance/invBkt.allocated-1)*100).toFixed(1)+"%":"0%","#1a6b4a"]].map(([l,v,c])=>(
-                    <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#888888"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
+                    <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                   ))}
                 </div>
               </div>}
@@ -2678,7 +2680,7 @@ export default function App(){
                 </div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                   {[["الرصيد الحالي",retBkt.balance,"#6366f1"],["الهدف",retireGoal,"#6366f1"],["نسبة التحقيق",retirePct.toFixed(0)+"%","#10b981"],["الباقي",Math.max(retireGoal-retBkt.balance,0),"#f59e0b"]].map(([l,v,c])=>(
-                    <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#888888"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
+                    <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                   ))}
                 </div>
               </div>}
@@ -2723,7 +2725,7 @@ export default function App(){
                 {topExpenses.map(t=>{const c=gc("expense",t.catId);return(
                   <div key={t.id} className="tx">
                     <div style={{width:32,height:32,borderRadius:9,background:"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{c?.icon||"💸"}</div>
-                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||c?.name||"—"}</div><div style={{fontSize:10,color:"#888888"}}>{t.date}</div></div>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||c?.name||"—"}</div><div style={{fontSize:10,color:"#64748b"}}>{t.date}</div></div>
                     <span style={{fontSize:13,fontWeight:700,color:"#ef4444"}}>{fmt(t.amount)}</span>
                   </div>
                 );})}
@@ -2734,7 +2736,7 @@ export default function App(){
                 <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>⚖️ مقارنة الفترات</div>
                 <div style={{display:"flex",gap:6,marginBottom:10}} className="no-print">
                   {[["month","شهر مع الماضي"],["year","سنة مع الماضية"],["custom","فترتين مخصصتين"]].map(([v,l])=>(
-                    <button key={v} onClick={()=>setOvExp(p=>({...p,cmpMode:v}))} style={{...S.btn(cmpMode===v?"#6366f1":"#e8e8e4",false),padding:"6px 9px",fontSize:11,color:cmpMode===v?"white":"#666666"}}>{l}</button>
+                    <button key={v} onClick={()=>setOvExp(p=>({...p,cmpMode:v}))} style={{...S.btn(cmpMode===v?"#6366f1":"#e8e8e4",false),padding:"6px 9px",fontSize:11,color:cmpMode===v?"white":"#475569"}}>{l}</button>
                   ))}
                 </div>
                 {cmpMode==="custom"&&<div className="no-print" style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
@@ -2747,9 +2749,9 @@ export default function App(){
                   {[[cmpALabel,cmpAData,"#10b981"],[cmpBLabel,cmpBData,"#6366f1"]].map(([l,d,c])=>(
                     <div key={l} style={{flex:1,background:"#f8fafc",borderRadius:12,padding:10}}>
                       <div style={{fontSize:11,fontWeight:700,color:c,marginBottom:6,textAlign:"center"}}>{l}</div>
-                      <div style={{fontSize:10,color:"#888888",display:"flex",justifyContent:"space-between"}}><span>دخل</span><span style={{fontWeight:700,color:"#10b981"}}>{fmt(d.inc)}</span></div>
-                      <div style={{fontSize:10,color:"#888888",display:"flex",justifyContent:"space-between"}}><span>مصاريف</span><span style={{fontWeight:700,color:"#ef4444"}}>{fmt(d.exp)}</span></div>
-                      <div style={{fontSize:10,color:"#888888",display:"flex",justifyContent:"space-between",marginTop:4,borderTop:"1px solid #e2e8f0",paddingTop:4}}><span>صافي</span><span style={{fontWeight:900,color:d.net>=0?"#10b981":"#ef4444"}}>{fmt(d.net)}</span></div>
+                      <div style={{fontSize:10,color:"#64748b",display:"flex",justifyContent:"space-between"}}><span>دخل</span><span style={{fontWeight:700,color:"#10b981"}}>{fmt(d.inc)}</span></div>
+                      <div style={{fontSize:10,color:"#64748b",display:"flex",justifyContent:"space-between"}}><span>مصاريف</span><span style={{fontWeight:700,color:"#ef4444"}}>{fmt(d.exp)}</span></div>
+                      <div style={{fontSize:10,color:"#64748b",display:"flex",justifyContent:"space-between",marginTop:4,borderTop:"1px solid #e2e8f0",paddingTop:4}}><span>صافي</span><span style={{fontWeight:900,color:d.net>=0?"#10b981":"#ef4444"}}>{fmt(d.net)}</span></div>
                     </div>
                   ))}
                 </div>
@@ -2772,12 +2774,12 @@ export default function App(){
                   ["💹 اتجاه الادخار",saveTrend],
                 ].map(([l,v])=>(
                   <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f1f5f9",fontSize:12}}>
-                    <span style={{color:"#666666"}}>{l}</span><span style={{fontWeight:700,color:"#1a1a1a"}}>{v}</span>
+                    <span style={{color:"#475569"}}>{l}</span><span style={{fontWeight:700,color:"#1a1a1a"}}>{v}</span>
                   </div>
                 ))}
                 {buckets.map(b=>(
                   <div key={b.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f1f5f9",fontSize:12}}>
-                    <span style={{color:"#666666"}}>{b.icon} نسبة {b.name}</span><span style={{fontWeight:700,color:b.color}}>{b.pct}%</span>
+                    <span style={{color:"#475569"}}>{b.icon} نسبة {b.name}</span><span style={{fontWeight:700,color:b.color}}>{b.pct}%</span>
                   </div>
                 ))}
               </div>
@@ -2823,7 +2825,7 @@ export default function App(){
                 {modal==="changePw"&&"تغيير كلمة السر"}
                 {modal==="returnLoan"&&"رجوع سلفة"}
               </h3>
-              <button onClick={cm} style={{background:"none",border:"none",color:"#666666",cursor:"pointer"}}><X size={20}/></button>
+              <button onClick={cm} style={{background:"none",border:"none",color:"#475569",cursor:"pointer"}}><X size={20}/></button>
             </div>
 
             {(modal==="addTx"||modal==="edTx")&&<div style={S.col}>
@@ -2847,11 +2849,11 @@ export default function App(){
 
             {(modal==="addMCat"||modal==="edMCat")&&<div style={S.col}>
               <input style={S.inp} placeholder="اسم التصنيف" defaultValue={modal==="edMCat"?ei?.name:""} onChange={e=>modal==="addMCat"?F("cn",e.target.value):setEi(p=>({...p,name:e.target.value}))}/>
-              <div style={{fontSize:12,color:"#888888",marginBottom:4}}>الأيقونة:</div>
+              <div style={{fontSize:12,color:"#64748b",marginBottom:4}}>الأيقونة:</div>
               <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
                 <div>
                   <div className="iu" style={{width:52,height:52}} onClick={()=>(modal==="addMCat"?iRef:eiRef).current.click()}>
-                    {(modal==="addMCat"?form.ci:ei?.ci)?<img src={modal==="addMCat"?form.ci:ei.ci} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<><Camera size={16} color="#888888"/><div style={{fontSize:9,color:"#888888",marginTop:2}}>تحميل</div></>}
+                    {(modal==="addMCat"?form.ci:ei?.ci)?<img src={modal==="addMCat"?form.ci:ei.ci} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<><Camera size={16} color="#64748b"/><div style={{fontSize:9,color:"#64748b",marginTop:2}}>تحميل</div></>}
                   </div>
                   {(modal==="addMCat"?form.ci:ei?.ci)&&<button style={{background:"none",border:"none",color:"#ef4444",fontSize:10,cursor:"pointer",fontFamily:"Tajawal",marginTop:2}} onClick={()=>modal==="addMCat"?F("ci",null):setEi(p=>({...p,ci:null}))}>إزالة</button>}
                 </div>
@@ -2869,7 +2871,7 @@ export default function App(){
 
             {modal==="addSCat"&&<div style={S.col}><input style={S.inp} placeholder="اسم الفرع" value={form.sn||""} onChange={e=>F("sn",e.target.value)}/><button style={S.btn()} onClick={()=>addSCat(form.catType,form.catId)}>إضافة</button></div>}
             {modal==="edSCat"&&ei&&<div style={S.col}>
-              <div style={{padding:"10px 14px",background:"#f8fafc",borderRadius:10,fontSize:13,color:"#666666"}}>الحالي: <strong style={{color:"#1a1a1a"}}>{ei.name}</strong></div>
+              <div style={{padding:"10px 14px",background:"#f8fafc",borderRadius:10,fontSize:13,color:"#475569"}}>الحالي: <strong style={{color:"#1a1a1a"}}>{ei.name}</strong></div>
               <input style={S.inp} placeholder="الاسم الجديد" defaultValue={ei.name} onChange={e=>setEi(p=>({...p,newName:e.target.value}))}/>
               <button style={S.btn()} onClick={()=>{edSCat(ei.catType,ei.catId,ei.id,ei.newName||ei.name);cm();}}>حفظ</button>
             </div>}
@@ -2889,7 +2891,7 @@ export default function App(){
             {modal==="edAst"&&ei&&<div style={S.col}><input style={S.inp} defaultValue={ei.name} onChange={e=>setEi(p=>({...p,name:e.target.value}))}/><select style={S.sel} defaultValue={ei.type} onChange={e=>setEi(p=>({...p,type:e.target.value}))}>{["عقار","سيارة","ذهب","أرض","معدات","أخرى"].map(t=><option key={t} value={t}>{t}</option>)}</select><input style={S.inp} type="number" defaultValue={ei.value} onChange={e=>setEi(p=>({...p,value:parseFloat(e.target.value)}))}/><div style={{display:"flex",gap:8}}>{PAL.slice(0,6).map(c=><div key={c} className={`cd${ei.color===c?" sl":""}`} style={{background:c}} onClick={()=>setEi(p=>({...p,color:c}))}/>)}</div><button style={S.btn("#14b8a6")} onClick={()=>{setAssets(p=>p.map(x=>x.id===ei.id?{...x,...ei}:x));cm();}}>حفظ</button></div>}
 
             {modal==="addLoan"&&<div style={S.col}>
-              <div style={{display:"flex",gap:8}}>{["أعطيت","أخذت"].map(k=><button key={k} onClick={()=>F("kind",k)} style={{flex:1,padding:10,border:"2px solid",borderColor:form.kind===k?(k==="أعطيت"?"#10b981":"#ef4444"):"#e8e8e4",borderRadius:10,background:form.kind===k?(k==="أعطيت"?"#10b98122":"#ef444422"):"transparent",color:form.kind===k?(k==="أعطيت"?"#10b981":"#ef4444"):"#888888",fontFamily:"Tajawal",fontWeight:700,cursor:"pointer",fontSize:13}}>{k}</button>)}</div>
+              <div style={{display:"flex",gap:8}}>{["أعطيت","أخذت"].map(k=><button key={k} onClick={()=>F("kind",k)} style={{flex:1,padding:10,border:"2px solid",borderColor:form.kind===k?(k==="أعطيت"?"#10b981":"#ef4444"):"#e8e8e4",borderRadius:10,background:form.kind===k?(k==="أعطيت"?"#10b98122":"#ef444422"):"transparent",color:form.kind===k?(k==="أعطيت"?"#10b981":"#ef4444"):"#64748b",fontFamily:"Tajawal",fontWeight:700,cursor:"pointer",fontSize:13}}>{k}</button>)}</div>
               <input style={S.inp} placeholder="الشخص / الجهة" value={form.person||""} onChange={e=>F("person",e.target.value)}/>
               <input style={S.inp} placeholder="المبلغ" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
               <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"/>
@@ -2919,10 +2921,10 @@ export default function App(){
                 setErr("✅ تم تغيير كلمة السر");setTimeout(()=>setErr(null),3000);
               }}>حفظ كلمة السر الجديدة</button>
               <div style={{marginTop:12,borderTop:"1px solid rgba(255,255,255,.1)",paddingTop:12}}>
-                <div style={{fontSize:12,color:"#888888",marginBottom:6}}>📱 جهة استرجاع كلمة السر</div>
+                <div style={{fontSize:12,color:"#64748b",marginBottom:6}}>📱 جهة استرجاع كلمة السر</div>
                 <input style={S.inp} type="text" placeholder="إيميل أو رقم الهاتف" value={recoveryContact}
                   onChange={e=>setRecoveryContact(e.target.value)}/>
-                <div style={{fontSize:10,color:"#888888",marginTop:4}}>تستعمل للتذكير بكلمة السر عند النسيان</div>
+                <div style={{fontSize:10,color:"#64748b",marginTop:4}}>تستعمل للتذكير بكلمة السر عند النسيان</div>
               </div>
             </div>}
 
@@ -3010,7 +3012,7 @@ export default function App(){
             </div>}
             {modal==="addProfit"&&ei&&<div style={S.col}>
               <div style={{padding:"10px 14px",background:"#10b98115",borderRadius:10,fontSize:13,color:"#1a6b4a",fontWeight:700,textAlign:"center"}}>💰 تسجيل ربح — {ei.name}</div>
-              <div style={{fontSize:12,color:"#888888",textAlign:"center"}}>رأس المال: {fmt(ei.amount)} | أرباح سابقة: {fmt(ei.profit||0)}</div>
+              <div style={{fontSize:12,color:"#64748b",textAlign:"center"}}>رأس المال: {fmt(ei.amount)} | أرباح سابقة: {fmt(ei.profit||0)}</div>
               <input style={S.num} placeholder="مبلغ الربح/العائد" type="number" step="0.01" value={form.profitAmt||""} onChange={e=>F("profitAmt",e.target.value)}/>
               <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981"/>
               <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
@@ -3037,7 +3039,7 @@ export default function App(){
 
             {modal==="returnInvest"&&ei&&<div style={S.col}>
               <div style={{padding:"10px 14px",background:"#6366f115",borderRadius:10,fontSize:13,color:"#6366f1",fontWeight:700,textAlign:"center"}}>🏦 استرداد رأس المال — {ei.name}</div>
-              <div style={{fontSize:12,color:"#888888",textAlign:"center"}}>رأس المال: {fmt(ei.amount)}</div>
+              <div style={{fontSize:12,color:"#64748b",textAlign:"center"}}>رأس المال: {fmt(ei.amount)}</div>
               <input style={S.num} placeholder="المبلغ المسترد" type="number" step="0.01" value={form.returnAmt||String(ei.amount)} onChange={e=>F("returnAmt",e.target.value)}/>
               <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"/>
               <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
@@ -3063,7 +3065,7 @@ export default function App(){
 
             {modal==="sellAst"&&ei&&<div style={S.col}>
               <div style={{padding:"10px 14px",background:"#14b8a615",borderRadius:10,fontSize:13,color:"#14b8a6",fontWeight:700,textAlign:"center"}}>🏷️ بيع ممتلك — {ei.name}</div>
-              <div style={{fontSize:12,color:"#888888",textAlign:"center"}}>قيمة الشراء: {fmt(ei.value)}</div>
+              <div style={{fontSize:12,color:"#64748b",textAlign:"center"}}>قيمة الشراء: {fmt(ei.value)}</div>
               <input style={S.num} placeholder="سعر البيع" type="number" step="0.01" value={form.sellAmt||""} onChange={e=>F("sellAmt",e.target.value)}/>
               <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#14b8a6"/>
               <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
@@ -3112,7 +3114,7 @@ export default function App(){
 
             {modal==="returnLoan"&&ei&&<div style={S.col}>
               <div style={{padding:"12px 14px",background:"#f5f5f0",borderRadius:10,fontSize:13}}>
-                <div style={{color:"#888888",marginBottom:4}}>{ei.kind==="أعطيت"?"رجوع سلفة من:":"تسديد لـ:"}</div>
+                <div style={{color:"#64748b",marginBottom:4}}>{ei.kind==="أعطيت"?"رجوع سلفة من:":"تسديد لـ:"}</div>
                 <div style={{fontWeight:700,fontSize:16,color:"#1a1a1a"}}>{ei.person}</div>
                 <div style={{color:"#1a6b4a",marginTop:4}}>المتبقي: {fmt(ei.remaining)}</div>
               </div>
@@ -3141,7 +3143,7 @@ export default function App(){
               <div style={{fontSize:14,color:"#f5f5f0",fontWeight:800,marginBottom:4}}>⚙️ إعدادات الميزانية</div>
 
               {/* الأهداف الشهرية */}
-              <div style={{fontSize:12,color:"#888888",fontWeight:700}}>🎯 الأهداف الشهرية</div>
+              <div style={{fontSize:12,color:"#64748b",fontWeight:700}}>🎯 الأهداف الشهرية</div>
               <div style={{background:"white",borderRadius:12,padding:12,border:"1px solid #10b98133"}}>
                 <div style={{fontWeight:700,color:"#1a6b4a",marginBottom:10,fontSize:13}}>💰 هدف الدخل</div>
                 <div style={{display:"flex",gap:8,marginBottom:8}}>
@@ -3150,7 +3152,7 @@ export default function App(){
                 </div>
                 {!budgetSettings.goals?.incomeAuto&&<input style={{...S.inp,padding:"8px 10px",fontSize:13}} type="number" placeholder="هدف الدخل الشهري" value={budgetSettings.goals?.incomeGoal||15000}
                   onChange={e=>setBudgetSettings(p=>({...p,goals:{...p.goals,incomeGoal:parseFloat(e.target.value)||0}}))}/>}
-                {budgetSettings.goals?.incomeAuto&&<div style={{fontSize:11,color:"#888888",padding:"8px 0"}}>يحسب تلقائياً من متوسط الدخل الشهري</div>}
+                {budgetSettings.goals?.incomeAuto&&<div style={{fontSize:11,color:"#64748b",padding:"8px 0"}}>يحسب تلقائياً من متوسط الدخل الشهري</div>}
                 <div style={{fontWeight:700,color:"#ef4444",marginBottom:10,marginTop:12,fontSize:13}}>💸 هدف المصاريف</div>
                 <div style={{display:"flex",gap:8,marginBottom:8}}>
                   <button style={{...S.btn(!(budgetSettings.goals?.expenseAuto)?"#ef4444":"#444444",false),flex:1,padding:"6px",fontSize:12}} onClick={()=>setBudgetSettings(p=>({...p,goals:{...p.goals,expenseAuto:false}}))}>يدوي</button>
@@ -3158,10 +3160,10 @@ export default function App(){
                 </div>
                 {!budgetSettings.goals?.expenseAuto&&<input style={{...S.inp,padding:"8px 10px",fontSize:13}} type="number" placeholder="هدف المصاريف الشهرية" value={budgetSettings.goals?.expenseGoal||5000}
                   onChange={e=>setBudgetSettings(p=>({...p,goals:{...p.goals,expenseGoal:parseFloat(e.target.value)||0}}))}/>}
-                {budgetSettings.goals?.expenseAuto&&<div style={{fontSize:11,color:"#888888",padding:"8px 0"}}>يحسب تلقائياً من متوسط المصاريف الشهرية</div>}
+                {budgetSettings.goals?.expenseAuto&&<div style={{fontSize:11,color:"#64748b",padding:"8px 0"}}>يحسب تلقائياً من متوسط المصاريف الشهرية</div>}
               </div>
 
-              <div style={{fontSize:11,color:"#888888",padding:"6px 2px"}}>لتعديل نسب الأقسام الخمسة وربط الحسابات، دخل من صفحة "الميزانية" مباشرة.</div>
+              <div style={{fontSize:11,color:"#64748b",padding:"6px 2px"}}>لتعديل نسب الأقسام الخمسة وربط الحسابات، دخل من صفحة "الميزانية" مباشرة.</div>
 
               <button style={S.btn()} onClick={()=>{
                 _save('budgetSettings',budgetSettings);cm();setErr("✅ تم حفظ الإعدادات");setTimeout(()=>setErr(null),3000);
@@ -3177,7 +3179,7 @@ export default function App(){
             </div>}
 
             {modal==="dep"&&<div style={S.col}>
-              {selSv&&<div style={{padding:12,background:"#f8fafc",borderRadius:10,display:"flex",gap:10,alignItems:"center"}}><span style={{fontSize:24}}>{selSv.icon}</span><div><div style={{fontWeight:700}}>{selSv.name}</div><div style={{fontSize:12,color:"#888888"}}>متبقي: {fmt(selSv.target-selSv.saved)}</div></div></div>}
+              {selSv&&<div style={{padding:12,background:"#f8fafc",borderRadius:10,display:"flex",gap:10,alignItems:"center"}}><span style={{fontSize:24}}>{selSv.icon}</span><div><div style={{fontWeight:700}}>{selSv.name}</div><div style={{fontSize:12,color:"#64748b"}}>متبقي: {fmt(selSv.target-selSv.saved)}</div></div></div>}
               <input style={S.inp} placeholder="المبلغ" type="number" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
               <button style={S.btn(selSv?.color||"#10b981")} onClick={addDep}>إضافة</button>
             </div>}
@@ -3191,11 +3193,11 @@ export default function App(){
             <div style={{textAlign:"center",marginBottom:20}}>
               <div style={{fontSize:40,marginBottom:12}}>🗑️</div>
               <div style={{fontWeight:800,fontSize:16,marginBottom:8}}>تأكيد الحذف</div>
-              <div style={{fontSize:14,color:"#666666"}}>هل تبغي تحذف <strong style={{color:"#1a1a1a"}}>"{cd.lbl}"</strong>؟</div>
+              <div style={{fontSize:14,color:"#475569"}}>هل تبغي تحذف <strong style={{color:"#1a1a1a"}}>"{cd.lbl}"</strong>؟</div>
               <div style={{fontSize:12,color:"#ef4444",marginTop:6}}>هذا الإجراء لا يمكن التراجع عنه</div>
             </div>
             <div style={{display:"flex",gap:10}}>
-              <button style={{...S.btn("#e8e8e4"),border:"1px solid #334155",color:"#666666"}} onClick={()=>setCd(null)}>إلغاء</button>
+              <button style={{...S.btn("#e8e8e4"),border:"1px solid #334155",color:"#475569"}} onClick={()=>setCd(null)}>إلغاء</button>
               <button style={S.btn("#ef4444")} onClick={doDel}>حذف</button>
             </div>
           </div>

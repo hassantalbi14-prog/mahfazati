@@ -63,9 +63,9 @@ const uid=()=>Date.now()+Math.floor(Math.random()*9999);
 const EE=["🍔","🚗","🏠","💊","🎓","👗","🎮","📱","💡","🛒","✈️","🎵","🍕","⚽","📚","💈","🧴","🐾","🎁","🏋️","🌿","🏥","💻","🎨","🔧"];
 const IE=["💼","💻","🏠","🚕","📦","🎨","🎓","💹","🤝","🏭","📊","🎵","🛍️","🌐","✍️","💰","🏆","🎯","🔑","📝"];
 
-const IC={expense:[],income:[]};
-const IBK=[];
-const ICS=[];
+const IC={"expense":[{"id":1783600840102,"name":"المواصلات","icon":"🚗","color":"#f97316","subs":[{"id":1783600840101,"name":"الوقود"},{"id":1783600840136,"name":"تامين وضريبة"},{"id":1783600840049,"name":"النقل العام"},{"id":1783600840070,"name":"صيانة سيارة"}]},{"id":1783600840109,"name":"المأكل","icon":"🍔","color":"#10b981","subs":[{"id":1783600840055,"name":"سقاطة"},{"id":1783600840127,"name":"مقهى"},{"id":1783600840125,"name":"سوق اسبوعي"},{"id":1783600840152,"name":"مطعم"}]},{"id":1783600840098,"name":"الملابس","icon":"👗","color":"#ec4899","subs":[{"id":1783600840081,"name":"مصبنة"},{"id":1783600840110,"name":"ملابس الاولاد"},{"id":1783600840140,"name":"ملابسي"},{"id":1783600840084,"name":"ملابس زوجة"}]},{"id":1783600840120,"name":"الصحة","icon":"💊","color":"#14b8a6","subs":[{"id":1783600840065,"name":"الاسنان"},{"id":1783600840141,"name":"دواء"},{"id":1783600840132,"name":"تحاليل"},{"id":1783600840068,"name":"طبيب"}]},{"id":1783600840132,"name":"السكن","icon":"🏠","color":"#6366f1","subs":[{"id":1783600840087,"name":"صيانة منزل"},{"id":1783600840140,"name":"ماء وكهرباء"}]},{"id":1783600840133,"name":"الاتصالات","icon":"📱","color":"#8b5cf6","subs":[{"id":1783600840118,"name":"وثائق وبنك"},{"id":1783600840096,"name":"برامج وانترنيت"},{"id":1783600840169,"name":"الهاتف ولوازمه"},{"id":1783600840102,"name":"الاشتراك"}]},{"id":1783600840117,"name":"العناية الشخصية","icon":"💈","color":"#06b6d4","subs":[{"id":1783600840110,"name":"مصروف الجيب"},{"id":1783600840130,"name":"كحول وسيجار"},{"id":1783600840094,"name":"حلاق وحمام"}]},{"id":1783600840092,"name":"الترفيه","icon":"🎮","color":"#f59e0b","subs":[{"id":1783600840171,"name":"الالعاب اطفال"},{"id":1783600840182,"name":"رحلات"},{"id":1783600840154,"name":"ويكاند"},{"id":1783600840150,"name":"السفر"}]},{"id":1783600840160,"name":"الاسرة","icon":"👨‍👩‍👧","color":"#ec4899","subs":[{"id":1783600840094,"name":"مناسبات"},{"id":1783600840147,"name":"حفلات واعياد"},{"id":1783600840140,"name":"نفقة الاولاد"},{"id":1783600840174,"name":"الهدايا العطا"}]}],"income":[{"id":1783600840116,"name":"الراتب","icon":"💼","color":"#10b981","subs":[{"id":1783600840089,"name":"SOGEFAM"},{"id":1783600840097,"name":"shop"},{"id":1783600840079,"name":"CNSS"}]},{"id":1783600840119,"name":"اللوبان","icon":"💰","color":"#6366f1","subs":[{"id":1783600840133,"name":"FACTURE"},{"id":1783600840073,"name":"ROMISE"},{"id":1783600840097,"name":"STOCK"}]},{"id":1783600840102,"name":"الهدايا وبنك","icon":"🎁","color":"#8b5cf6","subs":[{"id":1783600840083,"name":"بترومين"},{"id":1783600840144,"name":"منحة البنك"}]}]};
+const IBK=[{"id":1783600840182,"name":"وفا بنك","accounts":[{"id":1783600840122,"name":"حساب الشيك وفا","type":"جاري","balance":96815.29752000001,"color":"#10b981"},{"id":1783600840163,"name":"حساب الدفتر مديونة","type":"توفير","balance":-32027.117520000018,"color":"#6366f1"},{"id":1783600840121,"name":"حساب الدفتر سوالم","type":"توفير","balance":209938.50000000003,"color":"#f59e0b"}]},{"id":1783600840132,"name":"البريد بنك","accounts":[{"id":1783600840098,"name":"حساب الشيك بريد","type":"جاري","balance":100,"color":"#8b5cf6"},{"id":1783600840193,"name":"حساب الدفتر البريد","type":"توفير","balance":95718.62000000001,"color":"#06b6d4"}]}];
+const ICS=[{"id":1783600840113,"name":"بزضام","group":"محفظة","type":"نقدية","balance":15327,"color":"#f59e0b"},{"id":1783600840139,"name":"جيبي","group":"محفظة","type":"نقدية","balance":0,"color":"#10b981"},{"id":1783600840163,"name":"السوالم","group":"كوافرفور","type":"نقدية","balance":70000,"color":"#ec4899"},{"id":1783600840161,"name":"تمازيرت","group":"كوافرفور","type":"نقدية","balance":285000,"color":"#14b8a6"}];
 const IAS=[];
 const ILN=[];
 const IINV=[];
@@ -229,11 +229,7 @@ export default function App(){
       const rc=await _load('recoveryContact'); if(rc)setRecoveryContact(rc);
       const bs=await _load('budgetSettings');
       const defaultBuckets=[
-        {id:1,name:"الميزانية",icon:"🛒",color:"#ef4444",pct:40,accountKeys:[],type:"expenses"},
-        {id:2,name:"الطوارئ",icon:"🚨",color:"#f59e0b",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
-        {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:15,accountKeys:[],type:"assets"},
-        {id:4,name:"الاستثمار",icon:"📈",color:"#1a6b4a",pct:15,accountKeys:[],type:"investment"},
-        {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement"}
+        ...[{"id":1,"name":"الميزانية","icon":"🛒","color":"#ef4444","pct":50,"accountKeys":["b-1783600840182-1783600840122"],"type":"expenses"},{"id":2,"name":"الطوارئ","icon":"🚨","color":"#f59e0b","pct":10,"accountKeys":["b-1783600840182-1783600840163"],"type":"emergency","emergencyPct":20},{"id":3,"name":"الممتلكات","icon":"🏠","color":"#14b8a6","pct":17,"accountKeys":["b-1783600840132-1783600840193"],"type":"assets"},{"id":4,"name":"الاستثمار","icon":"📈","color":"#1a6b4a","pct":15,"accountKeys":["c-1783600840163"],"type":"investment"},{"id":5,"name":"التقاعد","icon":"🏦","color":"#6366f1","pct":8,"accountKeys":["c-1783600840161"],"type":"retirement"}].slice(0)
       ];
       if(bs){
         if(bs.buckets&&bs.buckets.length>0){
@@ -496,7 +492,18 @@ export default function App(){
         if(d.cash){setCash(d.cash);_save('cash',d.cash);}
         if(d.assets&&d.assets.length>0){setAssets(d.assets);_save('assets',d.assets);}
         if(d.loans&&d.loans.length>0){setLoans(d.loans);_save('loans',d.loans);}
-        if(d.budgetSettings){setBudgetSettings(d.budgetSettings);_save('budgetSettings',d.budgetSettings);}
+        if(d.budgetSettings){
+          const bs=d.budgetSettings;
+          let newBS;
+          if(bs.buckets&&bs.buckets.length>0){
+            newBS={...bs,buckets:bs.buckets.map(b=>({...b,accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))};
+          } else if(bs.allocations&&bs.allocations.length>0){
+            newBS={buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))};
+          } else {
+            newBS=bs;
+          }
+          setBudgetSettings(newBS);_save('budgetSettings',newBS);
+        }
         if(d.investments){setInvestments(d.investments);_save('investments',d.investments);}
         if(d.cats){
           // نبدل التصنيفات كاملة بالملف المستورد

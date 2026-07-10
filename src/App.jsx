@@ -270,6 +270,7 @@ export default function App(){
   const totAst=assets.reduce((s,a)=>s+(a.value||0),0);
   const totGiv=loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+l.remaining,0);
   const totOwd=loans.filter(l=>l.kind==="أخذت").reduce((s,l)=>s+l.remaining,0);
+  const totInv=investments.reduce((s,i)=>s+(i.amount||0),0);
   const mInc=txs.filter(t=>t.type==="income"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset&&!(t.desc||"").includes("رجوع سلفة")).reduce((s,t)=>s+t.amount,0);
   const mExp=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isAsset&&!t.isInvest&&!(t.desc||"").includes("تحويل")).reduce((s,t)=>s+t.amount,0);
 
@@ -322,6 +323,19 @@ export default function App(){
     const _selCat=gc(form.txType||"expense",parseInt(form.catId));
     if(_selCat?.subs?.length>0&&!form.subId){showErr("⛔ الفرع إجباري — اختر الفرع");return;}
     if(form.pm!=="كريدي"&&!form.akey){showErr("⛔ اختر الحساب");return;}
+    // منع المصروف إذا الميزانية ناقصة
+    if((form.txType||"expense")==="expense"&&!form.isLoan&&!form.isInvest&&!form.isAsset){
+      const expBkt=(budgetSettings.buckets||[]).find(b=>b.type==="expenses");
+      if(expBkt){
+        const totalInc2=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+        const totalExp2=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+        const bktBal=(totalInc2*(expBkt.pct/100))-totalExp2;
+        const newAmt=parseFloat(form.amount)||0;
+        if(bktBal-newAmt<0){
+          showErr(`⛔ رصيد الميزانية غير كافي — المتاح: ${fmt(Math.max(0,bktBal))} د.م`);return;
+        }
+      }
+    }
     const acc=form.akey?allAcc.find(a=>a.key===form.akey):null;
     if(form.pm!=="كريدي"&&!acc)return;
     const amt=parseFloat(form.amount);
@@ -436,6 +450,29 @@ export default function App(){
     setCd(null);
   };
 
+  // ===== نظام الحماية المتشددة =====
+  const getBackupData=()=>({banks,cash,assets,investments,loans,cats,txs,budgetSettings});
+
+  const autoBackup=async(label="auto")=>{
+    try{
+      const {Filesystem,Directory,Encoding}=await import("@capacitor/filesystem");
+      const d=JSON.stringify(getBackupData());
+      const date=new Date().toISOString().split("T")[0];
+      // نسخة باليوم
+      await Filesystem.writeFile({path:`backup-${label}-${date}.json`,directory:Directory.Data,data:d,encoding:Encoding.UTF8});
+      // نسخة ثابتة (آخر نسخة)
+      await Filesystem.writeFile({path:`backup-${label}-latest.json`,directory:Directory.Data,data:d,encoding:Encoding.UTF8});
+    }catch(e){console.log("autoBackup err",e);}
+  };
+
+  // Auto-save كل 5 دقائق
+  useEffect(()=>{
+    const interval=setInterval(()=>{
+      if(loaded)autoBackup("autosave");
+    },5*60*1000);
+    return()=>clearInterval(interval);
+  },[loaded,banks,cash,assets,investments,loans,cats,txs,budgetSettings]);
+
   const expData=async()=>{
     const d=JSON.stringify({banks,cash,assets,loans,cats,txs,budgetSettings,investments},null,2);
     const fileName="mahfazati-backup-"+new Date().toISOString().split("T")[0]+".json";
@@ -484,6 +521,8 @@ export default function App(){
   };
   const impData=e=>{
     const file=e.target.files[0];if(!file)return;
+    // حفظ نسخة احتياطية قبل الاستيراد
+    autoBackup("before-import");
     const r=new FileReader();
     r.onload=ev=>{
       try{
@@ -892,7 +931,41 @@ export default function App(){
             <div className="mi" onClick={()=>setDp(null)}><ChevronRight size={16}/> رجوع</div>
             <div style={{fontWeight:700,color:"#1a1a1a",margin:"12px 0"}}>السحابة والنسخ</div>
             {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",marginBottom:12,fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
-            <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📤 تصدير</div><div style={{display:"flex",gap:8,marginBottom:8}}><button style={{...S.btn("#10b981"),flex:1}} onClick={expData}>تحميل النسخة</button><button style={{...S.btn("#6366f1"),flex:1}} onClick={shareData}>مشاركة 📱</button></div><button style={{...S.btn("#0ea5e9"),width:"100%"}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button></div>
+            <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}>
+              <div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📤 تصدير والحماية</div>
+              <div style={{display:"flex",gap:8,marginBottom:8}}>
+                <button style={{...S.btn("#10b981"),flex:1}} onClick={expData}>تحميل النسخة</button>
+                <button style={{...S.btn("#6366f1"),flex:1}} onClick={shareData}>مشاركة 📱</button>
+              </div>
+              <button style={{...S.btn("#0ea5e9"),width:"100%",marginBottom:8}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button>
+              <button style={{...S.btn("#f59e0b"),width:"100%",marginBottom:8}} onClick={()=>autoBackup("manual").then(()=>{showErr("✅ تم حفظ نسخة احتياطية داخلية");setTimeout(()=>setErr(null),3000);})}}>💾 حفظ نسخة احتياطية الآن</button>
+              <button style={{...S.btn("#8b5cf6"),width:"100%"}} onClick={async()=>{
+                try{
+                  const {Filesystem,Directory,Encoding}=await import("@capacitor/filesystem");
+                  // نحاول نرجع آخر نسخة احتياطية
+                  let restored=false;
+                  for(const name of ["backup-before-import-latest.json","backup-manual-latest.json","backup-autosave-latest.json"]){
+                    try{
+                      const r=await Filesystem.readFile({path:name,directory:Directory.Data,encoding:Encoding.UTF8});
+                      const d=JSON.parse(r.data);
+                      if(d.txs&&d.txs.length>0){
+                        if(d.banks){setBanks(d.banks);_save('banks',d.banks);}
+                        if(d.cash){setCash(d.cash);_save('cash',d.cash);}
+                        if(d.txs){setTxs(d.txs);_save('txs',d.txs);}
+                        if(d.cats){setCats(d.cats);_save('cats',d.cats);}
+                        if(d.loans){setLoans(d.loans);_save('loans',d.loans);}
+                        if(d.assets){setAssets(d.assets);_save('assets',d.assets);}
+                        if(d.investments){setInvestments(d.investments);_save('investments',d.investments);}
+                        if(d.budgetSettings){setBudgetSettings(d.budgetSettings);_save('budgetSettings',d.budgetSettings);}
+                        showErr(`✅ تم استرجاع النسخة من ${name}`);setTimeout(()=>setErr(null),4000);
+                        restored=true; break;
+                      }
+                    }catch(e2){}
+                  }
+                  if(!restored)showErr("⛔ ما كاينش نسخة احتياطية للاسترجاع");
+                }catch(e){showErr("⛔ خطأ في الاسترجاع");}
+              }}>🔄 استرجاع آخر نسخة احتياطية</button>
+            </div>
             <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📥 استيراد</div><button style={S.btn("#6366f1")} onClick={()=>fRef.current.click()}>اختر ملف JSON</button></div>
             <div style={{...S.card,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}>
               <div style={{fontWeight:600,color:"#ef4444",marginBottom:8}}>🗑️ إعادة ضبط كامل</div>
@@ -969,7 +1042,7 @@ export default function App(){
               </svg>
             </button>
             <div style={{fontSize:12,color:"rgba(255,255,255,.8)",marginBottom:6}}>صافي الثروة الكلية</div>
-            <div style={{fontSize:30,fontWeight:900,color:"#1a1a1a"}}>{hideBalance?"••••••":fmt(totBal+totAst+totGiv-totOwd)}</div>
+            <div style={{fontSize:30,fontWeight:900,color:"#1a1a1a"}}>{hideBalance?"••••••":fmt(totBal+totAst+totInv+totGiv-totOwd)}</div>
             <div style={{display:"flex",gap:12,marginTop:10,flexWrap:"wrap"}}>
               <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"rgba(255,255,255,.7)"}}>البنوك والكاش</div><div style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>{hideBalance?"•••":fmt(totBal)}</div></div>
               <div style={{width:1,background:"rgba(255,255,255,.3)"}}/>
@@ -1289,6 +1362,7 @@ export default function App(){
                 </div>
               ))}
               {astTxs.length===0&&<div style={{...S.card,textAlign:"center",padding:30,color:"#888888"}}>ما كاينش معاملات مرتبطة</div>}
+              <button style={{...S.btn("#ef4444"),marginTop:8,width:"100%",padding:"12px"}} onClick={()=>{setEi(ast);om("sellAst");}}>🏷️ بيع هاد الممتلك</button>
             </>;
           }
 
@@ -1476,7 +1550,7 @@ export default function App(){
             </div>
             <div style={{borderRadius:18,padding:20,border:"1px solid #cbd5e1",textAlign:"center",background:"#f8fafc"}}>
               <div style={{fontSize:11,color:"#666666",marginBottom:6}}>صافي الثروة</div>
-              <div style={{fontSize:34,fontWeight:900,color:"#1a6b4a"}}>{fmt(totBal+totAst+totGiv-totOwd)}</div>
+              <div style={{fontSize:34,fontWeight:900,color:"#1a6b4a"}}>{fmt(totBal+totAst+totInv+totGiv-totOwd)}</div>
             </div>
             {[
               {key:"banks",icon:"🏦",label:"البنوك",color:"#1a6b4a",amount:banks.flatMap(b=>b.accounts).reduce((s,a)=>s+a.balance,0),sub:`${banks.length} بنك`},
@@ -2619,6 +2693,55 @@ export default function App(){
                 setInvestments(p=>p.map(i=>i.id===ei.id?{...i,amount:Math.max(0,i.amount-returnAmt)}:i));
                 cm();showErr("✅ تم الاسترداد وإضافته للحساب");
               }}>تأكيد الاسترداد 🏦</button>
+            </div>}
+
+            {modal==="sellAst"&&ei&&<div style={S.col}>
+              <div style={{padding:"10px 14px",background:"#14b8a615",borderRadius:10,fontSize:13,color:"#14b8a6",fontWeight:700,textAlign:"center"}}>🏷️ بيع ممتلك — {ei.name}</div>
+              <div style={{fontSize:12,color:"#888888",textAlign:"center"}}>قيمة الشراء: {fmt(ei.value)}</div>
+              <input style={S.num} placeholder="سعر البيع" type="number" step="0.01" value={form.sellAmt||""} onChange={e=>F("sellAmt",e.target.value)}/>
+              <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#14b8a6"/>
+              <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
+              {(()=>{
+                const sellAmt=parseFloat(form.sellAmt||0);
+                const diff=sellAmt-ei.value;
+                if(!form.sellAmt)return null;
+                return <div style={{padding:"8px 12px",background:diff>=0?"#10b98115":"#ef444415",borderRadius:8,fontSize:12,fontWeight:700,color:diff>=0?"#10b981":"#ef4444",textAlign:"center"}}>
+                  {diff>=0?"💚 ربح: ":"🔴 خسارة: "}{fmt(Math.abs(diff))} د.م
+                </div>;
+              })()}
+              <button style={S.btn("#14b8a6")} onClick={()=>{
+                const sellAmt=parseFloat(form.sellAmt);
+                if(!sellAmt||sellAmt<=0){showErr("⛔ أدخل سعر البيع");return;}
+                if(!form.akey){showErr("⛔ اختر الحساب");return;}
+                const acc=allAcc.find(a=>a.key===form.akey);
+                if(!acc)return;
+                const date=form.date||new Date().toISOString().split("T")[0];
+                const diff=sellAmt-ei.value;
+                // رجوع المبلغ للحساب
+                updBal(acc.ref,sellAmt,"income","add");
+                // تسجيل معاملة رجوع isAsset
+                setTxs(p=>[{id:uid(),type:"income",amount:sellAmt,catId:null,subId:null,
+                  desc:`بيع: ${ei.name}`,date,pm:"بيع ممتلك",ref:acc.ref,
+                  isAsset:true,isTransfer:false,isLoan:false,isInvest:false,note:""
+                },...p]);
+                // إذا كاين ربح → معاملة دخل عادي
+                if(diff>0){
+                  setTxs(p=>[{id:uid(),type:"income",amount:diff,catId:null,subId:null,
+                    desc:`ربح بيع: ${ei.name}`,date,ref:acc.ref,
+                    isAsset:false,isTransfer:false,isLoan:false,isInvest:false,note:"",pm:""
+                  },...p]);
+                }
+                // إذا كاينة خسارة → معاملة مصروف عادي
+                if(diff<0){
+                  setTxs(p=>[{id:uid(),type:"expense",amount:Math.abs(diff),catId:null,subId:null,
+                    desc:`خسارة بيع: ${ei.name}`,date,ref:acc.ref,
+                    isAsset:false,isTransfer:false,isLoan:false,isInvest:false,note:"",pm:""
+                  },...p]);
+                }
+                // حذف الممتلك من القائمة
+                setAssets(p=>p.filter(a=>a.id!==ei.id));
+                cm();showErr(`✅ تم البيع — ${diff>=0?"ربح":"خسارة"}: ${fmt(Math.abs(diff))}`);
+              }}>تأكيد البيع 🏷️</button>
             </div>}
 
             {modal==="returnLoan"&&ei&&<div style={S.col}>

@@ -479,27 +479,50 @@ export default function App(){
       setBkMsg("✅ تم التحميل — شوف Downloads");setTimeout(()=>setBkMsg(null),3500);
     }
   };
-  const shareData=async()=>{
-    const d=JSON.stringify({banks,cash,assets,loans,cats,txs,budgetSettings,investments},null,2);
-    const fileName="محفظتي-"+new Date().toISOString().split("T")[0]+".json";
-    const file=new File([d],fileName,{type:"application/json"});
-    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-      try{
-        await navigator.share({files:[file],title:"نسخة محفظتي"});
-      }catch(e){
-        if(e.name!=="AbortError")setBkMsg("❌ فشلت المشاركة، استعمل تحميل الملف");setTimeout(()=>setBkMsg(null),3000);
-      }
-    }else{
-      setBkMsg("⚠️ المشاركة المباشرة ماخدماش هنا، استعمل تحميل الملف");setTimeout(()=>setBkMsg(null),3500);
-    }
+  const GOOGLE_CLIENT_ID="34722943454-dnlhs7v2eg2p2rv7q90t77qgu7gv2sp8.apps.googleusercontent.com";
+  const DRIVE_FILE_NAME="mahfazati-backup.json";
+  const driveSignIn=async()=>{
+    const {GoogleAuth}=await import("@codetrix-studio/capacitor-google-auth");
+    await GoogleAuth.initialize({
+      clientId:GOOGLE_CLIENT_ID,
+      scopes:["profile","email","https://www.googleapis.com/auth/drive.file"],
+      grantOfflineAccess:false,
+    });
+    const user=await GoogleAuth.signIn();
+    return user.authentication.accessToken;
   };
-  const openDriveAfterExport=()=>{
-    expData(); // أولاً نحمل الملف (Downloads)
-    setBkMsg("📥 تحمل الملف، دابا فتح Drive ودوس + جديد ← رفع ملف");
-    setTimeout(()=>{
-      setBkMsg(null);
-      window.open("https://drive.google.com/drive/my-drive?usp=sharing","_blank");
-    },1800);
+  const openDriveAfterExport=async()=>{
+    try{
+      setBkMsg("🔐 تسجيل الدخول لـ Google...");
+      const token=await driveSignIn();
+      setBkMsg("☁️ كنبحث على النسخة القديمة...");
+      const d=JSON.stringify({banks,cash,assets,loans,cats,txs,budgetSettings,investments},null,2);
+      const q=encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+      const searchRes=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name)`,{
+        headers:{Authorization:`Bearer ${token}`}
+      });
+      const searchData=await searchRes.json();
+      const existing=searchData.files&&searchData.files[0];
+      const boundary="mahfazati_"+Date.now();
+      const metaPart=existing?"{}":JSON.stringify({name:DRIVE_FILE_NAME,mimeType:"application/json"});
+      const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metaPart}\r\n`+
+        `--${boundary}\r\nContent-Type: application/json\r\n\r\n${d}\r\n`+
+        `--${boundary}--`;
+      const url=existing
+        ?`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart`
+        :`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
+      setBkMsg("📤 كنرفع النسخة...");
+      const uploadRes=await fetch(url,{
+        method:existing?"PATCH":"POST",
+        headers:{Authorization:`Bearer ${token}`,"Content-Type":`multipart/related; boundary=${boundary}`},
+        body
+      });
+      if(!uploadRes.ok)throw new Error("رمز "+uploadRes.status);
+      setBkMsg("✅ تم الحفظ فـ Google Drive بنجاح");setTimeout(()=>setBkMsg(null),4000);
+    }catch(e){
+      console.error(e);
+      setBkMsg("⛔ فشل الحفظ فـ Drive — "+(e.message||"خطأ غير معروف"));setTimeout(()=>setBkMsg(null),5000);
+    }
   };
   const impData=e=>{
     const file=e.target.files[0];if(!file)return;
@@ -915,38 +938,11 @@ export default function App(){
             {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",marginBottom:12,fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
             <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}>
               <div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📤 تصدير والحماية</div>
-              <div style={{display:"flex",gap:8,marginBottom:8}}>
-                <button style={{...S.btn("#10b981"),flex:1}} onClick={expData}>تحميل النسخة</button>
-                <button style={{...S.btn("#6366f1"),flex:1}} onClick={shareData}>مشاركة 📱</button>
+              <div style={{marginBottom:8}}>
+                <button style={{...S.btn("#10b981"),width:"100%"}} onClick={expData}>تحميل النسخة</button>
               </div>
               <button style={{...S.btn("#0ea5e9"),width:"100%",marginBottom:8}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button>
-              <button style={{...S.btn("#f59e0b"),width:"100%",marginBottom:8}} onClick={()=>autoBackup("manual").then(()=>{showErr("✅ تم حفظ نسخة احتياطية داخلية");setTimeout(()=>setErr(null),3000);})}>💾 حفظ نسخة احتياطية الآن</button>
-              <button style={{...S.btn("#8b5cf6"),width:"100%"}} onClick={async()=>{
-                try{
-                  const {Filesystem,Directory,Encoding}=await import("@capacitor/filesystem");
-                  // نحاول نرجع آخر نسخة احتياطية
-                  let restored=false;
-                  for(const name of ["backup-before-import-latest.json","backup-manual-latest.json","backup-autosave-latest.json"]){
-                    try{
-                      const r=await Filesystem.readFile({path:name,directory:Directory.Data,encoding:Encoding.UTF8});
-                      const d=JSON.parse(r.data);
-                      if(d.txs&&d.txs.length>0){
-                        if(d.banks){setBanks(d.banks);_save('banks',d.banks);}
-                        if(d.cash){setCash(d.cash);_save('cash',d.cash);}
-                        if(d.txs){setTxs(d.txs);_save('txs',d.txs);}
-                        if(d.cats){setCats(d.cats);_save('cats',d.cats);}
-                        if(d.loans){setLoans(d.loans);_save('loans',d.loans);}
-                        if(d.assets){setAssets(d.assets);_save('assets',d.assets);}
-                        if(d.investments){setInvestments(d.investments);_save('investments',d.investments);}
-                        if(d.budgetSettings){setBudgetSettings(d.budgetSettings);_save('budgetSettings',d.budgetSettings);}
-                        showErr(`✅ تم استرجاع النسخة من ${name}`);setTimeout(()=>setErr(null),4000);
-                        restored=true; break;
-                      }
-                    }catch(e2){}
-                  }
-                  if(!restored)showErr("⛔ ما كاينش نسخة احتياطية للاسترجاع");
-                }catch(e){showErr("⛔ خطأ في الاسترجاع");}
-              }}>🔄 استرجاع آخر نسخة احتياطية</button>
+              <button style={{...S.btn("#f59e0b"),width:"100%"}} onClick={()=>autoBackup("manual").then(()=>{showErr("✅ تم حفظ نسخة احتياطية داخلية");setTimeout(()=>setErr(null),3000);})}>💾 حفظ نسخة احتياطية الآن</button>
             </div>
             <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📥 استيراد</div><button style={S.btn("#6366f1")} onClick={()=>fRef.current.click()}>اختر ملف JSON</button></div>
             <div style={{...S.card,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}>
@@ -955,21 +951,6 @@ export default function App(){
               <input style={{...S.inp,marginBottom:8}} type="password" placeholder="كلمة السر للتأكيد" value={resetCode} onChange={e=>{setResetCode(e.target.value);setResetErr(false);}}/>
               {resetErr&&<div style={{color:"#ef4444",fontSize:12,marginBottom:6}}>❌ كلمة السر غلط</div>}
               <button style={S.btn("#ef4444")} onClick={()=>{if(resetCode!==appPassword){setResetErr(true);return;}resetData();setResetCode("");}}>تأكيد إعادة الضبط</button>
-              <button style={{...S.btn("#10b981"),marginTop:8}} onClick={()=>{
-                const newBS={
-                  goals:{incomeGoal:15000,incomeAuto:false,expenseGoal:5000,expenseAuto:false},
-                  buckets:[
-                    {id:1,name:"الميزانية",icon:"🛒",color:"#3b82f6",pct:40,accountKeys:[],type:"expenses"},
-                    {id:2,name:"الطوارئ",icon:"🚨",color:"#f97316",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
-                    {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:10,accountKeys:[],type:"assets"},
-                    {id:4,name:"الاستثمار",icon:"📈",color:"#8b5cf6",pct:20,accountKeys:[],type:"investment"},
-                    {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement"}
-                  ]
-                };
-                setBudgetSettings(newBS);
-                _save('budgetSettings',newBS);
-                setErr("✅ تم تهيئة الميزانية الجديدة");setTimeout(()=>setErr(null),3000);
-              }}>🆕 تهيئة الميزانية الجديدة</button>
               <button style={{...S.btn("#f59e0b"),marginTop:8}} onClick={()=>{
                 setBudgetSettings(p=>({...p,
                   buckets:[
@@ -1798,7 +1779,6 @@ export default function App(){
                   </div>
                   {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
                   <button style={{...S.btn("#10b981"),padding:"13px"}} onClick={expData}>📤 تحميل نسخة احتياطية</button>
-                  <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={shareData}>📱 مشاركة (واتساب/درايف)</button>
                   <button style={{...S.btn("#0ea5e9"),padding:"13px"}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button>
                   <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>fRef.current.click()}>📥 استيراد من ملف</button>
                   <div style={{background:"#1a1d27",borderRadius:14,padding:16,border:"1px solid #ef444433"}}>

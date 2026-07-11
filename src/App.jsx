@@ -2413,19 +2413,39 @@ export default function App(){
             const pad=n=>String(n).padStart(2,"0");
             const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
             const startOfWeek=d=>{const x=new Date(d);const day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);x.setHours(0,0,0,0);return x;};
-            const getPresetRange=(preset)=>{
+            const getPresetRange=(preset,yearOv,monthOv)=>{
               const now=new Date();
               if(preset==="today")return{from:iso(now),to:iso(now)};
               if(preset==="yesterday"){const y=new Date(now);y.setDate(y.getDate()-1);return{from:iso(y),to:iso(y)};}
               if(preset==="week"){const s=startOfWeek(now);const e=new Date(s);e.setDate(e.getDate()+6);return{from:iso(s),to:iso(e)};}
               if(preset==="lastweek"){const s=startOfWeek(now);s.setDate(s.getDate()-7);const e=new Date(s);e.setDate(e.getDate()+6);return{from:iso(s),to:iso(e)};}
-              if(preset==="month"){const s=new Date(now.getFullYear(),now.getMonth(),1);const e=new Date(now.getFullYear(),now.getMonth()+1,0);return{from:iso(s),to:iso(e)};}
+              if(preset==="month"){const ym=monthOv||`${now.getFullYear()}-${pad(now.getMonth()+1)}`;const[yy,mm]=ym.split("-").map(Number);const s=new Date(yy,mm-1,1);const e=new Date(yy,mm,0);return{from:iso(s),to:iso(e)};}
               if(preset==="lastmonth"){const s=new Date(now.getFullYear(),now.getMonth()-1,1);const e=new Date(now.getFullYear(),now.getMonth(),0);return{from:iso(s),to:iso(e)};}
-              if(preset==="year"){const s=new Date(now.getFullYear(),0,1);const e=new Date(now.getFullYear(),11,31);return{from:iso(s),to:iso(e)};}
+              if(preset==="year"){const yy=parseInt(yearOv)||now.getFullYear();const s=new Date(yy,0,1);const e=new Date(yy,11,31);return{from:iso(s),to:iso(e)};}
               if(preset==="lastyear"){const s=new Date(now.getFullYear()-1,0,1);const e=new Date(now.getFullYear()-1,11,31);return{from:iso(s),to:iso(e)};}
               if(preset==="all"){const dates=txs.map(t=>t.date);const minD=dates.length?dates.reduce((a,b)=>a<b?a:b):iso(now);return{from:minD,to:iso(now)};}
               return{from:ovExp.rfFrom||iso(new Date(now.getFullYear(),0,1)),to:ovExp.rfTo||iso(now)};
             };
+            const allYearsList=(()=>{const now=new Date();const ys=new Set([now.getFullYear()]);txs.forEach(t=>ys.add(parseInt(t.date.slice(0,4))));return[...ys].sort((a,b)=>b-a);})();
+            const MONTH_NAMES=["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"];
+            const YearMonthPicker=({year,month,onYear,onMonth,color})=>(
+              <div className="no-print" style={{marginTop:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:month!==undefined?8:0}}>
+                  <button onClick={()=>onYear(year-1)} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"6px 10px",fontSize:13,cursor:"pointer"}}>◀</button>
+                  <select style={{...S.sel,flex:1,fontSize:13,padding:"7px 8px",textAlign:"center",fontWeight:800,color}} value={year} onChange={e=>onYear(parseInt(e.target.value))}>
+                    {allYearsList.map(y=><option key={y} value={y}>{y}</option>)}
+                  </select>
+                  <button onClick={()=>onYear(year+1)} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"6px 10px",fontSize:13,cursor:"pointer"}}>▶</button>
+                </div>
+                {month!==undefined&&<div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <button onClick={()=>{let m=month-1,y=year;if(m<0){m=11;y--;}onMonth(y,m);}} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"6px 10px",fontSize:13,cursor:"pointer"}}>◀</button>
+                  <select style={{...S.sel,flex:1,fontSize:13,padding:"7px 8px",textAlign:"center",fontWeight:800,color}} value={month} onChange={e=>onMonth(year,parseInt(e.target.value))}>
+                    {MONTH_NAMES.map((mn,i)=><option key={i} value={i}>{mn}</option>)}
+                  </select>
+                  <button onClick={()=>{let m=month+1,y=year;if(m>11){m=0;y++;}onMonth(y,m);}} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"6px 10px",fontSize:13,cursor:"pointer"}}>▶</button>
+                </div>}
+              </div>
+            );
             const classifyTx=t=>{
               if(t.isAsset)return t.type==="expense"?"buy_assets":"sell_assets";
               if(t.isInvest){if(t.type==="expense")return"buy_invest";if((t.desc||"").startsWith("ربح"))return"invest_profit";return"sell_invest";}
@@ -2495,7 +2515,9 @@ export default function App(){
               const rfType=ovExp.rfType||"all";
               const rfBucket=ovExp.rfBucket||"all";
               const rfCats=ovExp.rfCats||[];
-              const range=getPresetRange(rfPeriod);
+              const rfYear=ovExp.rfYear||new Date().getFullYear();
+              const rfMonth=ovExp.rfMonth||`${new Date().getFullYear()}-${pad(new Date().getMonth()+1)}`;
+              const range=getPresetRange(rfPeriod,rfYear,rfMonth);
               let baseTxs=txs.filter(t=>t.date>=range.from&&t.date<=range.to);
               if(rfAcc!=="all"){const accSel=allAccList.find(a=>a.key===rfAcc);if(accSel)baseTxs=baseTxs.filter(t=>JSON.stringify(t.ref)===JSON.stringify(accSel.ref));}
               if(rfType!=="all")baseTxs=baseTxs.filter(t=>classifyTx(t)===rfType);
@@ -2572,6 +2594,10 @@ export default function App(){
                       <button key={v} onClick={()=>setOvExp(p=>({...p,rfPeriod:v}))} style={{...S.btn(rfPeriod===v?"#1a6b4a":"#f1f5f9",false),flexShrink:0,padding:"7px 13px",fontSize:11,color:rfPeriod===v?"white":"#64748b"}}>{l}</button>
                     ))}
                   </div>
+                  {rfPeriod==="year"&&<YearMonthPicker year={rfYear} onYear={y=>setOvExp(p=>({...p,rfYear:y}))} color="#1a6b4a"/>}
+                  {rfPeriod==="month"&&<YearMonthPicker year={parseInt(rfMonth.split("-")[0])} month={parseInt(rfMonth.split("-")[1])-1}
+                    onYear={y=>setOvExp(p=>({...p,rfMonth:`${y}-${pad(parseInt(rfMonth.split("-")[1]))}`}))}
+                    onMonth={(y,m)=>setOvExp(p=>({...p,rfMonth:`${y}-${pad(m+1)}`}))} color="#1a6b4a"/>}
                   {rfPeriod==="custom"&&<div style={{display:"flex",gap:8,alignItems:"center",marginTop:10}}>
                     <input style={{...S.inp,flex:1,padding:"8px 10px",fontSize:12,textAlign:"center"}} type="date" value={ovExp.rfFrom||""} onChange={e=>setOvExp(p=>({...p,rfFrom:e.target.value}))}/>
                     <span style={{fontSize:11,color:"#94a3b8"}}>→</span>
@@ -2778,9 +2804,11 @@ export default function App(){
               const themeColor=tp==="income"?"#10b981":"#ef4444";
               const title=tp==="income"?"📥 تقارير المداخل":"📤 تقارير المصاريف";
               const subPeriod=ovExp.subPeriod||"all";
+              const subYear=ovExp.subYear||new Date().getFullYear();
+              const subMonth=ovExp.subMonth||`${new Date().getFullYear()}-${pad(new Date().getMonth()+1)}`;
               const getSubRange=preset=>preset==="custom"
                 ?{from:ovExp.subFrom||getPresetRange("year").from,to:ovExp.subTo||iso(new Date())}
-                :getPresetRange(preset);
+                :getPresetRange(preset,subYear,subMonth);
               const subRange=getSubRange(subPeriod);
               const subTxs=txs.filter(t=>t.type===tp&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date>=subRange.from&&t.date<=subRange.to);
               const subTotal=subTxs.reduce((s,t)=>s+t.amount,0);
@@ -2815,6 +2843,10 @@ export default function App(){
                       <button key={v} onClick={()=>setOvExp(p=>({...p,subPeriod:v}))} style={{...S.btn(subPeriod===v?themeColor:"#f1f5f9",false),flex:1,padding:"8px 6px",fontSize:11,color:subPeriod===v?"white":"#64748b"}}>{l}</button>
                     ))}
                   </div>
+                  {subPeriod==="year"&&<YearMonthPicker year={subYear} onYear={y=>setOvExp(p=>({...p,subYear:y}))} color={themeColor}/>}
+                  {subPeriod==="month"&&<YearMonthPicker year={parseInt(subMonth.split("-")[0])} month={parseInt(subMonth.split("-")[1])-1}
+                    onYear={y=>setOvExp(p=>({...p,subMonth:`${y}-${pad(parseInt(subMonth.split("-")[1]))}`}))}
+                    onMonth={(y,m)=>setOvExp(p=>({...p,subMonth:`${y}-${pad(m+1)}`}))} color={themeColor}/>}
                   {subPeriod==="custom"&&<div style={{display:"flex",gap:8,alignItems:"center",marginTop:10}}>
                     <input style={{...S.inp,flex:1,padding:"8px 10px",fontSize:12,textAlign:"center"}} type="date" value={ovExp.subFrom||""} onChange={e=>setOvExp(p=>({...p,subFrom:e.target.value}))}/>
                     <span style={{fontSize:11,color:"#94a3b8"}}>→</span>

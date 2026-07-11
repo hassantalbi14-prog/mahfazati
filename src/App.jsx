@@ -532,6 +532,63 @@ export default function App(){
       setBkMsg("⛔ فشل الحفظ فـ Drive — "+(e.message||"خطأ غير معروف"));setTimeout(()=>setBkMsg(null),5000);
     }
   };
+  const applyImportedData=(d)=>{
+    if(d.banks){setBanks(d.banks);_save('banks',d.banks);}
+    if(d.cash){setCash(d.cash);_save('cash',d.cash);}
+    if(d.assets&&d.assets.length>0){setAssets(d.assets);_save('assets',d.assets);}
+    if(d.loans&&d.loans.length>0){setLoans(d.loans);_save('loans',d.loans);}
+    if(d.budgetSettings){
+      const bs=d.budgetSettings;
+      let newBS;
+      if(bs.buckets&&bs.buckets.length>0){
+        newBS={...bs,buckets:bs.buckets.map(b=>({...b,accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))};
+      } else if(bs.allocations&&bs.allocations.length>0){
+        newBS={buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))};
+      } else {
+        newBS=bs;
+      }
+      setBudgetSettings(newBS);_save('budgetSettings',newBS);
+    }
+    if(d.investments){setInvestments(d.investments);_save('investments',d.investments);}
+    if(d.cats){
+      const newCats={expense:d.cats.expense||[],income:d.cats.income||[]};
+      setCats(newCats);_save('cats',newCats);
+    }
+    if(d.txs&&d.txs.length>0){
+      const sortedTxs=[...d.txs].sort((a,b)=>b.date.localeCompare(a.date));
+      setTxs(sortedTxs);_save('txs',sortedTxs);
+    }
+  };
+  const restoreFromDrive=async()=>{
+    try{
+      setBkMsg("🔐 تسجيل الدخول لـ Google...");
+      const token=await driveSignIn();
+      setBkMsg("☁️ كنبحث على النسخة فـ Drive...");
+      const q=encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+      const searchRes=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name,modifiedTime)`,{
+        headers:{Authorization:`Bearer ${token}`}
+      });
+      const searchData=await searchRes.json();
+      const existing=searchData.files&&searchData.files[0];
+      if(!existing){setBkMsg("⛔ ما لقيتش نسخة محفوظة فـ Drive");setTimeout(()=>setBkMsg(null),4000);return;}
+      if(!window.confirm(`لقيت نسخة محفوظة (آخر تحديث: ${new Date(existing.modifiedTime).toLocaleString("ar-MA")}).\n\n⚠️ هادشي غادي يبدل كل البيانات الحالية فهاد الهاتف بالنسخة ديال Drive. متأكد؟`)){
+        setBkMsg(null);return;
+      }
+      // نسخة احتياطية محلية قبل الاسترجاع
+      autoBackup("before-drive-restore");
+      setBkMsg("⬇️ كنجيب البيانات...");
+      const fileRes=await fetch(`https://www.googleapis.com/drive/v3/files/${existing.id}?alt=media`,{
+        headers:{Authorization:`Bearer ${token}`}
+      });
+      if(!fileRes.ok)throw new Error("رمز "+fileRes.status);
+      const d=await fileRes.json();
+      applyImportedData(d);
+      setBkMsg(`✅ تم الاسترجاع من Drive — ${d.txs?.length||0} معاملة`);setTimeout(()=>setBkMsg(null),4000);
+    }catch(e){
+      console.error(e);
+      setBkMsg("⛔ فشل الاسترجاع من Drive — "+(e.message||"خطأ غير معروف"));setTimeout(()=>setBkMsg(null),5000);
+    }
+  };
   const impData=e=>{
     const file=e.target.files[0];if(!file)return;
     // حفظ نسخة احتياطية قبل الاستيراد
@@ -540,32 +597,7 @@ export default function App(){
     r.onload=ev=>{
       try{
         const d=JSON.parse(ev.target.result);
-        if(d.banks){setBanks(d.banks);_save('banks',d.banks);}
-        if(d.cash){setCash(d.cash);_save('cash',d.cash);}
-        if(d.assets&&d.assets.length>0){setAssets(d.assets);_save('assets',d.assets);}
-        if(d.loans&&d.loans.length>0){setLoans(d.loans);_save('loans',d.loans);}
-        if(d.budgetSettings){
-          const bs=d.budgetSettings;
-          let newBS;
-          if(bs.buckets&&bs.buckets.length>0){
-            newBS={...bs,buckets:bs.buckets.map(b=>({...b,accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))};
-          } else if(bs.allocations&&bs.allocations.length>0){
-            newBS={buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))};
-          } else {
-            newBS=bs;
-          }
-          setBudgetSettings(newBS);_save('budgetSettings',newBS);
-        }
-        if(d.investments){setInvestments(d.investments);_save('investments',d.investments);}
-        if(d.cats){
-          // نبدل التصنيفات كاملة بالملف المستورد
-          const newCats={expense:d.cats.expense||[],income:d.cats.income||[]};
-          setCats(newCats);_save('cats',newCats);
-        }
-        if(d.txs&&d.txs.length>0){
-          const sortedTxs=[...d.txs].sort((a,b)=>b.date.localeCompare(a.date));
-          setTxs(sortedTxs);_save('txs',sortedTxs);
-        }
+        applyImportedData(d);
         setBkMsg(`تم الاستيراد ✅ — ${d.txs?.length||0} معاملة`);
       }catch(err){setBkMsg("خطأ في الملف ❌");}
       setTimeout(()=>setBkMsg(null),4000);
@@ -950,6 +982,7 @@ export default function App(){
                 <button style={{...S.btn("#10b981"),width:"100%"}} onClick={expData}>تحميل النسخة</button>
               </div>
               <button style={{...S.btn("#0ea5e9"),width:"100%",marginBottom:8}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button>
+              <button style={{...S.btn("#6366f1"),width:"100%",marginBottom:8}} onClick={restoreFromDrive}>⬇️ استرجاع من Google Drive</button>
               <button style={{...S.btn("#f59e0b"),width:"100%"}} onClick={()=>autoBackup("manual").then(()=>{showErr("✅ تم حفظ نسخة احتياطية داخلية");setTimeout(()=>setErr(null),3000);})}>💾 حفظ نسخة احتياطية الآن</button>
             </div>
             <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📥 استيراد</div><button style={S.btn("#6366f1")} onClick={()=>fRef.current.click()}>اختر ملف JSON</button></div>
@@ -1788,6 +1821,7 @@ export default function App(){
                   {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
                   <button style={{...S.btn("#10b981"),padding:"13px"}} onClick={expData}>📤 تحميل نسخة احتياطية</button>
                   <button style={{...S.btn("#0ea5e9"),padding:"13px"}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button>
+                  <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={restoreFromDrive}>⬇️ استرجاع من Google Drive</button>
                   <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>fRef.current.click()}>📥 استيراد من ملف</button>
                   <div style={{background:"#1a1d27",borderRadius:14,padding:16,border:"1px solid #ef444433"}}>
                     <div style={{fontWeight:700,color:"#ef4444",marginBottom:8,fontSize:15}}>🗑️ إعادة ضبط كامل</div>

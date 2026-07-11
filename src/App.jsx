@@ -2423,6 +2423,7 @@ export default function App(){
               if(preset==="lastmonth"){const s=new Date(now.getFullYear(),now.getMonth()-1,1);const e=new Date(now.getFullYear(),now.getMonth(),0);return{from:iso(s),to:iso(e)};}
               if(preset==="year"){const s=new Date(now.getFullYear(),0,1);const e=new Date(now.getFullYear(),11,31);return{from:iso(s),to:iso(e)};}
               if(preset==="lastyear"){const s=new Date(now.getFullYear()-1,0,1);const e=new Date(now.getFullYear()-1,11,31);return{from:iso(s),to:iso(e)};}
+              if(preset==="all"){const dates=txs.map(t=>t.date);const minD=dates.length?dates.reduce((a,b)=>a<b?a:b):iso(now);return{from:minD,to:iso(now)};}
               return{from:ovExp.rfFrom||iso(new Date(now.getFullYear(),0,1)),to:ovExp.rfTo||iso(now)};
             };
             const classifyTx=t=>{
@@ -2555,21 +2556,72 @@ export default function App(){
             const catList=[...(cats.expense||[]),...(cats.income||[])];
             const accOptions=allAcc;
 
+            // ===== حسب التصنيف (مع الفروع) =====
+            const buildCatBreakdown=tp=>(cats[tp]||[]).map(c=>{
+              const cTxs=flowTxs.filter(t=>t.type===tp&&t.catId===c.id);
+              const amount=cTxs.reduce((s,t)=>s+t.amount,0);
+              const subs=(c.subs||[]).map(s=>{
+                const amt=cTxs.filter(t=>t.subId===s.id).reduce((sum,t)=>sum+t.amount,0);
+                return{...s,amount:amt};
+              }).filter(s=>s.amount>0).sort((a,b)=>b.amount-a.amount);
+              return{...c,amount,count:cTxs.length,subs};
+            }).filter(c=>c.amount>0).sort((a,b)=>b.amount-a.amount);
+            const expCatBreak=buildCatBreakdown("expense");
+            const incCatBreak=buildCatBreakdown("income");
+            const catTab=ovExp.catTab||"expense";
+            const activeCatBreak=catTab==="expense"?expCatBreak:incCatBreak;
+            const activeCatTotal=activeCatBreak.reduce((s,c)=>s+c.amount,0)||1;
+
+            // ===== حسب الحساب =====
+            const accBreakdown=allAcc.map(a=>{
+              const aTxs=flowTxs.filter(t=>JSON.stringify(t.ref)===JSON.stringify(a.ref));
+              const amount=aTxs.reduce((s,t)=>s+t.amount,0);
+              return{...a,amount,count:aTxs.length};
+            }).filter(a=>a.amount>0).sort((a,b)=>b.amount-a.amount);
+            const accTotal=accBreakdown.reduce((s,a)=>s+a.amount,0)||1;
+
+            // ===== مؤشر الصحة المالية =====
+            const healthPct=Math.max(0,Math.min(100,savingsRate));
+            const healthColor=savingsRate>=20?"#10b981":savingsRate>=0?"#f59e0b":"#ef4444";
+            const healthLabel=savingsRate>=20?"ادخار صحي":savingsRate>=0?"ادخار منخفض":"⚠️ عجز";
+            const gaugeOffset=(pct,circ)=>circ-(Math.max(0,Math.min(100,pct))/100)*circ;
+            const HERO_R=72,HERO_CIRC=2*Math.PI*HERO_R;
+            const MINI_R=23,MINI_CIRC=2*Math.PI*MINI_R;
+
+            const showDetails=!!ovExp.repDetails;
+            const showFilters=!!ovExp.repFilters;
+            const expandedCat=ovExp.expandedCat;
+
             return <div id="reportsDashboard">
               <style>{`@media print{.no-print{display:none!important}body{background:white!important}}`}</style>
 
-              {/* الفلاتر */}
-              <div style={{...S.card,padding:"14px 16px"}} className="no-print">
-                <div style={{fontSize:12,fontWeight:700,color:"#475569",marginBottom:8}}>📅 الفترة</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-                  {[["today","اليوم"],["yesterday","أمس"],["week","هذا الأسبوع"],["lastweek","الأسبوع الماضي"],["month","هذا الشهر"],["lastmonth","الشهر الماضي"],["year","هذه السنة"],["lastyear","السنة الماضية"],["custom","مخصص"]].map(([v,l])=>(
-                    <button key={v} onClick={()=>setOvExp(p=>({...p,rfPeriod:v}))} style={{...S.btn(rfPeriod===v?"#10b981":"#e8e8e4",false),padding:"6px 10px",fontSize:11,color:rfPeriod===v?"white":"#475569"}}>{l}</button>
+              <div style={{...S.row,marginBottom:2}}>
+                <div style={{fontSize:16,fontWeight:900,color:"#1a1a1a"}}>📊 التقارير</div>
+                <button className="no-print" style={{...S.btn("#e8e8e4",false),padding:"7px 12px",fontSize:11,color:"#475569"}} onClick={()=>window.print()}>🖨️</button>
+              </div>
+
+              {/* شريط التاريخ */}
+              <div style={{...S.card,padding:"12px 14px"}} className="no-print">
+                <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}>
+                  {[["today","اليوم"],["yesterday","أمس"],["week","هذا الأسبوع"],["month","هذا الشهر"],["year","هذه السنة"],["all","الكل"],["custom","مخصص"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setOvExp(p=>({...p,rfPeriod:v}))} style={{...S.btn(rfPeriod===v?"#1a6b4a":"#f1f5f9",false),flexShrink:0,padding:"7px 13px",fontSize:11,color:rfPeriod===v?"white":"#64748b"}}>{l}</button>
                   ))}
                 </div>
-                {rfPeriod==="custom"&&<div style={{display:"flex",gap:8,marginBottom:10}}>
-                  <div style={{flex:1}}><div style={{fontSize:10,color:"#64748b",marginBottom:4}}>من</div><input style={{...S.inp,padding:"8px 10px",fontSize:12}} type="date" value={ovExp.rfFrom||""} onChange={e=>setOvExp(p=>({...p,rfFrom:e.target.value}))}/></div>
-                  <div style={{flex:1}}><div style={{fontSize:10,color:"#64748b",marginBottom:4}}>إلى</div><input style={{...S.inp,padding:"8px 10px",fontSize:12}} type="date" value={ovExp.rfTo||""} onChange={e=>setOvExp(p=>({...p,rfTo:e.target.value}))}/></div>
+                {rfPeriod==="custom"&&<div style={{display:"flex",gap:8,alignItems:"center",marginTop:10}}>
+                  <input style={{...S.inp,flex:1,padding:"8px 10px",fontSize:12,textAlign:"center"}} type="date" value={ovExp.rfFrom||""} onChange={e=>setOvExp(p=>({...p,rfFrom:e.target.value}))}/>
+                  <span style={{fontSize:11,color:"#94a3b8"}}>→</span>
+                  <input style={{...S.inp,flex:1,padding:"8px 10px",fontSize:12,textAlign:"center"}} type="date" value={ovExp.rfTo||""} onChange={e=>setOvExp(p=>({...p,rfTo:e.target.value}))}/>
                 </div>}
+              </div>
+
+              {/* فلاتر إضافية (مطوية) */}
+              <div className="no-print" style={{...S.card,padding:"11px 14px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,repFilters:!p.repFilters}))}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:12,fontWeight:700,color:"#475569"}}>🔧 فلاتر إضافية (حساب/نوع/صندوق/تصنيف)</span>
+                  <span style={{fontSize:11,color:"#94a3b8"}}>{showFilters?"▲":"▼"}</span>
+                </div>
+              </div>
+              {showFilters&&<div className="no-print" style={{...S.card,padding:"14px"}}>
                 <div style={{display:"flex",gap:8,marginBottom:10}}>
                   <select style={{...S.sel,flex:1,fontSize:12,padding:"8px 10px"}} value={rfAcc} onChange={e=>setOvExp(p=>({...p,rfAcc:e.target.value}))}>
                     <option value="all">كل الحسابات</option>
@@ -2597,35 +2649,116 @@ export default function App(){
                 {catList.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                   {catList.map(c=>(
                     <button key={c.id} onClick={()=>setOvExp(p=>{const cur=p.rfCats||[];return{...p,rfCats:cur.includes(c.id)?cur.filter(x=>x!==c.id):[...cur,c.id]};})}
-                      style={{...S.btn(rfCats.includes(c.id)?c.color:"#e8e8e4",false),padding:"5px 9px",fontSize:11,color:rfCats.includes(c.id)?"white":"#475569"}}>{c.icon} {c.name}</button>
+                      style={{...S.btn(rfCats.includes(c.id)?c.color:"#f1f5f9",false),padding:"5px 9px",fontSize:11,color:rfCats.includes(c.id)?"white":"#475569"}}>{c.icon} {c.name}</button>
                   ))}
                 </div>}
-                <button className="no-print" style={{...S.btn("#6366f1"),marginTop:10,padding:"9px",fontSize:12}} onClick={()=>window.print()}>🖨️ طباعة التقرير</button>
+              </div>}
+
+              {/* هيرو: مؤشر الصحة المالية */}
+              <div style={{...S.card,textAlign:"center",padding:"22px 20px"}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#1a1a1a",marginBottom:2}}>مؤشر الصحة المالية</div>
+                <div style={{fontSize:11,color:"#94a3b8",marginBottom:8}}>
+                  {rfPeriod==="today"?"اليوم":rfPeriod==="yesterday"?"أمس":rfPeriod==="week"?"هذا الأسبوع":rfPeriod==="month"?"هذا الشهر":rfPeriod==="year"?"هذه السنة":rfPeriod==="all"?"كل الفترة":"فترة مخصصة"}
+                </div>
+                <div style={{width:170,height:170,margin:"0 auto",position:"relative"}}>
+                  <svg width="170" height="170" style={{transform:"rotate(-90deg)"}}>
+                    <circle cx="85" cy="85" r={HERO_R} fill="none" stroke="#f1f5f9" strokeWidth="14"/>
+                    <circle cx="85" cy="85" r={HERO_R} fill="none" stroke={healthColor} strokeWidth="14"
+                      strokeDasharray={HERO_CIRC} strokeDashoffset={gaugeOffset(healthPct,HERO_CIRC)} strokeLinecap="round" style={{transition:"stroke-dashoffset .6s"}}/>
+                  </svg>
+                  <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
+                    <div style={{fontSize:34,fontWeight:900,color:healthColor}}>{savingsRate.toFixed(0)}%</div>
+                    <div style={{fontSize:10,color:"#94a3b8",fontWeight:700,marginTop:2}}>{healthLabel}</div>
+                  </div>
+                </div>
+                <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:14,paddingTop:14,borderTop:"1px solid #f1f5f9"}}>
+                  <div><div style={{fontSize:15,fontWeight:900,color:"#10b981"}}>{fmt(totalIncome)}</div><div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>دخل</div></div>
+                  <div><div style={{fontSize:15,fontWeight:900,color:"#ef4444"}}>{fmt(totalExpense)}</div><div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>مصروف</div></div>
+                  <div><div style={{fontSize:15,fontWeight:900,color:netBalance>=0?"#3b82f6":"#ef4444"}}>{fmt(netBalance)}</div><div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>صافي</div></div>
+                </div>
+                <div style={{marginTop:12,fontSize:11,color:"#94a3b8"}}>💎 الثروة الكلية: <span style={{fontWeight:900,color:"#1a1a1a"}}>{fmt(wealthNow)}</span></div>
               </div>
 
-              {/* الملخص المالي */}
-              <div style={{background:"linear-gradient(135deg,#0f172a,#1e293b)",borderRadius:20,padding:18}}>
-                <div style={{fontSize:12,color:"rgba(255,255,255,.75)",fontWeight:700,marginBottom:10}}>💼 الملخص المالي</div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
-                  {[["📥 الدخل",totalIncome,"#10b981"],["📤 المصاريف",totalExpense,"#ef4444"],["💰 صافي",netBalance,netBalance>=0?"#10b981":"#ef4444"]].map(([l,v,c])=>(
-                    <div key={l} style={{flex:1,minWidth:90,background:"rgba(255,255,255,.07)",borderRadius:14,padding:"10px 8px",textAlign:"center"}}>
-                      <div style={{fontSize:10,color:"rgba(255,255,255,.75)",marginBottom:4}}>{l}</div>
-                      <div style={{fontSize:14,fontWeight:900,color:c}}>{fmt(v)}</div>
+              {/* كروت الأقسام الخمسة */}
+              <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"4px 2px 8px"}}>الأقسام الخمسة</div>
+              <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,marginBottom:6}}>
+                {bucketSnaps.map(b=>{
+                  const base=b.type==="expenses"?b.spent:b.balance;
+                  const gp=b.allocated>0?Math.min(base/b.allocated*100,100):0;
+                  return(
+                    <div key={b.id} style={{flex:"0 0 auto",width:104,background:"white",borderRadius:18,padding:"12px 8px",textAlign:"center",boxShadow:"0 3px 10px rgba(15,23,42,.06)"}}>
+                      <div style={{width:56,height:56,margin:"0 auto 6px",position:"relative"}}>
+                        <svg width="56" height="56" style={{transform:"rotate(-90deg)"}}>
+                          <circle cx="28" cy="28" r={MINI_R} fill="none" stroke="#f1f5f9" strokeWidth="7"/>
+                          <circle cx="28" cy="28" r={MINI_R} fill="none" stroke={b.color} strokeWidth="7" strokeDasharray={MINI_CIRC} strokeDashoffset={gaugeOffset(gp,MINI_CIRC)} strokeLinecap="round"/>
+                        </svg>
+                        <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:19}}>{b.icon}</div>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:800,color:"#1a1a1a"}}>{b.name}</div>
+                      <div style={{fontSize:11,fontWeight:700,color:b.color,marginTop:2}}>{fmt(b.balance)}</div>
                     </div>
-                  ))}
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <div style={{flex:1,background:"rgba(255,255,255,.07)",borderRadius:14,padding:"10px 8px",textAlign:"center"}}>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,.75)"}}>💎 الثروة الكلية</div>
-                    <div style={{fontSize:15,fontWeight:900,color:"#f5f5f0"}}>{fmt(wealthNow)}</div>
-                  </div>
-                  <div style={{flex:1,background:"rgba(255,255,255,.07)",borderRadius:14,padding:"10px 8px",textAlign:"center"}}>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,.75)"}}>📈 نسبة الادخار</div>
-                    <div style={{fontSize:15,fontWeight:900,color:savingsRate>=0?"#10b981":"#ef4444"}}>{savingsRate.toFixed(1)}%</div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
 
+              {/* حسب التصنيف */}
+              <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"10px 2px 8px"}}>🏷️ حسب التصنيف</div>
+              <div style={S.card}>
+                <div className="no-print" style={{display:"flex",gap:6,marginBottom:10}}>
+                  <button onClick={()=>setOvExp(p=>({...p,catTab:"expense"}))} style={{...S.btn(catTab==="expense"?"#ef4444":"#f1f5f9",false),flex:1,padding:"7px",fontSize:12,color:catTab==="expense"?"white":"#64748b"}}>مصاريف</button>
+                  <button onClick={()=>setOvExp(p=>({...p,catTab:"income"}))} style={{...S.btn(catTab==="income"?"#10b981":"#f1f5f9",false),flex:1,padding:"7px",fontSize:12,color:catTab==="income"?"white":"#64748b"}}>دخل</button>
+                </div>
+                {activeCatBreak.length===0&&<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>لا توجد بيانات فهاد الفترة</div>}
+                {activeCatBreak.map(c=>{
+                  const pct=(c.amount/activeCatTotal*100);
+                  const isOpen=expandedCat===c.id;
+                  return(
+                    <div key={c.id} style={{padding:"9px 0",borderBottom:"1px solid #f8fafc"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,expandedCat:isOpen?null:c.id}))}>
+                        <div style={{width:34,height:34,borderRadius:10,background:c.color+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{c.icon}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700,color:"#1a1a1a"}}><span>{c.name}</span><span style={{color:c.color}}>{fmt(c.amount)}</span></div>
+                          <div style={{height:4,background:"#f1f5f9",borderRadius:3,marginTop:5,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:c.color,borderRadius:3}}/></div>
+                          <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>{pct.toFixed(0)}% · {c.count} معاملة{c.subs.length>0?(isOpen?" · إخفاء ▲":" · عرض الفروع ▾"):""}</div>
+                        </div>
+                      </div>
+                      {isOpen&&c.subs.length>0&&<div style={{marginRight:44,marginTop:4,paddingTop:4}}>
+                        {c.subs.map(s=>(
+                          <div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:11,color:"#64748b",borderBottom:"1px dashed #f1f5f9"}}>
+                            <span>{s.name}</span><span>{fmt(s.amount)}</span>
+                          </div>
+                        ))}
+                      </div>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* حسب الحساب */}
+              <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"14px 2px 8px"}}>🏦 حسب الحساب</div>
+              <div style={S.card}>
+                {accBreakdown.length===0&&<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>لا توجد بيانات فهاد الفترة</div>}
+                {accBreakdown.map(a=>{
+                  const pct=(a.amount/accTotal*100);
+                  return(
+                    <div key={a.key} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:"1px solid #f8fafc"}}>
+                      <div style={{width:34,height:34,borderRadius:10,background:(a.color||"#10b981")+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{a.type==="نقدية"?"💵":"🏦"}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700,color:"#1a1a1a"}}><span>{a.bn} — {a.name}</span><span style={{color:"#1a6b4a"}}>{fmt(a.amount)}</span></div>
+                        <div style={{height:4,background:"#f1f5f9",borderRadius:3,marginTop:5,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:"#1a6b4a",borderRadius:3}}/></div>
+                        <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>{pct.toFixed(0)}% من الحركة · {a.count} معاملة</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* زر عرض التفاصيل */}
+              <div className="no-print" style={{...S.card,padding:"12px 14px",textAlign:"center",cursor:"pointer",marginTop:14}} onClick={()=>setOvExp(p=>({...p,repDetails:!p.repDetails}))}>
+                <span style={{fontSize:13,fontWeight:700,color:"#475569"}}>📈 عرض الرسوم والتحليلات المتقدمة {showDetails?"▲":"▼"}</span>
+              </div>
+
+              {showDetails&&<>
               {/* توزيع الأموال */}
               {pieData.some(p=>p.value>0)&&<div style={S.card}>
                 <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:6}}>🧩 توزيع الأموال بين الصناديق</div>
@@ -2652,7 +2785,7 @@ export default function App(){
               {expBkt&&<div style={S.card}>
                 <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🛒 الميزانية</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {[["مخصص",expBkt.allocated,"#ef4444"],["مصروف",expBkt.spent,"#ef4444"],["الحالي",expBkt.balance,expBkt.balance>=0?"#10b981":"#ef4444"],["نسبة الاستهلاك",expBkt.allocated>0?(expBkt.spent/expBkt.allocated*100).toFixed(0)+"%":"0%","#f59e0b"]].map(([l,v,c])=>(
+                  {[["مخصص",expBkt.allocated,"#3b82f6"],["مصروف",expBkt.spent,"#ef4444"],["الحالي",expBkt.balance,expBkt.balance>=0?"#10b981":"#ef4444"],["نسبة الاستهلاك",expBkt.allocated>0?(expBkt.spent/expBkt.allocated*100).toFixed(0)+"%":"0%","#f59e0b"]].map(([l,v,c])=>(
                     <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                   ))}
                 </div>
@@ -2662,7 +2795,7 @@ export default function App(){
               {emgBkt&&<div style={S.card}>
                 <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🚨 صندوق الطوارئ</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {[["الرصيد الحالي",emgBkt.balance,"#10b981"],["مرات الاستخدام",emgUsage.length,"#f59e0b"],["المستخدم",emgUsedTotal,"#ef4444"],["نسبة الاعتماد",emgBkt.allocated>0?(emgUsedTotal/emgBkt.allocated*100).toFixed(0)+"%":"0%","#f59e0b"]].map(([l,v,c])=>(
+                  {[["الرصيد الحالي",emgBkt.balance,"#10b981"],["مرات الاستخدام",emgUsage.length,"#f97316"],["المستخدم",emgUsedTotal,"#ef4444"],["نسبة الاعتماد",emgBkt.allocated>0?(emgUsedTotal/emgBkt.allocated*100).toFixed(0)+"%":"0%","#f97316"]].map(([l,v,c])=>(
                     <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                   ))}
                 </div>
@@ -2687,7 +2820,7 @@ export default function App(){
               {invBkt&&<div style={S.card}>
                 <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📈 الاستثمار</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {[["رأس المال",totInv,"#1a6b4a"],["الأرباح",totInvProfit,totInvProfit>=0?"#10b981":"#ef4444"],["ROI",invROI.toFixed(1)+"%","#1a6b4a"],["نسبة النمو",invBkt.allocated>0?((invBkt.balance/invBkt.allocated-1)*100).toFixed(1)+"%":"0%","#1a6b4a"]].map(([l,v,c])=>(
+                  {[["رأس المال",totInv,"#8b5cf6"],["الأرباح",totInvProfit,totInvProfit>=0?"#10b981":"#ef4444"],["ROI",invROI.toFixed(1)+"%","#8b5cf6"],["نسبة النمو",invBkt.allocated>0?((invBkt.balance/invBkt.allocated-1)*100).toFixed(1)+"%":"0%","#8b5cf6"]].map(([l,v,c])=>(
                     <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                   ))}
                 </div>
@@ -2701,7 +2834,7 @@ export default function App(){
                     onBlur={e=>{const v=parseFloat(e.target.value)||0;const nb={...budgetSettings,retireGoal:v};setBudgetSettings(nb);_save('budgetSettings',nb);}} placeholder="الهدف"/>
                 </div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {[["الرصيد الحالي",retBkt.balance,"#6366f1"],["الهدف",retireGoal,"#6366f1"],["نسبة التحقيق",retirePct.toFixed(0)+"%","#10b981"],["الباقي",Math.max(retireGoal-retBkt.balance,0),"#f59e0b"]].map(([l,v,c])=>(
+                  {[["الرصيد الحالي",retBkt.balance,"#6366f1"],["الهدف",retireGoal,"#6366f1"],["نسبة التحقيق",retirePct.toFixed(0)+"%","#10b981"],["الباقي",Math.max(retireGoal-retBkt.balance,0),"#f97316"]].map(([l,v,c])=>(
                     <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                   ))}
                 </div>
@@ -2758,7 +2891,7 @@ export default function App(){
                 <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>⚖️ مقارنة الفترات</div>
                 <div style={{display:"flex",gap:6,marginBottom:10}} className="no-print">
                   {[["month","شهر مع الماضي"],["year","سنة مع الماضية"],["custom","فترتين مخصصتين"]].map(([v,l])=>(
-                    <button key={v} onClick={()=>setOvExp(p=>({...p,cmpMode:v}))} style={{...S.btn(cmpMode===v?"#6366f1":"#e8e8e4",false),padding:"6px 9px",fontSize:11,color:cmpMode===v?"white":"#475569"}}>{l}</button>
+                    <button key={v} onClick={()=>setOvExp(p=>({...p,cmpMode:v}))} style={{...S.btn(cmpMode===v?"#6366f1":"#f1f5f9",false),padding:"6px 9px",fontSize:11,color:cmpMode===v?"white":"#64748b"}}>{l}</button>
                   ))}
                 </div>
                 {cmpMode==="custom"&&<div className="no-print" style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
@@ -2805,6 +2938,7 @@ export default function App(){
                   </div>
                 ))}
               </div>
+              </>}
             </div>;
           }
 

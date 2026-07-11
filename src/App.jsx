@@ -93,7 +93,7 @@ body{background:linear-gradient(135deg,#f0f4ff 0%,#e8f5f0 50%,#f0f4ff 100%);min-
 .nb{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:14px;cursor:pointer;color:#94a3b8;font-size:10px;flex:1;background:none;border:none;font-family:Tajawal;transition:all .25s;font-weight:600;}
 .nb.on{color:#10b981;background:rgba(16,185,129,.1);}
 .pbar{height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;}.pfill{height:100%;border-radius:4px;transition:width .8s;}
-.drw{position:fixed;top:0;right:0;height:100%;width:285px;background:linear-gradient(180deg,#1a6b4a,#0f4a33);border-left:1px solid rgba(255,255,255,.1);z-index:200;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:-8px 0 32px rgba(0,0,0,.2);}
+.drw{position:fixed;top:0;left:0;height:100%;width:285px;background:linear-gradient(180deg,#1a6b4a,#0f4a33);border-right:1px solid rgba(255,255,255,.1);z-index:200;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:8px 0 32px rgba(0,0,0,.2);}
 .drw.op{transform:translateX(0);}
 .ovl{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:199;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(4px);}
 .ovl.op{opacity:1;pointer-events:all;}
@@ -790,6 +790,23 @@ export default function App(){
       <input ref={eiRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>setEi(p=>({...p,ci:b})));e.target.value="";}}/>
       <div className={`ovl${drw?" op":""}`} onClick={()=>setDrw(false)}/>
 
+      {/* FAB — مثبت على كل الصفحات */}
+      <div style={{position:"fixed",bottom:88,left:16,zIndex:150}}>
+        {showActions&&<div style={{position:"absolute",bottom:66,left:0,width:240,zIndex:10,background:"white",borderRadius:16,padding:12,boxShadow:"0 4px 20px rgba(0,0,0,.16)"}}>
+          <div style={{display:"flex",gap:8,marginBottom:8}}>
+            <button style={{...S.btn("#ef4444"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"expense"});}}>+ مصروف</button>
+            <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"income"});}}>+ دخل</button>
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <button style={{...S.btn("#6366f1"),flex:"1 1 45%",padding:"11px 6px",fontSize:12}} onClick={()=>{setShowActions(false);om("transfer");}}>⇄ تحويل</button>
+            <button style={{...S.btn("#14b8a6"),flex:"1 1 45%",padding:"11px 6px",fontSize:12}} onClick={()=>{setShowActions(false);om("buyAsset");}}>🏠 ممتلك</button>
+            <button style={{...S.btn("#10b981"),flex:"1 1 45%",padding:"11px 6px",fontSize:12}} onClick={()=>{setShowActions(false);om("addInvest");}}>📈 استثمار</button>
+            <button style={{...S.btn("#8b5cf6"),flex:"1 1 45%",padding:"11px 6px",fontSize:12}} onClick={()=>{setShowActions(false);setPage("debts");}}>💰 ديون</button>
+          </div>
+        </div>}
+        <button onClick={()=>setShowActions(p=>!p)} style={{width:56,height:56,borderRadius:"50%",background:showActions?"#ef4444":"linear-gradient(135deg,#1a6b4a,#0f4a33)",border:"none",color:"white",fontSize:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(16,185,129,.4)",transition:"all .2s",transform:showActions?"rotate(45deg)":"none"}}>+</button>
+      </div>
+
       {/* DRAWER */}
       <div className={`drw${drw?" op":""}`} dir="rtl">
         <div style={{padding:"20px 14px 80px"}}>
@@ -798,8 +815,15 @@ export default function App(){
             <button onClick={()=>setDrw(false)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 8px",color:"#1a1a1a",cursor:"pointer"}}><X size={18}/></button>
           </div>
           {dp===null&&<>
+            <div className="mi" onClick={()=>{setDrw(false);setPage("dashboard");}}><Home size={18}/> الرئيسية</div>
+            <div className="mi" onClick={()=>{setDrw(false);setPage("overview");}}><span style={{fontSize:18}}>💼</span> الملخص المالي / الحسابات</div>
+            <div className="mi" onClick={()=>{setDrw(false);setPage("reports");setOvExp(p=>({...p,repTab:"dashboard",repView:"buckets"}));}}><span style={{fontSize:18}}>🧩</span> الأقسام</div>
+            <div className="mi" onClick={()=>{setDrw(false);setPage("budget");}}><Target size={18}/> الميزانية</div>
+            <div className="mi" onClick={()=>{setDrw(false);setPage("transactions");}}><Wallet size={18}/> المعاملات</div>
+            <div className="mi" onClick={()=>{setDrw(false);setPage("reports");setOvExp(p=>({...p,repTab:"dashboard",repView:null}));}}><BarChart3 size={18}/> التقارير</div>
+            <div style={{height:1,background:"rgba(255,255,255,.15)",margin:"10px 0"}}/>
             <div className="mi" onClick={()=>{setDrw(false);setPage("settings");}}><Settings size={18}/> الإعدادات <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
-            <div className="mi" onClick={()=>setDp("cloud")}><Cloud size={18}/> السحابة <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
+            <div className="mi" onClick={()=>setDp("cloud")}><Cloud size={18}/> السحابة والنسخ <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
             <div className="mi" onClick={()=>om("changePw")}><span style={{fontSize:18}}>🔑</span> تغيير كلمة السر <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
             <div className="mi" onClick={()=>{sessionStorage.removeItem("mhf_auth");setIsAuth(false);setDrw(false);}} style={{color:"#ef4444"}}><span style={{fontSize:18}}>🚪</span> تسجيل خروج</div>
           </>}
@@ -1153,22 +1177,6 @@ export default function App(){
               </div>
             );
           })()}
-
-          <div style={{position:"relative",height:64,marginBottom:8}}>
-            {showActions&&<div style={{position:"absolute",bottom:70,left:0,right:0,zIndex:10,background:"white",borderRadius:16,padding:12,boxShadow:"0 4px 20px rgba(0,0,0,.12)"}}>
-              <div style={{display:"flex",gap:8,marginBottom:8}}>
-                <button style={{...S.btn("#ef4444"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"expense"});}}>+ مصروف</button>
-                <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"income"});}}>+ دخل</button>
-              </div>
-              <div style={{display:"flex",gap:8}}>
-                <button style={{...S.btn("#6366f1"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("transfer");}}>⇄ تحويل</button>
-                <button style={{...S.btn("#14b8a6"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("buyAsset");}}>🏠 ممتلك</button>
-                <button style={{...S.btn("#10b981"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addInvest");}}>📈 استثمار</button>
-                <button style={{...S.btn("#8b5cf6"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);setPage("debts");}}>💰 ديون</button>
-              </div>
-            </div>}
-            <button onClick={()=>setShowActions(p=>!p)} style={{position:"absolute",bottom:0,left:"50%",transform:showActions?"translateX(-50%) rotate(45deg)":"translateX(-50%)",width:56,height:56,borderRadius:"50%",background:showActions?"#ef4444":"linear-gradient(135deg,#1a6b4a,#0f4a33)",border:"none",color:"white",fontSize:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(16,185,129,.4)",transition:"all .2s"}}>+</button>
-          </div>
 
           <div style={S.card}>
             

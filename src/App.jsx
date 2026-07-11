@@ -479,17 +479,25 @@ export default function App(){
       setBkMsg("✅ تم التحميل — شوف Downloads");setTimeout(()=>setBkMsg(null),3500);
     }
   };
-  const GOOGLE_CLIENT_ID="34722943454-dnlhs7v2eg2p2rv7q90t77qgu7gv2sp8.apps.googleusercontent.com";
+  const GOOGLE_WEB_CLIENT_ID="34722943454-fh1mq1vodlnhpch0u1q020f7jar3ba4f.apps.googleusercontent.com";
   const DRIVE_FILE_NAME="mahfazati-backup.json";
+  let _socialLoginInit=false;
   const driveSignIn=async()=>{
-    const {GoogleAuth}=await import("@codetrix-studio/capacitor-google-auth");
-    await GoogleAuth.initialize({
-      clientId:GOOGLE_CLIENT_ID,
-      scopes:["profile","email","https://www.googleapis.com/auth/drive.file"],
-      grantOfflineAccess:false,
+    const {SocialLogin}=await import("@capgo/capacitor-social-login");
+    if(!_socialLoginInit){
+      await SocialLogin.initialize({
+        google:{webClientId:GOOGLE_WEB_CLIENT_ID,mode:"online"},
+      });
+      _socialLoginInit=true;
+    }
+    const res=await SocialLogin.login({
+      provider:"google",
+      options:{scopes:["email","profile","https://www.googleapis.com/auth/drive.file"]},
     });
-    const user=await GoogleAuth.signIn();
-    return user.authentication.accessToken;
+    console.log("SocialLogin result",JSON.stringify(res));
+    const token=res?.result?.accessToken?.token||res?.result?.accessToken;
+    if(!token)throw new Error("ما توصلناش بتوكن دخول صحيح");
+    return token;
   };
   const openDriveAfterExport=async()=>{
     try{

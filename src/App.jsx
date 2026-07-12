@@ -327,6 +327,36 @@ export default function App(){
     cm();
   };
 
+  const getBucketBalanceLive=(type)=>{
+    const bkt=(budgetSettings.buckets||[]).find(b=>b.type===type);
+    if(!bkt)return null;
+    const totalInc=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+    const allocated=totalInc*(bkt.pct/100);
+    if(type==="expenses"){
+      const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+      return allocated-spent;
+    }
+    if(type==="emergency"){
+      const out=txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
+      return allocated-out;
+    }
+    if(type==="assets"){
+      const out=txs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);
+      const inB=txs.filter(t=>t.type==="income"&&t.isAsset).reduce((s,t)=>s+t.amount,0);
+      return allocated-out+inB;
+    }
+    if(type==="investment"){
+      const out=txs.filter(t=>t.type==="expense"&&t.isInvest).reduce((s,t)=>s+t.amount,0);
+      const inB=txs.filter(t=>t.type==="income"&&t.isInvest).reduce((s,t)=>s+t.amount,0);
+      return allocated-out+inB;
+    }
+    if(type==="retirement"){
+      const out=loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+(l.remaining||0),0);
+      return allocated-out;
+    }
+    return allocated;
+  };
+
   const addTx=()=>{
     if(!form.amount){showErr("⛔ أدخل المبلغ");return;}
     if(!form.catId){showErr("⛔ اختر التصنيف");return;}
@@ -411,6 +441,11 @@ export default function App(){
     if(!form.akey){showErr("⛔ خاصك تختار الحساب");return;}
     const amt=parseFloat(form.amount);
     const acc=allAcc.find(a=>a.key===form.akey);
+    if(acc&&form.kind==="أعطيت"&&amt>(acc.balance||0)){showErr("⛔ الرصيد غير كافي — المتاح: "+fmt(acc.balance||0));return;}
+    if(form.kind==="أعطيت"){
+      const retBal=getBucketBalanceLive("retirement");
+      if(retBal!==null&&amt>retBal){showErr(`⛔ قسم التقاعد ناقص — المتاح: ${fmt(Math.max(retBal,0))}`);return;}
+    }
     const txType=form.kind==="أعطيت"?"expense":"income";
     if(acc)updBal(acc.ref,amt,txType,"add");
     const ldate=form.date||new Date().toISOString().split("T")[0];
@@ -2096,9 +2131,10 @@ export default function App(){
                 bucketTxs: txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).slice(0,20)
               };
             } else if(b.type==="emergency"){
-              // الطوارئ: ما فيها مصاريف — فقط المخصص والباقي
-              const balance = allocated;
-              return {allocated, spent:0, transferIn:0, balance, bucketTxs:[]};
+              // الطوارئ: كنخصمو المبلغ اللي خرج فعلا للميزانية (إعاشة)
+              const out = txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
+              const balance = allocated - out;
+              return {allocated, spent:out, transferIn:0, balance, bucketTxs: txs.filter(t=>t.isTransfer&&(t.desc||"").includes("إعاشة")).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20)};
             } else if(b.type==="assets"){
               // الممتلكات: ما خرج كـ isAsset
               const out = txs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);
@@ -2116,11 +2152,10 @@ export default function App(){
                 bucketTxs: txs.filter(t=>t.isInvest).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20)
               };
             } else if(b.type==="retirement"){
-              // التقاعد: السلف الخارجة والراجعة (السلف اللي عطيناها فقط، ماشي الكريدي اللي أخذيناه)
-              const out = txs.filter(t=>t.type==="expense"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);
-              const inBack = txs.filter(t=>t.type==="income"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);
-              const balance = allocated - out + inBack;
-              return {allocated, spent:out, transferIn:inBack, balance,
+              // التقاعد: نعتمدو على loans[] مباشرة (نفس المصدر اللي كتبين بيه صفحة السلف والقروض) — أدق وما كيفوتوش سلف قديمة
+              const out = loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+(l.remaining||0),0);
+              const balance = allocated - out;
+              return {allocated, spent:out, transferIn:0, balance,
                 bucketTxs: txs.filter(t=>t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20)
               };
             }
@@ -2150,6 +2185,7 @@ export default function App(){
                   const fromAcc = allAcc.find(a=>(emergBucket.accountKeys||[]).includes(a.key));
                   const toAcc = allAcc.find(a=>((expBucket||{}).accountKeys||[]).includes(a.key));
                   if(!fromAcc||!toAcc){showErr("⛔ ربط الحسابات ناقص — ربط حسابات الميزانية والطوارئ أولاً");return;}
+                  if(transferAmt>(fromAcc.balance||0)){showErr("⛔ رصيد حساب الطوارئ الحقيقي غير كافي — المتاح: "+fmt(fromAcc.balance||0));return;}
                   const txDate=new Date().toISOString().split("T")[0];
                   setTxs(p=>[
                     {id:uid(),type:"expense",amount:transferAmt,desc:"إعاشة من الطوارئ للميزانية",date:txDate,ref:fromAcc.ref,isTransfer:true,isLoan:false,isInvest:false,isAsset:false,catId:null,subId:null,note:"",pm:"تحويل"},
@@ -2208,6 +2244,9 @@ export default function App(){
                     <span style={{color:"#64748b",fontSize:16}}>{isOpen?"▲":"▼"}</span>
                   </div>
 
+                  {(b.accountKeys||[]).length===0&&<div style={{background:"#fef3c7",color:"#92400e",fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:8,marginBottom:8,textAlign:"center"}}>⚠️ ماكاينش حساب مربوط بهاد القسم</div>}
+                  {(b.accountKeys||[]).length>0&&accBal<balance-1&&<div style={{background:"#fee2e2",color:"#991b1b",fontSize:11,fontWeight:700,padding:"6px 10px",borderRadius:8,marginBottom:8,textAlign:"center"}}>⚠️ رصيد الحسابات المربوطة ({fmt(accBal)}) أقل من رصيد القسم ({fmt(balance)}) — تحقق من الربط</div>}
+
                   {/* شريط التقدم */}
                   <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden",marginBottom:8}}>
                     <div style={{height:"100%",width:Math.min(pct_used,100)+"%",background:pct_used>100?"#ef4444":b.color,borderRadius:3}}/>
@@ -2261,6 +2300,9 @@ export default function App(){
                       const fromAcc=allAcc.find(a=>(b.accountKeys||[]).includes(a.key));
                       const toAcc=allAcc.find(a=>((expBucket||{}).accountKeys||[]).includes(a.key));
                       if(!fromAcc||!toAcc){showErr("⛔ ربط حسابات الميزانية والطوارئ أولاً");return;}
+                      if(transferAmt>(fromAcc.balance||0)){showErr("⛔ رصيد حساب الطوارئ الحقيقي غير كافي — المتاح: "+fmt(fromAcc.balance||0));return;}
+                      const emgBalNow=getBucketBalanceLive("emergency");
+                      if(emgBalNow!==null&&transferAmt>emgBalNow){showErr(`⛔ قسم الطوارئ ناقص — المتاح: ${fmt(Math.max(emgBalNow,0))}`);return;}
                       const txDate=new Date().toISOString().split("T")[0];
                       setTxs(p=>[
                         {id:uid(),type:"expense",amount:transferAmt,desc:"إعاشة للميزانية",date:txDate,ref:fromAcc.ref,isTransfer:true,isLoan:false,isInvest:false,isAsset:false,catId:null,subId:null,note:"",pm:"تحويل"},
@@ -2527,10 +2569,10 @@ export default function App(){
               const getBucketSnap=b=>{
                 const allocated=totalIncAllTime*(b.pct/100);
                 if(b.type==="expenses"){const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);return{allocated,spent,balance:allocated-spent};}
-                if(b.type==="emergency")return{allocated,spent:0,balance:allocated};
+                if(b.type==="emergency"){const out=txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out};}
                 if(b.type==="assets"){const out=txs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);const inB=txs.filter(t=>t.type==="income"&&t.isAsset).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out+inB};}
                 if(b.type==="investment"){const out=txs.filter(t=>t.type==="expense"&&t.isInvest).reduce((s,t)=>s+t.amount,0);const inB=txs.filter(t=>t.type==="income"&&t.isInvest).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out+inB};}
-                if(b.type==="retirement"){const out=txs.filter(t=>t.type==="expense"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);const inB=txs.filter(t=>t.type==="income"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out+inB};}
+                if(b.type==="retirement"){const out=loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+(l.remaining||0),0);return{allocated,spent:out,balance:allocated-out};}
                 return{allocated,spent:0,balance:allocated};
               };
               const bucketSnaps=buckets.map(b=>({...b,...getBucketSnap(b)}));
@@ -3039,6 +3081,8 @@ export default function App(){
                 const acc=allAcc.find(a=>a.key===form.akey);
                 if(!acc){showErr("⛔ اختر الحساب");return;}
                 if(amt>(acc.balance||0)){showErr("⛔ الرصيد غير كافي — الرصيد المتاح: "+fmt(acc.balance||0));return;}
+                const astBal=getBucketBalanceLive("assets");
+                if(astBal!==null&&amt>astBal){showErr(`⛔ قسم الممتلكات ناقص — المتاح: ${fmt(Math.max(astBal,0))}`);return;}
                 updBal(acc.ref,amt,"expense","add");
                 setAssets(p=>[...p,{id:uid(),type:form.astType||"أخرى",name:form.astName,value:amt,note:form.astNote||"",color:"#14b8a6"}]);
                 setTxs(p=>[{id:uid(),type:"expense",amount:amt,catId:null,subId:null,desc:`شراء ممتلك: ${form.astName}`,date:new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref,isAsset:true},...p]);
@@ -3065,6 +3109,8 @@ export default function App(){
                 const acc=allAcc.find(a=>a.key===form.akey);
                 if(!acc){showErr("⛔ الحساب غير موجود");return;}
                 if(amt>(acc.balance||0)){showErr("⛔ الرصيد غير كافي — المتاح: "+fmt(acc.balance||0));return;}
+                const invBal=getBucketBalanceLive("investment");
+                if(invBal!==null&&amt>invBal){showErr(`⛔ قسم الاستثمار ناقص — المتاح: ${fmt(Math.max(invBal,0))}`);return;}
                 const invId=uid();
                 const date=form.date||new Date().toISOString().split("T")[0];
                 // زيادة record مستقل للاستثمار (بحال الممتلكات)

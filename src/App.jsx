@@ -93,7 +93,7 @@ body{background:linear-gradient(135deg,#f0f4ff 0%,#e8f5f0 50%,#f0f4ff 100%);min-
 .nb{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:14px;cursor:pointer;color:#94a3b8;font-size:10px;flex:1;background:none;border:none;font-family:Tajawal;transition:all .25s;font-weight:600;}
 .nb.on{color:#10b981;background:rgba(16,185,129,.1);}
 .pbar{height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;}.pfill{height:100%;border-radius:4px;transition:width .8s;}
-.drw{position:fixed;top:0;left:0;height:100%;width:285px;background:linear-gradient(180deg,#1a6b4a,#0f4a33);border-right:1px solid rgba(255,255,255,.1);z-index:200;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:8px 0 32px rgba(0,0,0,.2);}
+.drw{position:fixed;top:0;right:0;height:100%;width:285px;background:linear-gradient(180deg,#1a6b4a,#0f4a33);border-left:1px solid rgba(255,255,255,.1);z-index:200;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:-8px 0 32px rgba(0,0,0,.2);}
 .drw.op{transform:translateX(0);}
 .ovl{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:199;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(4px);}
 .ovl.op{opacity:1;pointer-events:all;}
@@ -1045,10 +1045,10 @@ export default function App(){
 
       {/* HEADER */}
       <div style={{padding:"20px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div><div style={{fontSize:12,color:"#64748b"}}>{new Date().toLocaleString("ar-MA",{month:"long",year:"numeric"})}</div><div style={{fontSize:22,fontWeight:900}}>محفظتي 💰</div></div>
         <button onClick={()=>{setDrw(true);setDp(null);}} style={{background:"#2e8fa8",border:"none",borderRadius:12,padding:"10px 16px",display:"flex",alignItems:"center",gap:6,cursor:"pointer",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:13,fontWeight:700}}>
           <Menu size={16}/> القائمة
         </button>
+        <div style={{textAlign:"left"}}><div style={{fontSize:12,color:"#64748b"}}>{new Date().toLocaleString("ar-MA",{month:"long",year:"numeric"})}</div><div style={{fontSize:22,fontWeight:900}}>محفظتي 💰</div></div>
       </div>
 
       {/* CONTENT */}
@@ -2494,11 +2494,10 @@ export default function App(){
             const gaugeOffset=(pct,circ)=>circ-(Math.max(0,Math.min(100,pct))/100)*circ;
 
             const BackBtn=({title})=>(
-              <div style={{...S.row,marginBottom:2}} className="no-print">
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <button onClick={()=>setPage("dashboard")} style={{background:"#f1f5f9",border:"none",borderRadius:10,padding:"7px 10px",cursor:"pointer",fontSize:13}}>←</button>
-                  <div style={{fontSize:15,fontWeight:900,color:"#1a1a1a"}}>{title}</div>
-                </div>
+              <div style={{display:"grid",gridTemplateColumns:"40px 1fr 40px",alignItems:"center",marginBottom:2}} className="no-print">
+                <button onClick={()=>setPage("dashboard")} style={{background:"#f1f5f9",border:"none",borderRadius:10,padding:"7px 10px",cursor:"pointer",fontSize:13}}>←</button>
+                <div style={{fontSize:15,fontWeight:900,color:"#1a1a1a",textAlign:"center"}}>{title}</div>
+                <div/>
               </div>
             );
 

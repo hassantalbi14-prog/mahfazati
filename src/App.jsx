@@ -175,10 +175,15 @@ export default function App(){
   const[openTxId,setOpenTxId]=useState(null);
   const[txTypeFilter,setTxTypeFilter]=useState("all");
   const[bkMsg,setBkMsg]=useState(null);
+  const[lastDeleted,setLastDeleted]=useState(null);
+  const undoTimerRef=useRef(null);
   const[budgetSec,setBudgetSec]=useState({goals:false,tranches:false,alloc:false});
   const[selBucket,setSelBucket]=useState(null);
   const[resetErr,setResetErr]=useState(false);
   const[isAuth,setIsAuth]=useState(()=>sessionStorage.getItem("mhf_auth")==="1");
+  const[bioEnabled,setBioEnabled]=useState(()=>localStorage.getItem("mhf_bio")==="1");
+  const[bioTried,setBioTried]=useState(false);
+  const[darkMode,setDarkMode]=useState(()=>localStorage.getItem("mhf_dark")==="1");
   const[pwInput,setPwInput]=useState("");
   const[showPw,setShowPw]=useState(false);
   const[pwErr,setPwErr]=useState(false);
@@ -396,13 +401,29 @@ export default function App(){
     const t=txs.find(x=>x.id===id);if(!t)return;
     updBal(t.ref,t.amount,t.type,"remove");
     // إذا كانت معاملة مرتبطة بسلفة (رجوع/سداد)، نرجعو remaining للسلفة الأصلية
+    let loanAdjustId=null;
     if(t.isLoan&&(t.desc||"").includes("رجوع سلفة")){
       const personMatch=loans.find(l=>(t.desc||"").includes(l.person));
       if(personMatch){
+        loanAdjustId=personMatch.id;
         setLoans(p=>p.map(l=>l.id===personMatch.id?{...l,remaining:Math.min(l.amount,l.remaining+t.amount)}:l));
       }
     }
     setTxs(p=>p.filter(x=>x.id!==id));
+    if(undoTimerRef.current)clearTimeout(undoTimerRef.current);
+    setLastDeleted({tx:t,loanAdjustId});
+    undoTimerRef.current=setTimeout(()=>setLastDeleted(null),6000);
+  };
+  const undoDelete=()=>{
+    if(!lastDeleted)return;
+    const{tx:t,loanAdjustId}=lastDeleted;
+    if(undoTimerRef.current)clearTimeout(undoTimerRef.current);
+    updBal(t.ref,t.amount,t.type,"add");
+    if(loanAdjustId){
+      setLoans(p=>p.map(l=>l.id===loanAdjustId?{...l,remaining:Math.max(0,l.remaining-t.amount)}:l));
+    }
+    setTxs(p=>[t,...p]);
+    setLastDeleted(null);
   };
   const saveTxEdit=()=>{
     if(!ei||!ei.amount)return;
@@ -437,6 +458,25 @@ export default function App(){
   const edBAcc=(bid,aid,d)=>setBanks(p=>p.map(b=>b.id===bid?{...b,accounts:b.accounts.map(a=>a.id===aid?{...a,...d}:a)}:b));
   const addCash=()=>{if(!form.name)return;setCash(p=>[...p,{id:uid(),type:form.type||"نقدية",name:form.name,balance:parseFloat(form.bal||0),color:form.color||"#f59e0b"}]);cm();};
   const addAst=()=>{if(!form.name)return;setAssets(p=>[...p,{id:uid(),type:form.type||"أخرى",name:form.name,value:0,note:form.val||"",color:form.color||"#14b8a6"}]);cm();};
+  const scheduleLoanReminder=async(loanId,person,amount,dateStr,kind)=>{
+    if(!dateStr)return;
+    try{
+      const {LocalNotifications}=await import("@capacitor/local-notifications");
+      const perm=await LocalNotifications.checkPermissions();
+      if(perm.display!=="granted"){
+        const req=await LocalNotifications.requestPermissions();
+        if(req.display!=="granted")return;
+      }
+      const notifId=Math.abs(loanId.split("").reduce((a,c)=>a+c.charCodeAt(0),0))%2000000000;
+      await LocalNotifications.schedule({notifications:[{
+        title:kind==="أعطيت"?"🔔 تذكير: استرجاع سلفة":"🔔 تذكير: تسديد قرض",
+        body:kind==="أعطيت"?`حان وقت استرجاع ${fmt(amount)} من ${person}`:`حان وقت تسديد ${fmt(amount)} لـ ${person}`,
+        id:notifId,
+        schedule:{at:new Date(dateStr+"T09:00:00")},
+        smallIcon:"ic_stat_icon_config_sample",
+      }]});
+    }catch(e){console.error("reminder schedule failed",e);}
+  };
   const addLoan=()=>{
     if(!form.person||!form.amount)return;
     if(!form.akey){showErr("⛔ خاصك تختار الحساب");return;}
@@ -451,7 +491,9 @@ export default function App(){
     if(acc)updBal(acc.ref,amt,txType,"add");
     const ldate=form.date||new Date().toISOString().split("T")[0];
     setTxs(p=>[{id:uid(),type:txType,amount:amt,catId:null,subId:null,desc:`${form.kind==="أعطيت"?"سلفة لـ":form.wi?"قرض من":"سلفة من"} ${form.person}`,date:ldate,pm:"نقدي",ref:acc?.ref||null,isLoan:true,isTransfer:true,loanKind:form.kind||"أعطيت"},...p]);
-    setLoans(p=>[...p,{id:uid(),kind:form.kind||"أعطيت",person:form.person,amount:amt,remaining:amt,date:ldate,note:form.note||"",wi:!!form.wi,interest:parseFloat(form.irate||0),inst:!!form.inst,minst:parseFloat(form.minst||0),akey:form.akey}]);
+    const newLoanId=uid();
+    setLoans(p=>[...p,{id:newLoanId,kind:form.kind||"أعطيت",person:form.person,amount:amt,remaining:amt,date:ldate,note:form.note||"",wi:!!form.wi,interest:parseFloat(form.irate||0),inst:!!form.inst,minst:parseFloat(form.minst||0),akey:form.akey,remindDate:form.remindDate||null}]);
+    if(form.remindDate)scheduleLoanReminder(newLoanId,form.person,amt,form.remindDate,form.kind||"أعطيت");
     cm();
   };
   const payLoan=(id,v)=>setLoans(p=>p.map(l=>l.id===id?{...l,remaining:Math.max(0,l.remaining-parseFloat(v||0))}:l));
@@ -721,8 +763,27 @@ export default function App(){
     r.readAsText(file);e.target.value="";
   };
 
+  const tryBiometric=async()=>{
+    try{
+      const {NativeBiometric}=await import("@capgo/capacitor-native-biometric");
+      const avail=await NativeBiometric.isAvailable();
+      if(!avail.isAvailable)return false;
+      await NativeBiometric.verifyIdentity({
+        reason:"افتح محفظتي بالبصمة",
+        title:"محفظتي",
+        subtitle:"تحقق من هويتك",
+        description:"استعمل بصمتك للدخول",
+      });
+      sessionStorage.setItem("mhf_auth","1");setIsAuth(true);
+      return true;
+    }catch(e){return false;}
+  };
+  useEffect(()=>{
+    if(bioEnabled&&!isAuth&&!bioTried){setBioTried(true);tryBiometric();}
+  },[bioEnabled,isAuth,bioTried]);
+
   if(!isAuth) return (
-    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"linear-gradient(135deg,#f5f5f0,#e8f5ee)",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"linear-gradient(135deg,#f5f5f0,#e8f5ee)",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20,filter:darkMode?"invert(1) hue-rotate(180deg)":"none"}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');*{box-sizing:border-box;margin:0;padding:0;}`}</style>
       <div style={{background:"white",borderRadius:24,padding:36,width:"100%",maxWidth:340,boxShadow:"0 8px 32px rgba(26,107,74,.12)",textAlign:"center"}}>
         <div style={{fontSize:50,marginBottom:16}}>💰</div>
@@ -784,6 +845,9 @@ export default function App(){
           style={{background:"#10b981",color:"#1a1a1a",border:"none",padding:"13px",borderRadius:12,fontFamily:"Tajawal",fontSize:15,fontWeight:700,cursor:"pointer",width:"100%",marginTop:4}}>
           دخول 🔓
         </button>
+        {bioEnabled&&<button onClick={tryBiometric} style={{background:"#e8f5ee",border:"none",borderRadius:12,padding:"11px",fontFamily:"Tajawal",fontSize:14,fontWeight:700,color:"#1a6b4a",cursor:"pointer",width:"100%",marginTop:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          👆 الدخول بالبصمة
+        </button>}
       </div>
     </div>
   );
@@ -899,7 +963,7 @@ export default function App(){
   );
 
   return (
-    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:"100vh",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale}}>
+    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:"100vh",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,filter:darkMode?"invert(1) hue-rotate(180deg)":"none"}}>
       <style>{CSS}</style>
       <input ref={fRef} type="file" accept=".json" style={{display:"none"}} onChange={impData}/>
       <input ref={iRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("ci",b));e.target.value="";}}/>
@@ -1667,6 +1731,38 @@ export default function App(){
               ))}
             </div>
           </div>
+          <div style={S.card}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:14}}>🌙 الوضع الليلي</div>
+                <div style={{fontSize:11,color:"#64748b",marginTop:2}}>ألوان معكوسة لراحة العين فالليل (تجريبي)</div>
+              </div>
+              <button onClick={()=>{const nv=!darkMode;localStorage.setItem("mhf_dark",nv?"1":"0");setDarkMode(nv);}} style={{width:50,height:28,borderRadius:14,border:"none",background:darkMode?"#1a6b4a":"#e8e8e4",position:"relative",cursor:"pointer",transition:"background .2s"}}>
+                <div style={{position:"absolute",top:3,[darkMode?"right":"left"]:3,width:22,height:22,borderRadius:"50%",background:"white",transition:"all .2s"}}/>
+              </button>
+            </div>
+          </div>
+          <div style={S.card}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:14}}>👆 الدخول بالبصمة</div>
+                <div style={{fontSize:11,color:"#64748b",marginTop:2}}>افتح التطبيق بالبصمة عوض كلمة السر</div>
+              </div>
+              <button onClick={async()=>{
+                if(bioEnabled){localStorage.removeItem("mhf_bio");setBioEnabled(false);return;}
+                try{
+                  const {NativeBiometric}=await import("@capgo/capacitor-native-biometric");
+                  const avail=await NativeBiometric.isAvailable();
+                  if(!avail.isAvailable){showErr("⛔ البصمة غير متاحة على هاد الهاتف");setTimeout(()=>setErr(null),3500);return;}
+                  await NativeBiometric.verifyIdentity({reason:"تفعيل الدخول بالبصمة",title:"محفظتي",subtitle:"تحقق من هويتك"});
+                  localStorage.setItem("mhf_bio","1");setBioEnabled(true);
+                  setErr("✅ تم تفعيل البصمة");setTimeout(()=>setErr(null),3000);
+                }catch(e){showErr("⛔ فشل التفعيل — خاصك npm install @capgo/capacitor-native-biometric");setTimeout(()=>setErr(null),4000);}
+              }} style={{width:50,height:28,borderRadius:14,border:"none",background:bioEnabled?"#1a6b4a":"#e8e8e4",position:"relative",cursor:"pointer",transition:"background .2s"}}>
+                <div style={{position:"absolute",top:3,[bioEnabled?"right":"left"]:3,width:22,height:22,borderRadius:"50%",background:"white",transition:"all .2s"}}/>
+              </button>
+            </div>
+          </div>
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
             <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الأموال والممتلكات</div>
             {[{id:"banks",icon:"🏦",label:"البنوك"},{id:"cash",icon:"💵",label:"الكاش"},{id:"assets",icon:"🏠",label:"الممتلكات"}].map((item,i,arr)=>(
@@ -2107,13 +2203,21 @@ export default function App(){
             return t.type==="income"?"income":"expense";
           };
           const periodTxs=filterByPeriod(txs);
-          const typeFiltered=txTypeFilter==="all"?periodTxs:periodTxs.filter(t=>getTxType(t)===txTypeFilter);
+          const typeFiltered0=txTypeFilter==="all"?periodTxs:periodTxs.filter(t=>getTxType(t)===txTypeFilter);
+          const searchQ=(ovExp.txSearch||"").trim().toLowerCase();
+          const typeFiltered=searchQ?typeFiltered0.filter(t=>{
+            const c=gc(t.type==="income"?"income":"expense",t.catId);
+            const s=t.subId?gs(t.type==="income"?"income":"expense",t.catId,t.subId):null;
+            const hay=`${t.desc||""} ${c?.name||""} ${s?.name||""} ${t.amount}`.toLowerCase();
+            return hay.includes(searchQ);
+          }):typeFiltered0;
           const mInc=periodTxs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
           const mExp=periodTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
           const typeLabels={all:"الكل",income:"💰 المداخل",expense:"💸 المصاريف",transfer:"🔄 التحويلات",credit:"💳 الكريدي",loan:"🤝 السلف",asset:"🏠 الممتلكات",invest:"📈 الاستثمار"};
           return(<>
           <div style={{...S.row}}><span style={{fontWeight:700,fontSize:16}}>المعاملات</span></div>
           <PeriodSelector/>
+          <input style={{...S.inp,marginBottom:10}} placeholder="🔍 بحث بالاسم، التصنيف، أو المبلغ..." value={ovExp.txSearch||""} onChange={e=>setOvExp(p=>({...p,txSearch:e.target.value}))}/>
           <select style={{...S.sel,marginBottom:10}} value={txTypeFilter} onChange={e=>{setTxTypeFilter(e.target.value);setOpenTxId(null);}}>
             {Object.entries(typeLabels).map(([k,l])=><option key={k} value={k}>{l}</option>)}
           </select>
@@ -2930,6 +3034,8 @@ export default function App(){
               </div>
               {form.wi&&<input style={S.inp} placeholder="نسبة الفائدة %" type="number" value={form.irate||""} onChange={e=>F("irate",e.target.value)}/>}
               {form.inst&&<input style={S.inp} placeholder="القسط الشهري" type="number" value={form.minst||""} onChange={e=>F("minst",e.target.value)}/>}
+              <div style={{fontSize:11,color:"#64748b",marginTop:4}}>🔔 تذكير السداد (اختياري)</div>
+              <input style={S.inp} type="date" value={form.remindDate||""} onChange={e=>F("remindDate",e.target.value)}/>
               <button style={S.btn("#8b5cf6")} onClick={addLoan}>حفظ</button>
             </div>}
 
@@ -3235,6 +3341,10 @@ export default function App(){
       )}
 
       {err&&<div style={{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:"#ffffff",border:"1px solid #ef4444",borderRadius:12,padding:"12px 20px",zIndex:400,color:"#ef4444",fontSize:13,fontWeight:700,maxWidth:340,textAlign:"center"}}>{err}</div>}
+      {lastDeleted&&<div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",borderRadius:14,padding:"12px 16px",zIndex:400,display:"flex",alignItems:"center",gap:14,boxShadow:"0 6px 20px rgba(0,0,0,.3)",maxWidth:340}}>
+        <span style={{color:"white",fontSize:13,fontWeight:600}}>🗑️ تم حذف المعاملة</span>
+        <button onClick={undoDelete} style={{background:"#10b981",border:"none",borderRadius:8,padding:"7px 14px",color:"white",fontFamily:"Tajawal",fontSize:13,fontWeight:800,cursor:"pointer"}}>تراجع ↺</button>
+      </div>}
 
       {/* توزيع الدخل التلقائي */}
     </div>

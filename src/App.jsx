@@ -223,7 +223,17 @@ export default function App(){
       const inv=await _load('investments'); if(inv)setInvestments(inv);
       const l=await _load('loans'); if(l)setLoans(l);
       const ct=await _load('cats'); if(ct)setCats(ct);
-      const tx=await _load('txs'); if(tx)setTxs(tx);
+      const tx=await _load('txs'); if(tx){
+        const migrated=tx.map(t=>{
+          if(t.isLoan&&!t.loanKind){
+            const d=t.desc||"";
+            const kind=(d.startsWith("تسديد")||/من\s/.test(d))?"أخذت":"أعطيت";
+            return{...t,loanKind:kind};
+          }
+          return t;
+        });
+        setTxs(migrated);
+      }
       const pw=await _load('appPassword'); if(pw){setAppPassword(pw);localStorage.setItem("mhf_pw",pw);}
       const rc=await _load('recoveryContact'); if(rc)setRecoveryContact(rc);
       const bs=await _load('budgetSettings');
@@ -404,7 +414,7 @@ export default function App(){
     const txType=form.kind==="أعطيت"?"expense":"income";
     if(acc)updBal(acc.ref,amt,txType,"add");
     const ldate=form.date||new Date().toISOString().split("T")[0];
-    setTxs(p=>[{id:uid(),type:txType,amount:amt,catId:null,subId:null,desc:`${form.kind==="أعطيت"?"سلفة لـ":form.wi?"قرض من":"سلفة من"} ${form.person}`,date:ldate,pm:"نقدي",ref:acc?.ref||null,isLoan:true,isTransfer:true},...p]);
+    setTxs(p=>[{id:uid(),type:txType,amount:amt,catId:null,subId:null,desc:`${form.kind==="أعطيت"?"سلفة لـ":form.wi?"قرض من":"سلفة من"} ${form.person}`,date:ldate,pm:"نقدي",ref:acc?.ref||null,isLoan:true,isTransfer:true,loanKind:form.kind||"أعطيت"},...p]);
     setLoans(p=>[...p,{id:uid(),kind:form.kind||"أعطيت",person:form.person,amount:amt,remaining:amt,date:ldate,note:form.note||"",wi:!!form.wi,interest:parseFloat(form.irate||0),inst:!!form.inst,minst:parseFloat(form.minst||0),akey:form.akey}]);
     cm();
   };
@@ -2106,12 +2116,12 @@ export default function App(){
                 bucketTxs: txs.filter(t=>t.isInvest).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20)
               };
             } else if(b.type==="retirement"){
-              // التقاعد: السلف الخارجة والراجعة
-              const out = txs.filter(t=>t.type==="expense"&&t.isLoan).reduce((s,t)=>s+t.amount,0);
-              const inBack = txs.filter(t=>t.type==="income"&&t.isLoan).reduce((s,t)=>s+t.amount,0);
+              // التقاعد: السلف الخارجة والراجعة (السلف اللي عطيناها فقط، ماشي الكريدي اللي أخذيناه)
+              const out = txs.filter(t=>t.type==="expense"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);
+              const inBack = txs.filter(t=>t.type==="income"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);
               const balance = allocated - out + inBack;
               return {allocated, spent:out, transferIn:inBack, balance,
-                bucketTxs: txs.filter(t=>t.isLoan).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20)
+                bucketTxs: txs.filter(t=>t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20)
               };
             }
             return {allocated, spent:0, transferIn:0, balance:allocated, bucketTxs:[]};
@@ -2521,7 +2531,7 @@ export default function App(){
                 if(b.type==="emergency")return{allocated,spent:0,balance:allocated};
                 if(b.type==="assets"){const out=txs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);const inB=txs.filter(t=>t.type==="income"&&t.isAsset).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out+inB};}
                 if(b.type==="investment"){const out=txs.filter(t=>t.type==="expense"&&t.isInvest).reduce((s,t)=>s+t.amount,0);const inB=txs.filter(t=>t.type==="income"&&t.isInvest).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out+inB};}
-                if(b.type==="retirement"){const out=txs.filter(t=>t.type==="expense"&&t.isLoan).reduce((s,t)=>s+t.amount,0);const inB=txs.filter(t=>t.type==="income"&&t.isLoan).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out+inB};}
+                if(b.type==="retirement"){const out=txs.filter(t=>t.type==="expense"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);const inB=txs.filter(t=>t.type==="income"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out+inB};}
                 return{allocated,spent:0,balance:allocated};
               };
               const bucketSnaps=buckets.map(b=>({...b,...getBucketSnap(b)}));
@@ -2529,12 +2539,17 @@ export default function App(){
               const emgBkt=bucketSnaps.find(b=>b.type==="emergency");
               const invBkt=bucketSnaps.find(b=>b.type==="investment");
               const retBkt=bucketSnaps.find(b=>b.type==="retirement");
-              const emgUsage=txs.filter(t=>t.isTransfer&&(t.desc||"").includes("إعاشة"));
+              const periodTxs=txs.filter(t=>t.date>=range.from&&t.date<=range.to);
+              const emgUsage=periodTxs.filter(t=>t.isTransfer&&(t.desc||"").includes("إعاشة"));
               const emgUsedTotal=emgUsage.filter(t=>t.type==="income"&&(t.desc||"").includes("للميزانية")).reduce((s,t)=>s+t.amount,0);
               const totInvProfit=investments.reduce((s,i)=>s+(i.profit||0),0);
               const invROI=totInv>0?(totInvProfit/totInv*100):0;
               const retireGoal=budgetSettings.retireGoal||100000;
               const retirePct=retireGoal>0?Math.min((retBkt?.balance||0)/retireGoal*100,100):0;
+              const topExpCatPeriod=buildCatBreakdownFor("expense",periodTxs.filter(t=>!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset))[0];
+              const topAssetTxPeriod=[...periodTxs.filter(t=>t.isAsset)].sort((a,b)=>b.amount-a.amount)[0];
+              const topInvTxPeriod=[...periodTxs.filter(t=>t.isInvest)].sort((a,b)=>b.amount-a.amount)[0];
+              const topRetireTxPeriod=[...periodTxs.filter(t=>t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت")].sort((a,b)=>b.amount-a.amount)[0];
               const expCatBreak=buildCatBreakdownFor("expense",flowTxs);
               const incCatBreak=buildCatBreakdownFor("income",flowTxs);
               const catTab=ovExp.catTab||"expense";
@@ -2795,12 +2810,13 @@ export default function App(){
                       <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                     ))}
                   </div>
+                  {topExpCatPeriod&&<div style={{marginTop:8,fontSize:11,color:"#64748b"}}>🔝 أهم تصنيف فالفترة: <b style={{color:"#1a1a1a"}}>{topExpCatPeriod.icon} {topExpCatPeriod.name}</b> — {fmt(topExpCatPeriod.amount)}</div>}
                 </div>}
 
                 {emgBkt&&<div style={S.card}>
                   <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🚨 صندوق الطوارئ</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    {[["الرصيد الحالي",emgBkt.balance,"#10b981"],["مرات الاستخدام",emgUsage.length,"#f97316"],["المستخدم",emgUsedTotal,"#ef4444"],["نسبة الاعتماد",emgBkt.allocated>0?(emgUsedTotal/emgBkt.allocated*100).toFixed(0)+"%":"0%","#f97316"]].map(([l,v,c])=>(
+                    {[["الرصيد الحالي",emgBkt.balance,"#10b981"],["مرات الاستخدام (الفترة)",emgUsage.length,"#f97316"],["المستخدم (الفترة)",emgUsedTotal,"#ef4444"],["نسبة الاعتماد",emgBkt.allocated>0?(emgUsedTotal/emgBkt.allocated*100).toFixed(0)+"%":"0%","#f97316"]].map(([l,v,c])=>(
                       <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                     ))}
                   </div>
@@ -2813,6 +2829,7 @@ export default function App(){
                       <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"&&l!=="العدد"?fmt(v):v}</div></div>
                     ))}
                   </div>
+                  {topAssetTxPeriod&&<div style={{marginBottom:8,fontSize:11,color:"#64748b"}}>🔝 أهم حركة فالفترة: <b style={{color:"#1a1a1a"}}>{topAssetTxPeriod.desc}</b> — {fmt(topAssetTxPeriod.amount)}</div>}
                   {assets.slice(0,6).map(a=>(
                     <div key={a.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #f1f5f9",fontSize:12}}>
                       <span>{a.name}</span><span style={{fontWeight:700,color:"#14b8a6"}}>{fmt(a.value)}</span>
@@ -2827,6 +2844,7 @@ export default function App(){
                       <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                     ))}
                   </div>
+                  {topInvTxPeriod&&<div style={{marginTop:8,fontSize:11,color:"#64748b"}}>🔝 أهم حركة فالفترة: <b style={{color:"#1a1a1a"}}>{topInvTxPeriod.desc}</b> — {fmt(topInvTxPeriod.amount)}</div>}
                 </div>}
 
                 {retBkt&&<div style={S.card}>
@@ -2840,6 +2858,7 @@ export default function App(){
                       <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
                     ))}
                   </div>
+                  {topRetireTxPeriod&&<div style={{marginTop:8,fontSize:11,color:"#64748b"}}>🔝 أهم حركة فالفترة: <b style={{color:"#1a1a1a"}}>{topRetireTxPeriod.desc}</b> — {fmt(topRetireTxPeriod.amount)}</div>}
                 </div>}
                 </>}
               </div>;
@@ -3191,7 +3210,7 @@ export default function App(){
                 const isGiven=ei.kind==="أعطيت";
                 const txType=isGiven?"income":"expense";
                 const desc=isGiven?`رجوع سلفة — ${ei.person}`:`تسديد ${ei.wi?"قرض":"سلفة"} — ${ei.person}`;
-                setTxs(p=>[{id:uid(),type:txType,amount:amt,catId:null,subId:null,desc,date:form.date||new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref,isLoan:true,isTransfer:true},...p]);
+                setTxs(p=>[{id:uid(),type:txType,amount:amt,catId:null,subId:null,desc,date:form.date||new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref,isLoan:true,isTransfer:true,loanKind:ei.kind},...p]);
                 updBal(acc.ref,amt,txType,"add");
                 setLoans(p=>p.map(l=>l.id===ei.id?{...l,remaining:Math.max(0,l.remaining-amt)}:l));
                 cm();

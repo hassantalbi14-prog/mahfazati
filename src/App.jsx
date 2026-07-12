@@ -184,6 +184,7 @@ export default function App(){
   const[pwErr,setPwErr]=useState(false);
   const[appPassword,setAppPassword]=useState(()=>localStorage.getItem("mhf_pw")||"1234");
   const fRef=useRef();
+  const excelRef=useRef();
   const iRef=useRef();
   const eiRef=useRef();
 
@@ -634,6 +635,76 @@ export default function App(){
       setBkMsg("⛔ فشل الاسترجاع من Drive — "+(e.message||"خطأ غير معروف"));setTimeout(()=>setBkMsg(null),5000);
     }
   };
+  const exportExcel=async()=>{
+    try{
+      const XLSX=await import("xlsx");
+      const rows=txs.map(t=>{
+        const tp=t.type==="income"?"income":"expense";
+        const c=gc(tp,t.catId);
+        const s=t.subId?gs(tp,t.catId,t.subId):null;
+        const acc=allAcc.find(a=>JSON.stringify(a.ref)===JSON.stringify(t.ref));
+        return{
+          "التاريخ":t.date,
+          "النوع":t.type==="income"?"دخل":"مصروف",
+          "التصنيف":c?.name||"",
+          "الفرع":s?.name||"",
+          "المبلغ":t.amount,
+          "الحساب":acc?`${acc.bn} - ${acc.name}`:"",
+          "الوصف":t.desc||"",
+          "طريقة الدفع":t.pm||"",
+        };
+      });
+      const ws=XLSX.utils.json_to_sheet(rows);
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,"المعاملات");
+      const base64=XLSX.write(wb,{type:"base64",bookType:"xlsx"});
+      const fileName="mahfazati-transactions-"+new Date().toISOString().split("T")[0]+".xlsx";
+      try{
+        const {Filesystem,Directory}=await import("@capacitor/filesystem");
+        await Filesystem.writeFile({path:fileName,data:base64,directory:Directory.Documents,recursive:true});
+        setBkMsg("✅ تم الحفظ فـ Documents/"+fileName);setTimeout(()=>setBkMsg(null),4000);
+      }catch(e2){
+        const bin=atob(base64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+        const blob=new Blob([arr],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+        const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=fileName;a.click();URL.revokeObjectURL(u);
+        setBkMsg("✅ تم التحميل — شوف Downloads");setTimeout(()=>setBkMsg(null),3500);
+      }
+    }catch(e){showErr("⛔ فشل تصدير Excel — خاصك تدير npm install xlsx");setTimeout(()=>setErr(null),4000);}
+  };
+  const importExcel=async(e)=>{
+    const file=e.target.files[0];if(!file)return;
+    try{
+      const XLSX=await import("xlsx");
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:"array"});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws);
+      autoBackup("before-excel-import");
+      const newTxs=rows.map(r=>{
+        const type=r["النوع"]==="دخل"?"income":"expense";
+        const catName=r["التصنيف"];
+        const cat=(cats[type]||[]).find(c=>c.name===catName);
+        const subName=r["الفرع"];
+        const sub=cat&&subName?(cat.subs||[]).find(s=>s.name===subName):null;
+        const accLabel=r["الحساب"];
+        const acc=allAcc.find(a=>`${a.bn} - ${a.name}`===accLabel);
+        let dateStr=r["التاريخ"];
+        if(dateStr instanceof Date)dateStr=dateStr.toISOString().split("T")[0];
+        else if(typeof dateStr==="number")dateStr=new Date(Math.round((dateStr-25569)*86400*1000)).toISOString().split("T")[0];
+        else dateStr=(dateStr||new Date().toISOString().split("T")[0]).toString();
+        return{
+          id:uid(),type,amount:parseFloat(r["المبلغ"])||0,
+          catId:cat?cat.id:null,subId:sub?sub.id:null,
+          desc:r["الوصف"]||"",date:dateStr,
+          pm:r["طريقة الدفع"]||"نقدي",ref:acc?acc.ref:null
+        };
+      }).filter(t=>t.amount>0);
+      newTxs.forEach(t=>{if(t.ref&&t.pm!=="كريدي")updBal(t.ref,t.amount,t.type,"add");});
+      setTxs(p=>[...newTxs,...p]);
+      setBkMsg(`✅ تم استيراد ${newTxs.length} معاملة من Excel`);setTimeout(()=>setBkMsg(null),4000);
+    }catch(err){console.error(err);showErr("⛔ فشل الاستيراد — تأكد من شكل الملف (نفس أعمدة التصدير)");setTimeout(()=>setErr(null),4000);}
+    e.target.value="";
+  };
   const impData=e=>{
     const file=e.target.files[0];if(!file)return;
     // حفظ نسخة احتياطية قبل الاستيراد
@@ -868,7 +939,6 @@ export default function App(){
             <div className="mi" onClick={()=>{setDrw(false);setPage("reports");setOvExp(p=>({...p,repTab:"dashboard",repDetails:false}));}}><BarChart3 size={18}/> التقارير</div>
             <div style={{height:1,background:"rgba(255,255,255,.15)",margin:"10px 0"}}/>
             <div className="mi" onClick={()=>{setDrw(false);setPage("settings");}}><Settings size={18}/> الإعدادات <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
-            <div className="mi" onClick={()=>setDp("cloud")}><Cloud size={18}/> السحابة والنسخ <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
             <div className="mi" onClick={()=>om("changePw")}><span style={{fontSize:18}}>🔑</span> تغيير كلمة السر <ChevronLeft size={14} style={{marginRight:"auto"}}/></div>
             <div className="mi" onClick={()=>{sessionStorage.removeItem("mhf_auth");setIsAuth(false);setDrw(false);}} style={{color:"#ef4444"}}><span style={{fontSize:18}}>🚪</span> تسجيل خروج</div>
           </>}
@@ -1041,40 +1111,6 @@ export default function App(){
 
           {dp==="expCat"&&<CatSection catType="expense"/>}
           {dp==="incCat"&&<CatSection catType="income"/>}
-          {dp==="cloud"&&<>
-            <div className="mi" onClick={()=>setDp(null)}><ChevronRight size={16}/> رجوع</div>
-            <div style={{fontWeight:700,color:"#1a1a1a",margin:"12px 0"}}>السحابة والنسخ</div>
-            {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",marginBottom:12,fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
-            <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}>
-              <div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📤 تصدير والحماية</div>
-              <div style={{marginBottom:8}}>
-                <button style={{...S.btn("#10b981"),width:"100%"}} onClick={expData}>تحميل النسخة</button>
-              </div>
-              <button style={{...S.btn("#0ea5e9"),width:"100%",marginBottom:8}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button>
-              <button style={{...S.btn("#6366f1"),width:"100%",marginBottom:8}} onClick={restoreFromDrive}>⬇️ استرجاع من Google Drive</button>
-              <button style={{...S.btn("#f59e0b"),width:"100%"}} onClick={()=>autoBackup("manual").then(()=>{showErr("✅ تم حفظ نسخة احتياطية داخلية");setTimeout(()=>setErr(null),3000);})}>💾 حفظ نسخة احتياطية الآن</button>
-            </div>
-            <div style={{...S.card,marginBottom:10,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}><div style={{fontWeight:600,color:"#1a1a1a",marginBottom:8}}>📥 استيراد</div><button style={S.btn("#6366f1")} onClick={()=>fRef.current.click()}>اختر ملف JSON</button></div>
-            <div style={{...S.card,background:"rgba(0,0,0,.2)",border:"1px solid rgba(255,255,255,.1)"}}>
-              <div style={{fontWeight:600,color:"#ef4444",marginBottom:8}}>🗑️ إعادة ضبط كامل</div>
-              <div style={{fontSize:12,color:"rgba(255,255,255,.75)",marginBottom:8}}>كتمسح كل البيانات وترجع للبيانات الافتراضية</div>
-              <input style={{...S.inp,marginBottom:8}} type="password" placeholder="كلمة السر للتأكيد" value={resetCode} onChange={e=>{setResetCode(e.target.value);setResetErr(false);}}/>
-              {resetErr&&<div style={{color:"#ef4444",fontSize:12,marginBottom:6}}>❌ كلمة السر غلط</div>}
-              <button style={S.btn("#ef4444")} onClick={()=>{if(resetCode!==appPassword){setResetErr(true);return;}resetData();setResetCode("");}}>تأكيد إعادة الضبط</button>
-              <button style={{...S.btn("#f59e0b"),marginTop:8}} onClick={()=>{
-                setBudgetSettings(p=>({...p,
-                  buckets:[
-                    {id:1,name:"الميزانية",icon:"🛒",color:"#3b82f6",pct:40,accountKeys:[],type:"expenses"},
-                    {id:2,name:"الطوارئ",icon:"🚨",color:"#f97316",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
-                    {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:10,accountKeys:[],type:"assets"},
-                    {id:4,name:"الاستثمار",icon:"📈",color:"#8b5cf6",pct:20,accountKeys:[],type:"investment"},
-                    {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement"}
-                  ]
-                }));
-                setErr("✅ تم إعادة ضبط الميزانية");setTimeout(()=>setErr(null),3000);
-              }}>🔄 إعادة ضبط الميزانية فقط</button>
-            </div>
-          </>}
         </div>
       </div>
 
@@ -1876,6 +1912,9 @@ export default function App(){
                   <button style={{...S.btn("#0ea5e9"),padding:"13px"}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button>
                   <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={restoreFromDrive}>⬇️ استرجاع من Google Drive</button>
                   <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>fRef.current.click()}>📥 استيراد من ملف</button>
+                  <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={exportExcel}>📊 تصدير Excel (المعاملات)</button>
+                  <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={()=>excelRef.current.click()}>📥 استيراد Excel</button>
+                  <input ref={excelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importExcel}/>
                   <div style={{background:"#1a1d27",borderRadius:14,padding:16,border:"1px solid #ef444433"}}>
                     <div style={{fontWeight:700,color:"#ef4444",marginBottom:8,fontSize:15}}>🗑️ إعادة ضبط كامل</div>
                     <div style={{fontSize:12,color:"#475569",marginBottom:12}}>كتمسح كل البيانات بما فيها البنوك والتصنيفات</div>
@@ -1883,6 +1922,18 @@ export default function App(){
                     {resetErr&&<div style={{color:"#ef4444",fontSize:12,marginBottom:6}}>❌ كلمة السر غلط</div>}
                     <button style={S.btn("#ef4444")} onClick={()=>{if(resetCode!==appPassword){setResetErr(true);return;}resetData();setResetCode("");}}>تأكيد إعادة الضبط</button>
                   </div>
+                  <button style={{...S.btn("#f59e0b"),padding:"13px"}} onClick={()=>{
+                    setBudgetSettings(p=>({...p,
+                      buckets:[
+                        {id:1,name:"الميزانية",icon:"🛒",color:"#3b82f6",pct:40,accountKeys:[],type:"expenses"},
+                        {id:2,name:"الطوارئ",icon:"🚨",color:"#f97316",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
+                        {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:15,accountKeys:[],type:"assets"},
+                        {id:4,name:"الاستثمار",icon:"📈",color:"#8b5cf6",pct:15,accountKeys:[],type:"investment"},
+                        {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement"}
+                      ]
+                    }));
+                    setErr("✅ تم إعادة ضبط الميزانية");setTimeout(()=>setErr(null),3000);
+                  }}>🔄 إعادة ضبط الميزانية فقط</button>
                 </>}
               </div>
             </div>

@@ -190,6 +190,19 @@ export default function App(){
     window.addEventListener("resize",onResize);
     return ()=>window.removeEventListener("resize",onResize);
   },[]);
+  useEffect(()=>{
+    if(typeof window!=="undefined"&&window.__TAURI__){
+      (async()=>{
+        try{
+          const {getCurrentWindow}=await import("@tauri-apps/api/window");
+          const w=getCurrentWindow();
+          await w.unmaximize();
+          await w.center();
+          await w.maximize();
+        }catch(e){console.error("tauri window fix failed",e);}
+      })();
+    }
+  },[]);
   const[pwInput,setPwInput]=useState("");
   const[showPw,setShowPw]=useState(false);
   const[pwErr,setPwErr]=useState(false);
@@ -969,8 +982,8 @@ export default function App(){
   );
 
   const DesktopSidebar=()=>(
-    <div style={{width:230,background:"linear-gradient(180deg,#1a6b4a,#0f4a33)",padding:"28px 16px",display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
-      <div style={{color:"white",fontSize:20,fontWeight:900,marginBottom:24,textAlign:"center"}}>💰 محفظتي</div>
+    <div dir="rtl" style={{width:230,background:"linear-gradient(180deg,#1a6b4a,#0f4a33)",padding:"28px 16px",display:"flex",flexDirection:"column",gap:4,flexShrink:0,boxSizing:"border-box"}}>
+      <div style={{color:"white",fontSize:20,fontWeight:900,marginBottom:24,textAlign:"center",whiteSpace:"nowrap"}}>💰 محفظتي</div>
       {[
         {id:"dashboard",icon:<Home size={17}/>,lbl:"الرئيسية"},
         {id:"overview",icon:<span style={{fontSize:16}}>💼</span>,lbl:"الملخص المالي"},
@@ -980,15 +993,15 @@ export default function App(){
         {id:"transactions",icon:<Wallet size={17}/>,lbl:"المعاملات"},
         {id:"reports",icon:<BarChart3 size={17}/>,lbl:"التقارير"},
       ].map(item=>(
-        <div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:12,cursor:"pointer",background:page===item.id?"rgba(255,255,255,.15)":"transparent",color:"white",fontSize:14,fontWeight:page===item.id?800:500,transition:"background .15s"}}>
+        <div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:12,cursor:"pointer",background:page===item.id?"rgba(255,255,255,.15)":"transparent",color:"white",fontSize:14,fontWeight:page===item.id?800:500,transition:"background .15s",whiteSpace:"nowrap"}}>
           {item.icon}<span>{item.lbl}</span>
         </div>
       ))}
       <div style={{flex:1}}/>
-      <div onClick={()=>setPage("settings")} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:12,cursor:"pointer",background:page==="settings"?"rgba(255,255,255,.15)":"transparent",color:"white",fontSize:14}}>
+      <div onClick={()=>setPage("settings")} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:12,cursor:"pointer",background:page==="settings"?"rgba(255,255,255,.15)":"transparent",color:"white",fontSize:14,whiteSpace:"nowrap"}}>
         <Settings size={17}/><span>الإعدادات</span>
       </div>
-      <div onClick={()=>{sessionStorage.removeItem("mhf_auth");setIsAuth(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:12,cursor:"pointer",color:"#fca5a5",fontSize:14}}>
+      <div onClick={()=>{sessionStorage.removeItem("mhf_auth");setIsAuth(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:12,cursor:"pointer",color:"#fca5a5",fontSize:14,whiteSpace:"nowrap"}}>
         <span style={{fontSize:16}}>🚪</span><span>تسجيل خروج</span>
       </div>
     </div>

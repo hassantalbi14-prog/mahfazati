@@ -2365,8 +2365,16 @@ export default function App(){
               {incomeGoals.length>0 && <div style={{marginBottom:10}}>
                 <div style={{fontSize:11,color:"#64748b",fontWeight:700,marginBottom:6}}>السجل</div>
                 {incomeGoals.map((g,i)=>(
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:12,borderBottom:"1px solid #f1f5f9"}}>
-                    <span style={{color:"#64748b"}}>{g.date}</span><span style={{fontWeight:700}}>{fmt(g.amount)}</span>
+                  <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",fontSize:12,borderBottom:"1px solid #f1f5f9"}}>
+                    <span style={{color:"#64748b"}}>{g.date}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontWeight:700}}>{fmt(g.amount)}</span>
+                      <button onClick={()=>{
+                        const nb={...budgetSettings,incomeGoals:(budgetSettings.incomeGoals||[]).filter(x=>!(x.date===g.date&&x.amount===g.amount))};
+                        setBudgetSettings(nb);_save('budgetSettings',nb);
+                        setErr("✅ تم حذف الإدخال — تقدر تزيد الصحيح دابا");setTimeout(()=>setErr(null),3000);
+                      }} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:11,fontFamily:"inherit"}}>حذف</button>
+                    </div>
                   </div>
                 ))}
               </div>}
@@ -2412,7 +2420,14 @@ export default function App(){
               {pctHistory.length>0 && <div style={{marginTop:10,marginBottom:10}}>
                 <div style={{fontSize:11,color:"#64748b",fontWeight:700,marginBottom:6}}>السجل</div>
                 {pctHistory.map((g,i)=>(
-                  <div key={i} style={{fontSize:11,color:"#64748b",padding:"4px 0",borderBottom:"1px solid #f1f5f9"}}>{g.date} — {bucketsDef.map(b=>`${b.icon}${g.pcts[b.type]||0}%`).join(" ")}</div>
+                  <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #f1f5f9"}}>
+                    <span style={{fontSize:11,color:"#64748b"}}>{g.date} — {bucketsDef.map(b=>`${b.icon}${g.pcts[b.type]||0}%`).join(" ")}</span>
+                    <button onClick={()=>{
+                      const nb={...budgetSettings,pctGoalHistory:(budgetSettings.pctGoalHistory||[]).filter(x=>x.date!==g.date)};
+                      setBudgetSettings(nb);_save('budgetSettings',nb);
+                      setErr("✅ تم حذف الإدخال");setTimeout(()=>setErr(null),3000);
+                    }} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:10,fontFamily:"inherit",flexShrink:0,marginRight:8}}>حذف</button>
+                  </div>
                 ))}
               </div>}
 

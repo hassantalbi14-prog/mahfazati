@@ -196,8 +196,8 @@ export default function App(){
         try{
           const {getCurrentWindow}=await import("@tauri-apps/api/window");
           const w=getCurrentWindow();
-          const already=await w.isMaximized();
-          if(!already)await w.maximize();
+          await w.maximize();
+          await w.show();
         }catch(e){console.error("tauri window fix failed",e);}
       })();
     }

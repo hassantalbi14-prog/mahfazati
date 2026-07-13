@@ -997,7 +997,7 @@ export default function App(){
   return (
     <div dir="rtl" style={isDesktop?{position:"fixed",inset:0,display:"flex",overflow:"hidden",background:"#e8ece9"}:undefined}>
     {isDesktop&&<DesktopSidebar/>}
-    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:isDesktop?"100%":"100vh",height:isDesktop?"100%":"auto",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:isDesktop?"auto":"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,filter:darkMode?"invert(1) hue-rotate(180deg)":"none",...(isDesktop?{flex:"1 1 0",minWidth:0,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
+    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:isDesktop?"100%":"100vh",height:isDesktop?"100%":"auto",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,filter:darkMode?"invert(1) hue-rotate(180deg)":"none",...(isDesktop?{flex:"1 1 0",minWidth:0,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
       <style>{CSS}</style>
       <input ref={fRef} type="file" accept=".json" style={{display:"none"}} onChange={impData}/>
       <input ref={iRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("ci",b));e.target.value="";}}/>
@@ -1222,7 +1222,7 @@ export default function App(){
       </div>
 
       {/* CONTENT */}
-      <div style={{flex:1,overflowY:"auto",padding:"16px 20px 90px",display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"16px 20px 90px",display:"flex",flexDirection:"column",gap:14}}>
 
         {page==="dashboard"&&(()=>{
           const leftContent = <>

@@ -184,6 +184,12 @@ export default function App(){
   const[bioEnabled,setBioEnabled]=useState(()=>localStorage.getItem("mhf_bio")==="1");
   const[bioTried,setBioTried]=useState(false);
   const[darkMode,setDarkMode]=useState(()=>localStorage.getItem("mhf_dark")==="1");
+  const[isDesktop,setIsDesktop]=useState(()=>typeof window!=="undefined"&&window.innerWidth>900);
+  useEffect(()=>{
+    const onResize=()=>setIsDesktop(window.innerWidth>900);
+    window.addEventListener("resize",onResize);
+    return ()=>window.removeEventListener("resize",onResize);
+  },[]);
   const[pwInput,setPwInput]=useState("");
   const[showPw,setShowPw]=useState(false);
   const[pwErr,setPwErr]=useState(false);
@@ -962,8 +968,36 @@ export default function App(){
     </div>
   );
 
+  const DesktopSidebar=()=>(
+    <div style={{width:230,background:"linear-gradient(180deg,#1a6b4a,#0f4a33)",padding:"28px 16px",display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
+      <div style={{color:"white",fontSize:20,fontWeight:900,marginBottom:24,textAlign:"center"}}>💰 محفظتي</div>
+      {[
+        {id:"dashboard",icon:<Home size={17}/>,lbl:"الرئيسية"},
+        {id:"overview",icon:<span style={{fontSize:16}}>💼</span>,lbl:"الملخص المالي"},
+        {id:"buckets",icon:<span style={{fontSize:16}}>🧩</span>,lbl:"الأقسام"},
+        {id:"budget",icon:<Target size={17}/>,lbl:"الميزانية"},
+        {id:"goals",icon:<span style={{fontSize:16}}>🎯</span>,lbl:"الأهداف"},
+        {id:"transactions",icon:<Wallet size={17}/>,lbl:"المعاملات"},
+        {id:"reports",icon:<BarChart3 size={17}/>,lbl:"التقارير"},
+      ].map(item=>(
+        <div key={item.id} onClick={()=>setPage(item.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:12,cursor:"pointer",background:page===item.id?"rgba(255,255,255,.15)":"transparent",color:"white",fontSize:14,fontWeight:page===item.id?800:500,transition:"background .15s"}}>
+          {item.icon}<span>{item.lbl}</span>
+        </div>
+      ))}
+      <div style={{flex:1}}/>
+      <div onClick={()=>setPage("settings")} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:12,cursor:"pointer",background:page==="settings"?"rgba(255,255,255,.15)":"transparent",color:"white",fontSize:14}}>
+        <Settings size={17}/><span>الإعدادات</span>
+      </div>
+      <div onClick={()=>{sessionStorage.removeItem("mhf_auth");setIsAuth(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderRadius:12,cursor:"pointer",color:"#fca5a5",fontSize:14}}>
+        <span style={{fontSize:16}}>🚪</span><span>تسجيل خروج</span>
+      </div>
+    </div>
+  );
+
   return (
-    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:"100vh",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,filter:darkMode?"invert(1) hue-rotate(180deg)":"none"}}>
+    <div style={isDesktop?{height:"100vh",width:"100vw",display:"flex",overflow:"hidden",background:"#e8ece9"}:undefined}>
+    {isDesktop&&<DesktopSidebar/>}
+    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:isDesktop?"100vh":"100vh",height:isDesktop?"100vh":"auto",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:isDesktop?"auto":"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,filter:darkMode?"invert(1) hue-rotate(180deg)":"none",...(isDesktop?{flex:"1 1 auto",maxWidth:640,margin:"0 auto",boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
       <style>{CSS}</style>
       <input ref={fRef} type="file" accept=".json" style={{display:"none"}} onChange={impData}/>
       <input ref={iRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("ci",b));e.target.value="";}}/>
@@ -971,7 +1005,7 @@ export default function App(){
       <div className={`ovl${drw?" op":""}`} onClick={()=>setDrw(false)}/>
 
       {/* FAB — مثبت على كل الصفحات */}
-      <div style={{position:"fixed",bottom:88,left:16,zIndex:150}}>
+      <div style={{position:isDesktop?"absolute":"fixed",bottom:88,left:16,zIndex:150}}>
         {showActions&&<div style={{position:"absolute",bottom:66,left:0,width:240,zIndex:10,background:"white",borderRadius:16,padding:12,boxShadow:"0 4px 20px rgba(0,0,0,.16)"}}>
           <div style={{display:"flex",gap:8,marginBottom:8}}>
             <button style={{...S.btn("#ef4444"),flex:1,padding:"11px 8px",fontSize:13}} onClick={()=>{setShowActions(false);om("addTx",{txType:"expense"});}}>+ مصروف</button>
@@ -1180,9 +1214,10 @@ export default function App(){
 
       {/* HEADER */}
       <div style={{padding:"20px 20px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <button onClick={()=>{setDrw(true);setDp(null);}} style={{background:"#2e8fa8",border:"none",borderRadius:12,padding:"10px 14px",display:"flex",alignItems:"center",cursor:"pointer",color:"#1a1a1a"}}>
+        {!isDesktop&&<button onClick={()=>{setDrw(true);setDp(null);}} style={{background:"#2e8fa8",border:"none",borderRadius:12,padding:"10px 14px",display:"flex",alignItems:"center",cursor:"pointer",color:"#1a1a1a"}}>
           <Menu size={18}/>
-        </button>
+        </button>}
+        {isDesktop&&<div/>}
         <div style={{textAlign:"left"}}><div style={{fontSize:13,color:"#64748b",fontWeight:700}}>{new Date().toLocaleString("ar-MA",{month:"long",year:"numeric"})}</div></div>
       </div>
 
@@ -1937,7 +1972,7 @@ export default function App(){
             </div>
           </div>
           {dp&&["banks","cash","assets","expCat","incCat","cloud"].includes(dp)&&(
-            <div style={{position:"fixed",inset:0,background:"#f5f5f0",zIndex:100,overflowY:"auto",padding:"20px 20px 90px"}}>
+            <div style={{position:isDesktop?"absolute":"fixed",inset:0,background:"#f5f5f0",zIndex:100,overflowY:"auto",padding:"20px 20px 90px"}}>
               <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');`}</style>
               <div dir="rtl" style={{fontFamily:"Tajawal",color:"#1a1a1a",display:"flex",flexDirection:"column",gap:14}}>
                 {dp==="banks"&&<>
@@ -3120,9 +3155,9 @@ export default function App(){
       </div>
 
       {/* BOTTOM NAV */}
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",background:"rgba(255,255,255,0.85)",borderTop:"1px solid rgba(226,232,240,0.5)",display:"flex",padding:"8px 4px",zIndex:50,backdropFilter:"blur(20px)",boxShadow:"0 -2px 20px rgba(15,23,42,0.08)"}}>
+      {!isDesktop&&<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",background:"rgba(255,255,255,0.85)",borderTop:"1px solid rgba(226,232,240,0.5)",display:"flex",padding:"8px 4px",zIndex:50,backdropFilter:"blur(20px)",boxShadow:"0 -2px 20px rgba(15,23,42,0.08)"}}>
         {NAV.map(n=><button key={n.id} className={`nb${page===n.id?" on":""}`} onClick={()=>setPage(n.id)}>{n.icon}<span>{n.lbl}</span></button>)}
-      </div>
+      </div>}
 
       {/* MODALS */}
       {modal&&(
@@ -3539,13 +3574,14 @@ export default function App(){
         </div>
       )}
 
-      {err&&<div style={{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:"#ffffff",border:"1px solid #ef4444",borderRadius:12,padding:"12px 20px",zIndex:400,color:"#ef4444",fontSize:13,fontWeight:700,maxWidth:340,textAlign:"center"}}>{err}</div>}
-      {lastDeleted&&<div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",borderRadius:14,padding:"12px 16px",zIndex:400,display:"flex",alignItems:"center",gap:14,boxShadow:"0 6px 20px rgba(0,0,0,.3)",maxWidth:340}}>
+      {err&&<div style={{position:isDesktop?"absolute":"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:"#ffffff",border:"1px solid #ef4444",borderRadius:12,padding:"12px 20px",zIndex:400,color:"#ef4444",fontSize:13,fontWeight:700,maxWidth:340,textAlign:"center"}}>{err}</div>}
+      {lastDeleted&&<div style={{position:isDesktop?"absolute":"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",borderRadius:14,padding:"12px 16px",zIndex:400,display:"flex",alignItems:"center",gap:14,boxShadow:"0 6px 20px rgba(0,0,0,.3)",maxWidth:340}}>
         <span style={{color:"white",fontSize:13,fontWeight:600}}>🗑️ تم حذف المعاملة</span>
         <button onClick={undoDelete} style={{background:"#10b981",border:"none",borderRadius:8,padding:"7px 14px",color:"white",fontFamily:"Tajawal",fontSize:13,fontWeight:800,cursor:"pointer"}}>تراجع ↺</button>
       </div>}
 
       {/* توزيع الدخل التلقائي */}
+    </div>
     </div>
   );
 }

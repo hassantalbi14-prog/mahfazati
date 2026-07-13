@@ -997,7 +997,7 @@ export default function App(){
   return (
     <div style={isDesktop?{height:"100vh",width:"100vw",display:"flex",overflow:"hidden",background:"#e8ece9"}:undefined}>
     {isDesktop&&<DesktopSidebar/>}
-    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:isDesktop?"100vh":"100vh",height:isDesktop?"100vh":"auto",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:isDesktop?"auto":"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,filter:darkMode?"invert(1) hue-rotate(180deg)":"none",...(isDesktop?{flex:"1 1 auto",maxWidth:640,margin:"0 auto",boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
+    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:isDesktop?"100vh":"100vh",height:isDesktop?"100vh":"auto",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:isDesktop?"auto":"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,filter:darkMode?"invert(1) hue-rotate(180deg)":"none",...(isDesktop?{flex:"1 1 auto",maxWidth:860,margin:"0 auto",boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
       <style>{CSS}</style>
       <input ref={fRef} type="file" accept=".json" style={{display:"none"}} onChange={impData}/>
       <input ref={iRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("ci",b));e.target.value="";}}/>
@@ -1224,7 +1224,8 @@ export default function App(){
       {/* CONTENT */}
       <div style={{flex:1,overflowY:"auto",padding:"16px 20px 90px",display:"flex",flexDirection:"column",gap:14}}>
 
-        {page==="dashboard"&&<>
+        {page==="dashboard"&&(()=>{
+          const leftContent = <>
           <div style={{background:"linear-gradient(145deg,#1a6b4a,#0f4a33)",borderRadius:24,padding:26,position:"relative",overflow:"hidden",cursor:"pointer",boxShadow:"0 8px 32px rgba(26,107,74,.35)"}} onClick={()=>setPage("overview")}>
             <div style={{position:"absolute",top:-30,left:-30,width:130,height:130,borderRadius:"50%",background:"rgba(255,255,255,.07)"}}/>
             <div style={{position:"absolute",bottom:-40,right:-20,width:160,height:160,borderRadius:"50%",background:"rgba(255,255,255,.07)"}}/>
@@ -1321,6 +1322,8 @@ export default function App(){
               </div>
             );
           })()}
+          </>;
+          const rightContent = <>
           {/* Budget Widget - bucket الميزانية بنظام الأقسام الخمسة */}
           {(()=>{
             const expBkt=(budgetSettings.buckets||[]).find(b=>b.type==="expenses");
@@ -1375,7 +1378,15 @@ export default function App(){
               </div>
             );})}
           </div>
-        </>}
+          </>;
+          if(!isDesktop) return <>{leftContent}{rightContent}</>;
+          return (
+            <div style={{display:"grid",gridTemplateColumns:"1.1fr 1fr",gap:20,alignItems:"start"}}>
+              <div>{leftContent}</div>
+              <div>{rightContent}</div>
+            </div>
+          );
+        })()}
 
         {page==="overview"&&(()=>{
           const ovPage=ovExp.ovPage||"main";

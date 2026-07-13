@@ -999,6 +999,7 @@ export default function App(){
             <div className="mi" onClick={()=>{setDrw(false);setPage("overview");}}><span style={{fontSize:18}}>💼</span> الملخص المالي</div>
             <div className="mi" onClick={()=>{setDrw(false);setPage("buckets");}}><span style={{fontSize:18}}>🧩</span> الأقسام</div>
             <div className="mi" onClick={()=>{setDrw(false);setPage("budget");}}><Target size={18}/> الميزانية</div>
+            <div className="mi" onClick={()=>{setDrw(false);setPage("goals");}}><span style={{fontSize:18}}>🎯</span> الأهداف</div>
             <div className="mi" onClick={()=>{setDrw(false);setPage("transactions");}}><Wallet size={18}/> المعاملات</div>
             <div className="mi" onClick={()=>{setDrw(false);setPage("reports");setOvExp(p=>({...p,repTab:"dashboard",repDetails:false}));}}><BarChart3 size={18}/> التقارير</div>
             <div style={{height:1,background:"rgba(255,255,255,.15)",margin:"10px 0"}}/>
@@ -1832,41 +1833,26 @@ export default function App(){
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
             <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>⚙️ توزيع الدخل — الأقسام الخمسة</div>
 
-            {/* النسب */}
-            <div style={{borderBottom:"1px solid #f1f5f9"}}>
-              <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setBudgetSec(p=>({...p,goals:!p.goals}))}>
-                <div style={{fontWeight:700,fontSize:14}}>📊 نسب التوزيع</div>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  {(()=>{const tot=(budgetSettings.buckets||[]).reduce((s,b)=>s+(b.pct||0),0);return<span style={{color:tot===100?"#10b981":"#ef4444",fontWeight:700,fontSize:13}}>{tot}%</span>})()}
-                  <span style={{fontSize:16,color:"#64748b"}}>{budgetSec.goals?"▲":"▼"}</span>
+            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #f1f5f9"}} onClick={()=>setPage("goals")}>
+              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🎯</div>
+              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>هدف الدخل ونسب التوزيع</div><div style={{fontSize:11,color:"#64748b"}}>إدارة الأهداف من صفحة "الأهداف" مباشرة</div></div>
+              <ChevronLeft size={18} color="#64748b"/>
+            </div>
+
+            {/* نسبة الطوارئ للميزانية */}
+            <div style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
+              <div style={{background:"#fef3c7",borderRadius:10,padding:10}}>
+                <div style={{fontSize:12,color:"#92400e",fontWeight:700,marginBottom:8}}>🚨 إعاشة الميزانية من الطوارئ</div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{flex:1,fontSize:12,color:"#78350f"}}>نسبة ما تأخذه الميزانية من الطوارئ إذا نفذت</div>
+                  {(()=>{const emg=(budgetSettings.buckets||[]).find(b=>b.type==="emergency");if(!emg)return null;return(<>
+                    <input style={{...S.inp,width:70,textAlign:"center",padding:"8px",fontSize:16,fontWeight:700,color:"#f59e0b",border:"2px solid #f59e0b44"}}
+                      type="number" min="0" max="100" value={emg.emergencyPct||20}
+                      onChange={e=>{const nb={...budgetSettings,buckets:(budgetSettings.buckets||[]).map(x=>x.id===emg.id?{...x,emergencyPct:parseInt(e.target.value)||20}:x)};setBudgetSettings(nb);_save('budgetSettings',nb);}}/>
+                    <span style={{fontSize:13,color:"#64748b"}}>%</span>
+                  </>);})()}
                 </div>
               </div>
-              {budgetSec.goals&&<div style={{padding:"0 16px 14px"}}>
-                <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>المجموع خاص يكون 100% — هاد النسب تطبق على كل الدخل من 2017 حتى دابا</div>
-                {(budgetSettings.buckets||[]).map(b=>(
-                  <div key={b.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                    <div style={{width:38,height:38,borderRadius:10,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{b.icon}</div>
-                    <div style={{flex:1,fontWeight:700,fontSize:14}}>{b.name}</div>
-                    <input style={{...S.inp,width:70,textAlign:"center",padding:"8px",fontSize:16,fontWeight:700,color:b.color,border:`2px solid ${b.color}44`}}
-                      type="number" min="0" max="100" value={b.pct||0}
-                      onChange={e=>setBudgetSettings(p=>({...p,buckets:(p.buckets||[]).map(x=>x.id===b.id?{...x,pct:parseInt(e.target.value)||0}:x)}))}/>
-                    <span style={{fontSize:13,color:"#64748b"}}>%</span>
-                  </div>
-                ))}
-                {/* نسبة الطوارئ للميزانية */}
-                {(()=>{const emg=(budgetSettings.buckets||[]).find(b=>b.type==="emergency");if(!emg)return null;return(
-                  <div style={{background:"#fef3c7",borderRadius:10,padding:10,marginTop:8}}>
-                    <div style={{fontSize:12,color:"#92400e",fontWeight:700,marginBottom:8}}>🚨 إعاشة الميزانية من الطوارئ</div>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{flex:1,fontSize:12,color:"#78350f"}}>نسبة ما تأخذه الميزانية من الطوارئ إذا نفذت</div>
-                      <input style={{...S.inp,width:70,textAlign:"center",padding:"8px",fontSize:16,fontWeight:700,color:"#f59e0b",border:"2px solid #f59e0b44"}}
-                        type="number" min="0" max="100" value={emg.emergencyPct||20}
-                        onChange={e=>setBudgetSettings(p=>({...p,buckets:(p.buckets||[]).map(x=>x.id===emg.id?{...x,emergencyPct:parseInt(e.target.value)||20}:x)}))}/>
-                      <span style={{fontSize:13,color:"#64748b"}}>%</span>
-                    </div>
-                  </div>
-                );})()}
-              </div>}
             </div>
 
             {/* ربط الحسابات */}
@@ -2300,6 +2286,155 @@ export default function App(){
             );})}
           </div>
           </>);
+        })()}
+
+        {page==="goals"&&(()=>{
+          const todayStr=new Date().toISOString().split("T")[0];
+          const incomeGoals=(budgetSettings.incomeGoals||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+          const pctHistory=(budgetSettings.pctGoalHistory||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+          const activeIncome=incomeGoals[0]||null;
+          const activePct=pctHistory[0]||null;
+          const bucketsDef=budgetSettings.buckets||[];
+          const currentPcts=activePct?activePct.pcts:Object.fromEntries(bucketsDef.map(b=>[b.type,b.pct]));
+          const daysSince=dateStr=>(new Date(todayStr)-new Date(dateStr))/86400000;
+          const canAddIncome = incomeGoals.length===0 || daysSince(incomeGoals[0].date)>=365;
+          const canAddPct = pctHistory.length===0 || daysSince(pctHistory[0].date)>=365;
+          const addDays=(dateStr,n)=>{const d=new Date(dateStr);d.setDate(d.getDate()+n);return d.toISOString().split("T")[0];};
+          const nextIncomeDate = incomeGoals.length? addDays(incomeGoals[0].date,365) : null;
+          const nextPctDate = pctHistory.length? addDays(pctHistory[0].date,365) : null;
+
+          const now=new Date();
+          const last3=[0,1,2].map(i=>{const d=new Date(now.getFullYear(),now.getMonth()-i,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;});
+          const monthlyIncomes=last3.map(m=>txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(m)).reduce((s,t)=>s+t.amount,0));
+          const validMonths=monthlyIncomes.filter(v=>v>0);
+          const avg3=validMonths.length? validMonths.reduce((a,b)=>a+b,0)/validMonths.length : 0;
+          const minM=validMonths.length?Math.min(...validMonths):0;
+          const suggestions = avg3>0 ? [
+            {label:"محافظ",value:Math.round(minM)},
+            {label:"متوسط",value:Math.round(avg3)},
+            {label:"طموح",value:Math.round(avg3*1.15)},
+          ] : [];
+
+          return <>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
+              <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setPage("dashboard")}>← رجوع</button>
+              <span style={{fontWeight:800,fontSize:17}}>🎯 الأهداف</span>
+            </div>
+
+            {/* هدف الدخل */}
+            <div style={S.card}>
+              <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>💰 هدف الدخل الشهري</div>
+              {activeIncome ? (
+                <div style={{background:"#e8f5ee",borderRadius:12,padding:12,marginBottom:10,textAlign:"center"}}>
+                  <div style={{fontSize:11,color:"#64748b"}}>الهدف الحالي (منذ {activeIncome.date})</div>
+                  <div style={{fontSize:24,fontWeight:900,color:"#1a6b4a"}}>{fmt(activeIncome.amount)}</div>
+                </div>
+              ) : <div style={{textAlign:"center",color:"#64748b",fontSize:12,padding:10}}>ما حددتيش هدف بعد</div>}
+
+              {incomeGoals.length>0 && <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:700,marginBottom:6}}>السجل</div>
+                {incomeGoals.map((g,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:12,borderBottom:"1px solid #f1f5f9"}}>
+                    <span style={{color:"#64748b"}}>{g.date}</span><span style={{fontWeight:700}}>{fmt(g.amount)}</span>
+                  </div>
+                ))}
+              </div>}
+
+              {!canAddIncome && <div style={{background:"#fef3c7",color:"#92400e",fontSize:11,fontWeight:700,padding:"8px 10px",borderRadius:8,marginBottom:8,textAlign:"center"}}>
+                ⚠️ خاص يمر عام كامل على آخر تحديث — تقدر تحدث بداية من {nextIncomeDate}
+              </div>}
+
+              {canAddIncome && <>
+                {suggestions.length>0 && <div style={{display:"flex",gap:6,marginBottom:8}}>
+                  {suggestions.map(s=>(
+                    <button key={s.label} onClick={()=>setOvExp(p=>({...p,newIncomeAmt:String(s.value)}))} style={{...S.btn("#f1f5f9",false),flex:1,padding:"9px 4px",fontSize:11,color:"#475569"}}>
+                      <div style={{fontWeight:800}}>{s.label}</div>
+                      <div style={{fontSize:10}}>{fmt(s.value)}</div>
+                    </button>
+                  ))}
+                </div>}
+                <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ الشهري" value={ovExp.newIncomeAmt||""} onChange={e=>setOvExp(p=>({...p,newIncomeAmt:e.target.value}))}/>
+                <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.newIncomeDate||todayStr} onChange={e=>setOvExp(p=>({...p,newIncomeDate:e.target.value}))}/>
+                <button style={S.btn("#1a6b4a")} onClick={()=>{
+                  const amt=parseFloat(ovExp.newIncomeAmt);
+                  const dt=ovExp.newIncomeDate||todayStr;
+                  if(!amt||amt<=0){showErr("⛔ أدخل مبلغ صحيح");setTimeout(()=>setErr(null),3000);return;}
+                  if(incomeGoals.length>0 && daysSince(incomeGoals[0].date)<365){showErr("⛔ خاص يمر عام كامل على آخر تحديث");setTimeout(()=>setErr(null),3000);return;}
+                  const nb={...budgetSettings,incomeGoals:[...(budgetSettings.incomeGoals||[]),{date:dt,amount:amt}]};
+                  setBudgetSettings(nb);_save('budgetSettings',nb);
+                  setOvExp(p=>({...p,newIncomeAmt:"",newIncomeDate:""}));
+                  setErr("✅ تم حفظ هدف الدخل");setTimeout(()=>setErr(null),3000);
+                }}>💾 حفظ هدف جديد</button>
+              </>}
+            </div>
+
+            {/* نسب التوزيع */}
+            <div style={S.card}>
+              <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>📊 نسب توزيع الأقسام</div>
+              <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>منذ {activePct?activePct.date:"—"} — المجموع خاص 100%</div>
+              {bucketsDef.map(b=>(
+                <div key={b.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:13}}>
+                  <span>{b.icon} {b.name}</span><span style={{fontWeight:700,color:b.color}}>{currentPcts[b.type]||0}%</span>
+                </div>
+              ))}
+
+              {pctHistory.length>0 && <div style={{marginTop:10,marginBottom:10}}>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:700,marginBottom:6}}>السجل</div>
+                {pctHistory.map((g,i)=>(
+                  <div key={i} style={{fontSize:11,color:"#64748b",padding:"4px 0",borderBottom:"1px solid #f1f5f9"}}>{g.date} — {bucketsDef.map(b=>`${b.icon}${g.pcts[b.type]||0}%`).join(" ")}</div>
+                ))}
+              </div>}
+
+              {!canAddPct && <div style={{background:"#fef3c7",color:"#92400e",fontSize:11,fontWeight:700,padding:"8px 10px",borderRadius:8,marginTop:8,textAlign:"center"}}>
+                ⚠️ خاص يمر عام كامل على آخر تحديث — تقدر تحدث بداية من {nextPctDate}
+              </div>}
+
+              {canAddPct && <div style={{marginTop:8}}>
+                {bucketsDef.map(b=>(
+                  <div key={b.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                    <div style={{width:32,height:32,borderRadius:9,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{b.icon}</div>
+                    <div style={{flex:1,fontSize:13,fontWeight:700}}>{b.name}</div>
+                    <input style={{...S.inp,width:64,textAlign:"center",padding:"7px"}} type="number" min="0" max="100"
+                      value={ovExp[`newPct_${b.type}`]!==undefined?ovExp[`newPct_${b.type}`]:(currentPcts[b.type]||0)}
+                      onChange={e=>setOvExp(p=>({...p,[`newPct_${b.type}`]:e.target.value}))}/>
+                    <span style={{fontSize:12,color:"#64748b"}}>%</span>
+                  </div>
+                ))}
+                {(()=>{const tot=bucketsDef.reduce((s,b)=>s+(parseInt(ovExp[`newPct_${b.type}`]!==undefined?ovExp[`newPct_${b.type}`]:(currentPcts[b.type]||0))||0),0);
+                  return <div style={{textAlign:"center",fontSize:12,fontWeight:700,color:tot===100?"#10b981":"#ef4444",marginBottom:8}}>المجموع: {tot}% {tot===100?"✅":"⚠️"}</div>;
+                })()}
+                <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.newPctDate||todayStr} onChange={e=>setOvExp(p=>({...p,newPctDate:e.target.value}))}/>
+                <button style={S.btn("#6366f1")} onClick={()=>{
+                  const pcts={};
+                  bucketsDef.forEach(b=>{pcts[b.type]=parseInt(ovExp[`newPct_${b.type}`]!==undefined?ovExp[`newPct_${b.type}`]:(currentPcts[b.type]||0))||0;});
+                  const tot=Object.values(pcts).reduce((s,v)=>s+v,0);
+                  if(tot!==100){showErr(`⛔ المجموع ${tot}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
+                  const dt=ovExp.newPctDate||todayStr;
+                  if(pctHistory.length>0 && daysSince(pctHistory[0].date)<365){showErr("⛔ خاص يمر عام كامل على آخر تحديث");setTimeout(()=>setErr(null),3000);return;}
+                  const nb={...budgetSettings,pctGoalHistory:[...(budgetSettings.pctGoalHistory||[]),{date:dt,pcts}],
+                    buckets:(budgetSettings.buckets||[]).map(b=>({...b,pct:pcts[b.type]!==undefined?pcts[b.type]:b.pct}))};
+                  setBudgetSettings(nb);_save('budgetSettings',nb);
+                  setOvExp(p=>{
+                    const np={...p,newPctDate:""};
+                    bucketsDef.forEach(b=>{delete np[`newPct_${b.type}`];});
+                    return np;
+                  });
+                  setErr("✅ تم حفظ النسب الجديدة");setTimeout(()=>setErr(null),3000);
+                }}>💾 حفظ نسب جديدة</button>
+              </div>}
+            </div>
+
+            {/* معاينة سريعة */}
+            {activeIncome && <div style={S.card}>
+              <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>👁️ معاينة الأهداف الشهرية</div>
+              {bucketsDef.map(b=>(
+                <div key={b.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f1f5f9",fontSize:13}}>
+                  <span>{b.icon} {b.name}</span>
+                  <span style={{fontWeight:800,color:b.color}}>{fmt(activeIncome.amount*(currentPcts[b.type]||0)/100)}</span>
+                </div>
+              ))}
+            </div>}
+          </>;
         })()}
 
         {page==="budget"&&(()=>{

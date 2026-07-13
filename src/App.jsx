@@ -969,7 +969,7 @@ export default function App(){
   );
 
   const DesktopSidebar=()=>(
-    <div dir="rtl" style={{width:230,background:"linear-gradient(180deg,#1a6b4a,#0f4a33)",padding:"28px 16px",display:"flex",flexDirection:"column",gap:4,flexShrink:0,boxSizing:"border-box"}}>
+    <div dir="rtl" style={{position:"absolute",top:0,bottom:0,right:0,width:230,background:"linear-gradient(180deg,#1a6b4a,#0f4a33)",padding:"28px 16px",display:"flex",flexDirection:"column",gap:4,boxSizing:"border-box",overflowY:"auto"}}>
       <div style={{color:"white",fontSize:20,fontWeight:900,marginBottom:24,textAlign:"center",whiteSpace:"nowrap"}}>💰 محفظتي</div>
       {[
         {id:"dashboard",icon:<Home size={17}/>,lbl:"الرئيسية"},
@@ -995,9 +995,9 @@ export default function App(){
   );
 
   return (
-    <div dir="rtl" style={isDesktop?{position:"fixed",inset:0,display:"flex",overflow:"hidden",background:"#e8ece9"}:undefined}>
+    <div dir="rtl" style={isDesktop?{position:"fixed",inset:0,overflow:"hidden",background:"#e8ece9"}:undefined}>
     {isDesktop&&<DesktopSidebar/>}
-    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:isDesktop?"100%":"100vh",height:isDesktop?"100%":"auto",color:"#1a1a1a",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,filter:darkMode?"invert(1) hue-rotate(180deg)":"none",...(isDesktop?{flex:"1 1 0",minWidth:0,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
+    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:isDesktop?undefined:"100vh",height:isDesktop?undefined:"auto",color:"#1a1a1a",display:"flex",flexDirection:"column",position:isDesktop?"absolute":"relative",overflow:isDesktop?"hidden":"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,filter:darkMode?"invert(1) hue-rotate(180deg)":"none",...(isDesktop?{top:0,bottom:0,left:0,right:230,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
       <style>{CSS}</style>
       <input ref={fRef} type="file" accept=".json" style={{display:"none"}} onChange={impData}/>
       <input ref={iRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("ci",b));e.target.value="";}}/>
@@ -1875,15 +1875,9 @@ export default function App(){
               </div>
             ))}
           </div>
-          {/* ====== إعدادات الميزانية الجديدة ====== */}
+          {/* ====== الأقسام الخمسة ====== */}
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>⚙️ توزيع الدخل — الأقسام الخمسة</div>
-
-            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #f1f5f9"}} onClick={()=>setPage("goals")}>
-              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🎯</div>
-              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>هدف الدخل ونسب التوزيع</div><div style={{fontSize:11,color:"#64748b"}}>إدارة الأهداف من صفحة "الأهداف" مباشرة</div></div>
-              <ChevronLeft size={18} color="#64748b"/>
-            </div>
+            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>🧩 الأقسام الخمسة</div>
 
             {/* نسبة الطوارئ للميزانية */}
             <div style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
@@ -1943,15 +1937,6 @@ export default function App(){
                   );
                 })}
               </div>}
-            </div>
-
-            {/* حفظ */}
-            <div style={{padding:16}}>
-              <button style={S.btn()} onClick={()=>{
-                const tot=(budgetSettings.buckets||[]).reduce((s,b)=>s+(b.pct||0),0);
-                if(tot!==100){showErr(`⛔ مجموع النسب ${tot}% — خاص يكون 100%`);return;}
-                _save('budgetSettings',budgetSettings);showErr("✅ تم حفظ إعدادات الميزانية ✓");setTimeout(()=>setErr(null),3000);
-              }}>✅ حفظ إعدادات الميزانية</button>
             </div>
           </div>
 

@@ -692,6 +692,95 @@ export default function App(){
       setBkMsg("⛔ فشل الاسترجاع من Drive — "+(e.message||"خطأ غير معروف"));setTimeout(()=>setBkMsg(null),5000);
     }
   };
+  const exportReportPDF=async()=>{
+    try{
+      const jsPDFmod=await import("jspdf");
+      const jsPDF=jsPDFmod.jsPDF||jsPDFmod.default;
+      const html2canvasMod=await import("html2canvas");
+      const html2canvas=html2canvasMod.default;
+
+      const todayStr=new Date().toISOString().split("T")[0];
+      const inPeriod=t=>{
+        if(period.type==="month")return t.date.startsWith(period.month);
+        if(period.type==="year")return t.date.startsWith(period.year);
+        return true;
+      };
+      const periodTxs=txs.filter(inPeriod);
+      const flow=periodTxs.filter(t=>!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
+      const totalIncome=flow.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
+      const totalExpense=flow.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
+      const net=totalIncome-totalExpense;
+      const savingsRate=totalIncome>0?(net/totalIncome*100):0;
+      const wealthNow=totBal+totAst+totInv+totGiv-totOwd;
+
+      const bkts=budgetSettings.buckets||[];
+      const totalIncAllTime=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+      const bucketRows=bkts.map(b=>{
+        const bal=getBucketBalanceLive(b.type);
+        return `<tr><td style="padding:8px;border-bottom:1px solid #eee;">${b.icon} ${b.name}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:left;color:${b.color};font-weight:700;">${fmt(bal||0)}</td></tr>`;
+      }).join("");
+
+      const catTotals={};
+      flow.filter(t=>t.type==="expense").forEach(t=>{const c=gc("expense",t.catId);const name=c?.name||"أخرى";catTotals[name]=(catTotals[name]||0)+t.amount;});
+      const topCats=Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      const catRows=topCats.map(([name,amt])=>`<tr><td style="padding:8px;border-bottom:1px solid #eee;">${name}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:left;color:#ef4444;font-weight:700;">${fmt(amt)}</td></tr>`).join("");
+
+      const periodLabel=period.type==="month"?period.month:period.type==="year"?period.year:"كل الفترة";
+
+      const container=document.createElement("div");
+      container.style.cssText="position:fixed;top:-99999px;left:0;width:800px;background:#ffffff;padding:40px;font-family:Tajawal,Arial,sans-serif;direction:rtl;color:#1a1a1a;";
+      container.innerHTML=`
+        <div style="text-align:center;margin-bottom:24px;">
+          <div style="font-size:26px;font-weight:900;color:#1a6b4a;">💰 محفظتي</div>
+          <div style="font-size:14px;color:#64748b;margin-top:4px;">تقرير مالي — ${periodLabel}</div>
+        </div>
+        <div style="background:linear-gradient(135deg,#1a6b4a,#0f4a33);border-radius:16px;padding:20px;color:white;margin-bottom:20px;">
+          <div style="font-size:12px;color:rgba(255,255,255,.75);">صافي الثروة الكلية</div>
+          <div style="font-size:28px;font-weight:900;">${fmt(wealthNow)} د.م</div>
+          <div style="display:flex;gap:16px;margin-top:14px;">
+            <div style="flex:1;"><div style="font-size:11px;color:rgba(255,255,255,.7);">دخل</div><div style="font-size:16px;font-weight:800;color:#a7f3d0;">${fmt(totalIncome)}</div></div>
+            <div style="flex:1;"><div style="font-size:11px;color:rgba(255,255,255,.7);">مصروف</div><div style="font-size:16px;font-weight:800;color:#fca5a5;">${fmt(totalExpense)}</div></div>
+            <div style="flex:1;"><div style="font-size:11px;color:rgba(255,255,255,.7);">صافي</div><div style="font-size:16px;font-weight:800;">${fmt(net)}</div></div>
+            <div style="flex:1;"><div style="font-size:11px;color:rgba(255,255,255,.7);">نسبة الادخار</div><div style="font-size:16px;font-weight:800;">${savingsRate.toFixed(1)}%</div></div>
+          </div>
+        </div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:10px;">🧩 الأقسام الخمسة</div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px;">${bucketRows}</table>
+        <div style="font-size:15px;font-weight:800;margin-bottom:10px;">🔝 أعلى تصنيفات الصرف</div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px;">${catRows||'<tr><td style="padding:8px;color:#94a3b8;">لا توجد بيانات</td></tr>'}</table>
+        <div style="text-align:center;font-size:10px;color:#94a3b8;margin-top:20px;">تم إنشاؤه بواسطة محفظتي — ${todayStr}</div>
+      `;
+      document.body.appendChild(container);
+      const canvas=await html2canvas(container,{scale:2,useCORS:true});
+      document.body.removeChild(container);
+
+      const imgData=canvas.toDataURL("image/png");
+      const pdf=new jsPDF({unit:"pt",format:"a4"});
+      const pageWidth=pdf.internal.pageSize.getWidth();
+      const pageHeight=pdf.internal.pageSize.getHeight();
+      const imgWidth=pageWidth;
+      const imgHeight=(canvas.height*imgWidth)/canvas.width;
+      let heightLeft=imgHeight,position=0;
+      pdf.addImage(imgData,"PNG",0,position,imgWidth,imgHeight);
+      heightLeft-=pageHeight;
+      while(heightLeft>0){
+        position=heightLeft-imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData,"PNG",0,position,imgWidth,imgHeight);
+        heightLeft-=pageHeight;
+      }
+      const fileName="mahfazati-report-"+todayStr+".pdf";
+      const base64=pdf.output("datauristring").split(",")[1];
+      try{
+        const {Filesystem,Directory}=await import("@capacitor/filesystem");
+        await Filesystem.writeFile({path:fileName,data:base64,directory:Directory.Documents,recursive:true});
+        setBkMsg("✅ تم الحفظ فـ Documents/"+fileName);setTimeout(()=>setBkMsg(null),4000);
+      }catch(e2){
+        pdf.save(fileName);
+        setBkMsg("✅ تم التحميل");setTimeout(()=>setBkMsg(null),3500);
+      }
+    }catch(e){console.error(e);showErr("⛔ فشل تصدير PDF — خاصك npm install jspdf html2canvas");setTimeout(()=>setErr(null),4500);}
+  };
   const exportExcel=async()=>{
     try{
       const XLSX=await import("xlsx");
@@ -2246,6 +2335,7 @@ export default function App(){
                   <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>fRef.current.click()}>📥 استيراد من ملف</button>
                   <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={exportExcel}>📊 تصدير Excel (المعاملات)</button>
                   <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={()=>excelRef.current.click()}>📥 استيراد Excel</button>
+                  <button style={{...S.btn("#dc2626"),padding:"13px"}} onClick={exportReportPDF}>📄 تصدير تقرير PDF</button>
                   <input ref={excelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importExcel}/>
                   <div style={{background:"#1a1d27",borderRadius:14,padding:16,border:"1px solid #ef444433"}}>
                     <div style={{fontWeight:700,color:"#ef4444",marginBottom:8,fontSize:15}}>🗑️ إعادة ضبط كامل</div>
@@ -2254,18 +2344,6 @@ export default function App(){
                     {resetErr&&<div style={{color:"#ef4444",fontSize:12,marginBottom:6}}>❌ كلمة السر غلط</div>}
                     <button style={S.btn("#ef4444")} onClick={()=>{if(resetCode!==appPassword){setResetErr(true);return;}resetData();setResetCode("");}}>تأكيد إعادة الضبط</button>
                   </div>
-                  <button style={{...S.btn("#f59e0b"),padding:"13px"}} onClick={()=>{
-                    setBudgetSettings(p=>({...p,
-                      buckets:[
-                        {id:1,name:"الميزانية",icon:"🛒",color:"#3b82f6",pct:40,accountKeys:[],type:"expenses"},
-                        {id:2,name:"الطوارئ",icon:"🚨",color:"#f97316",pct:20,accountKeys:[],type:"emergency",emergencyPct:20},
-                        {id:3,name:"الممتلكات",icon:"🏠",color:"#14b8a6",pct:15,accountKeys:[],type:"assets"},
-                        {id:4,name:"الاستثمار",icon:"📈",color:"#8b5cf6",pct:15,accountKeys:[],type:"investment"},
-                        {id:5,name:"التقاعد",icon:"🏦",color:"#6366f1",pct:10,accountKeys:[],type:"retirement"}
-                      ]
-                    }));
-                    setErr("✅ تم إعادة ضبط الميزانية");setTimeout(()=>setErr(null),3000);
-                  }}>🔄 إعادة ضبط الميزانية فقط</button>
                 </>}
               </div>
             </div>

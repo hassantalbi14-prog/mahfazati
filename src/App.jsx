@@ -179,6 +179,23 @@ export default function App(){
   const[resetErr,setResetErr]=useState(false);
   const[isAuth,setIsAuth]=useState(()=>sessionStorage.getItem("mhf_auth")==="1");
   const[bioEnabled,setBioEnabled]=useState(()=>localStorage.getItem("mhf_bio")==="1");
+  const[autoLockMin,setAutoLockMin]=useState(()=>parseInt(localStorage.getItem("mhf_autolock")||"0"));
+  useEffect(()=>{
+    if(!autoLockMin)return;
+    const onHide=()=>{
+      if(document.hidden)localStorage.setItem("mhf_bg_time",Date.now().toString());
+      else{
+        const bg=parseInt(localStorage.getItem("mhf_bg_time")||"0");
+        if(bg&&(Date.now()-bg)>=autoLockMin*60000){
+          sessionStorage.removeItem("mhf_auth");
+          setIsAuth(false);
+        }
+        localStorage.removeItem("mhf_bg_time");
+      }
+    };
+    document.addEventListener("visibilitychange",onHide);
+    return ()=>document.removeEventListener("visibilitychange",onHide);
+  },[autoLockMin]);
   const[bioTried,setBioTried]=useState(false);
   const[darkMode,setDarkMode]=useState(()=>localStorage.getItem("mhf_dark")==="1");
   const[isDesktop,setIsDesktop]=useState(()=>typeof window!=="undefined"&&window.innerWidth>900);
@@ -1851,6 +1868,16 @@ export default function App(){
               </button>
             </div>
           </div>
+          <div style={S.card}>
+            <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>🔒 القفل التلقائي</div>
+            <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>يقفل التطبيق وحدو إلا خليتيه فالخلفية مدة طويلة</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {[["0","معطل"],["1","1 دقيقة"],["5","5 دقايق"],["10","10 دقايق"],["30","30 دقيقة"]].map(([v,l])=>(
+                <button key={v} onClick={()=>{const n=parseInt(v);localStorage.setItem("mhf_autolock",v);setAutoLockMin(n);}}
+                  style={{...S.btn(autoLockMin===parseInt(v)?"#1a6b4a":"#f1f5f9",false),flex:"1 1 auto",padding:"8px 6px",fontSize:11,color:autoLockMin===parseInt(v)?"white":"#475569"}}>{l}</button>
+              ))}
+            </div>
+          </div>
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
             <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الأموال والممتلكات</div>
             {[{id:"banks",icon:"🏦",label:"البنوك"},{id:"cash",icon:"💵",label:"الكاش"},{id:"assets",icon:"🏠",label:"الممتلكات"}].map((item,i,arr)=>(
@@ -1972,9 +1999,13 @@ export default function App(){
                   <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #f1f5f9"}}>
                     <span style={{fontSize:11,color:"#64748b"}}>{g.date} — {bucketsDef.map(b=>`${b.icon}${g.pcts[b.type]||0}%`).join(" ")}</span>
                     <button onClick={()=>{
-                      const nb={...budgetSettings,pctGoalHistory:(budgetSettings.pctGoalHistory||[]).filter(x=>x.date!==g.date)};
+                      const remaining=(budgetSettings.pctGoalHistory||[]).filter(x=>x.date!==g.date);
+                      const newActive=remaining.slice().sort((a,b)=>b.date.localeCompare(a.date))[0];
+                      const fallbackPcts=newActive?newActive.pcts:{expenses:40,emergency:20,assets:15,investment:15,retirement:10};
+                      const nb={...budgetSettings,pctGoalHistory:remaining,
+                        buckets:(budgetSettings.buckets||[]).map(b=>({...b,pct:fallbackPcts[b.type]!==undefined?fallbackPcts[b.type]:b.pct}))};
                       setBudgetSettings(nb);_save('budgetSettings',nb);
-                      setErr("✅ تم حذف الإدخال");setTimeout(()=>setErr(null),3000);
+                      setErr("✅ تم حذف الإدخال وإرجاع النسب السابقة");setTimeout(()=>setErr(null),3000);
                     }} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:10,fontFamily:"inherit",flexShrink:0,marginRight:8}}>حذف</button>
                   </div>
                 ))}
@@ -2862,7 +2893,10 @@ export default function App(){
               let baseTxs=txs.filter(t=>t.date>=range.from&&t.date<=range.to);
               if(rfAcc!=="all"){const accSel=allAccList.find(a=>a.key===rfAcc);if(accSel)baseTxs=baseTxs.filter(t=>JSON.stringify(t.ref)===JSON.stringify(accSel.ref));}
               if(rfType!=="all")baseTxs=baseTxs.filter(t=>classifyTx(t)===rfType);
-              if(rfBucket!=="all")baseTxs=baseTxs.filter(t=>txBucket(t)===rfBucket);
+              if(rfBucket!=="all")baseTxs=baseTxs.filter(t=>{
+                if(t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset)return true; // الدخل كيتوزع على كل الأقسام، يبين فأي فلتر صندوق
+                return txBucket(t)===rfBucket;
+              });
               if(rfCats.length>0)baseTxs=baseTxs.filter(t=>rfCats.includes(t.catId));
               const isDefaultFilter=rfType==="all"&&rfBucket==="all";
               const flowTxs=isDefaultFilter?baseTxs.filter(t=>!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset):baseTxs;
@@ -2917,7 +2951,7 @@ export default function App(){
               const showDetails=!!ovExp.repDetails;
               const showFilters=!!ovExp.repFilters;
               const expandedCat=ovExp.expandedCat;
-              const catList=[...(cats.expense||[]),...(cats.income||[])];
+              const catList=rfType==="income"?(cats.income||[]):rfType==="expense"?(cats.expense||[]):[...(cats.expense||[]),...(cats.income||[])];
               const daysDiff=Math.max((new Date(range.to)-new Date(range.from))/86400000,1);
               const granularity=daysDiff<=31?"day":daysDiff<=370?"month":"year";
               const buildPeriods=()=>{

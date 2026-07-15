@@ -2416,8 +2416,11 @@ export default function App(){
                 </>}
 
                 {dp==="catDist"&&(()=>{
-                  const curYear=new Date().getFullYear().toString();
-                  const dist=getCatDistYear(curYear);
+                  const nowYear=new Date().getFullYear();
+                  const selYear=(ovExp.catDistYearSel||nowYear.toString());
+                  const yearOptions=[];
+                  for(let y=nowYear;y>=2017;y--)yearOptions.push(y.toString());
+                  const dist=getCatDistYear(selYear);
                   const flatItems=[]; // {catId,subId,label,icon}
                   (cats.expense||[]).forEach(c=>{
                     if(c.subs&&c.subs.length>0){
@@ -2426,7 +2429,7 @@ export default function App(){
                       flatItems.push({catId:c.id,subId:null,label:c.name,icon:c.icon});
                     }
                   });
-                  const draftKey=it=>`catpct_${it.catId}_${it.subId||"x"}`;
+                  const draftKey=it=>`catpct_${selYear}_${it.catId}_${it.subId||"x"}`;
                   const draftTotal=flatItems.reduce((s,it)=>s+(parseFloat(ovExp[draftKey(it)])||0),0);
                   return <>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -2434,10 +2437,28 @@ export default function App(){
                       <button onClick={()=>setDp(null)} style={{background:"#e8e8e4",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
                     </div>
 
+                    <div style={{...S.card,padding:"10px 12px"}}>
+                      <div style={{fontSize:11,color:"#64748b",marginBottom:6}}>السنة</div>
+                      <select style={S.sel} value={selYear} onChange={e=>setOvExp(p=>({...p,catDistYearSel:e.target.value}))}>
+                        {yearOptions.map(y=><option key={y} value={y}>{y}{y===nowYear.toString()?" (الحالية)":""}</option>)}
+                      </select>
+                    </div>
+
+                    <div style={{...S.card,padding:"14px 12px"}}>
+                      <div style={{fontWeight:700,fontSize:13,marginBottom:2}}>⏳ حساب "شحال من شهر تقدر تعيش"</div>
+                      <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>أي متوسط مصروف نستعملو فحساب الرقم اللي بادي فصفحة الميزانية</div>
+                      <div style={{display:"flex",gap:6}}>
+                        {[["3","آخر 3 أشهر"],["all","كل التاريخ"]].map(([v,l])=>(
+                          <button key={v} onClick={()=>{const nb={...budgetSettings,runwayMonths:v};setBudgetSettings(nb);_save('budgetSettings',nb);}}
+                            style={{...S.btn((budgetSettings.runwayMonths||"3")===v?"#1a6b4a":"#f1f5f9",false),flex:1,padding:"9px 6px",fontSize:12,color:(budgetSettings.runwayMonths||"3")===v?"white":"#475569"}}>{l}</button>
+                        ))}
+                      </div>
+                    </div>
+
                     {dist ? (
                       <div style={S.card}>
                         <div style={{background:"#e8f5ee",borderRadius:10,padding:10,marginBottom:10,textAlign:"center"}}>
-                          <div style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>✅ توزيع {curYear} مثبت</div>
+                          <div style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>✅ توزيع {selYear} مثبت</div>
                           <div style={{fontSize:11,color:"#64748b",marginTop:2}}>ثابت طول العام — التعديل غير التحويل اليدوي بين التصنيفات</div>
                         </div>
                         {dist.items.map((it,i)=>{
@@ -2451,8 +2472,8 @@ export default function App(){
                     ) : (
                       <div style={S.card}>
                         <div style={{background:"#fef3c7",borderRadius:10,padding:10,marginBottom:10}}>
-                          <div style={{fontSize:12,color:"#92400e",fontWeight:700}}>⚠️ ماكاينش توزيع لعام {curYear} بعد</div>
-                          <div style={{fontSize:11,color:"#78350f",marginTop:4}}>ما تقدرش تصرف من الميزانية حتى تدخل النسب وتحفظ (المجموع = 100%)</div>
+                          <div style={{fontSize:12,color:"#92400e",fontWeight:700}}>⚠️ ماكاينش توزيع لعام {selYear} بعد</div>
+                          <div style={{fontSize:11,color:"#78350f",marginTop:4}}>{selYear===nowYear.toString()?"ما تقدرش تصرف من الميزانية حتى تدخل النسب وتحفظ (المجموع = 100%)":"دخل التوزيع ديال هاد العام القديم باش تكمل السجل التاريخي"}</div>
                         </div>
                         {flatItems.map(it=>(
                           <div key={draftKey(it)} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
@@ -2466,15 +2487,15 @@ export default function App(){
                         <button style={S.btn("#1a6b4a")} onClick={()=>{
                           if(draftTotal!==100){showErr(`⛔ المجموع ${draftTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
                           const items=flatItems.map(it=>({catId:it.catId,subId:it.subId,pct:parseFloat(ovExp[draftKey(it)])||0})).filter(it=>it.pct>0);
-                          const nb={...budgetSettings,catDistYears:[...(budgetSettings.catDistYears||[]),{year:curYear,items}]};
+                          const nb={...budgetSettings,catDistYears:[...(budgetSettings.catDistYears||[]),{year:selYear,items}]};
                           setBudgetSettings(nb);_save('budgetSettings',nb);
-                          setErr(`✅ تم حفظ توزيع ${curYear}`);setTimeout(()=>setErr(null),3000);
-                        }}>💾 حفظ توزيع {curYear}</button>
+                          setErr(`✅ تم حفظ توزيع ${selYear}`);setTimeout(()=>setErr(null),3000);
+                        }}>💾 حفظ توزيع {selYear}</button>
                       </div>
                     )}
 
                     {dist && <>
-                      <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"6px 2px"}}>🔄 تحويل بين التصنيفات</div>
+                      <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"6px 2px"}}>🔄 تحويل بين التصنيفات ({selYear})</div>
                       <div style={S.card}>
                         <select style={{...S.sel,marginBottom:8}} value={ovExp.trFrom||""} onChange={e=>setOvExp(p=>({...p,trFrom:e.target.value}))}>
                           <option value="">من (تصنيف/فرع)</option>
@@ -2491,9 +2512,9 @@ export default function App(){
                           if(ovExp.trFrom===ovExp.trTo){showErr("⛔ اختر تصنيفين مختلفين");setTimeout(()=>setErr(null),3000);return;}
                           const[fCat,fSub]=ovExp.trFrom.split("_");
                           const[tCat,tSub]=ovExp.trTo.split("_");
-                          const fromBal=getCatBalance(parseInt(fCat),fSub?parseInt(fSub):null,curYear);
+                          const fromBal=getCatBalance(parseInt(fCat),fSub?parseInt(fSub):null,selYear);
                           if(amt>fromBal){showErr(`⛔ الرصيد غير كافي — المتاح: ${fmt(fromBal)}`);setTimeout(()=>setErr(null),3500);return;}
-                          const nb={...budgetSettings,catTransfers:[...(budgetSettings.catTransfers||[]),{year:curYear,fromCatId:parseInt(fCat),fromSubId:fSub?parseInt(fSub):null,toCatId:parseInt(tCat),toSubId:tSub?parseInt(tSub):null,amount:amt,date:new Date().toISOString().split("T")[0]}]};
+                          const nb={...budgetSettings,catTransfers:[...(budgetSettings.catTransfers||[]),{year:selYear,fromCatId:parseInt(fCat),fromSubId:fSub?parseInt(fSub):null,toCatId:parseInt(tCat),toSubId:tSub?parseInt(tSub):null,amount:amt,date:new Date().toISOString().split("T")[0]}]};
                           setBudgetSettings(nb);_save('budgetSettings',nb);
                           setOvExp(p=>({...p,trFrom:"",trTo:"",trAmt:""}));
                           setErr("✅ تم التحويل");setTimeout(()=>setErr(null),3000);
@@ -2502,6 +2523,7 @@ export default function App(){
                     </>}
                   </>;
                 })()}
+
 
                 {dp==="banks"&&<>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>

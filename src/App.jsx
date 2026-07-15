@@ -388,7 +388,9 @@ export default function App(){
   const computeBucketAllocated=(type)=>{
     const tiers=getActiveTiers();
     const incomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
-    const rawFor=key=>incomeTxs.reduce((sum,t)=>{const tier=getTierForIncome(t.amount,tiers);return sum+t.amount*((tier.pcts[key]||0)/100);},0);
+    const byMonth={};
+    incomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+t.amount;});
+    const rawFor=key=>Object.values(byMonth).reduce((sum,monthTotal)=>{const tier=getTierForIncome(monthTotal,tiers);return sum+monthTotal*((tier.pcts[key]||0)/100);},0);
     const rawEmergency=rawFor("emergency");
     const emergencyTarget=getEmergencyTarget();
     const cappedEmergency=Math.min(rawEmergency,emergencyTarget);
@@ -431,9 +433,11 @@ export default function App(){
     const dist=getCatDistYear(year);
     const entry=dist?.items.find(i=>i.catId===catId&&(i.subId||null)===(subId||null));
     const pct=entry?.pct||0;
-    const yearIncome=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)).reduce((s,t)=>s+t.amount,0);
-    const expBkt=(budgetSettings.buckets||[]).find(b=>b.type==="expenses");
-    const yearBudgetTotal=expBkt?yearIncome*((expBkt.pct||0)/100):0;
+    const yearIncomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year));
+    const tiers=getActiveTiers();
+    const byMonthY={};
+    yearIncomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonthY[m]=(byMonthY[m]||0)+t.amount;});
+    const yearBudgetTotal=Object.values(byMonthY).reduce((sum,monthTotal)=>{const tier=getTierForIncome(monthTotal,tiers);return sum+monthTotal*((tier.pcts.expenses||0)/100);},0);
     const catBudget=yearBudgetTotal*(pct/100);
     const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)).reduce((s,t)=>s+t.amount,0);
     const transfers=budgetSettings.catTransfers||[];
@@ -445,9 +449,11 @@ export default function App(){
     const dist=getCatDistYear(year);
     const entry=dist?.items.find(i=>i.catId===catId&&(i.subId||null)===(subId||null));
     const pct=entry?.pct||0;
-    const yearIncome=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)).reduce((s,t)=>s+t.amount,0);
-    const expBkt=(budgetSettings.buckets||[]).find(b=>b.type==="expenses");
-    const yearBudgetTotal=expBkt?yearIncome*((expBkt.pct||0)/100):0;
+    const yearIncomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year));
+    const tiers=getActiveTiers();
+    const byMonthY={};
+    yearIncomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonthY[m]=(byMonthY[m]||0)+t.amount;});
+    const yearBudgetTotal=Object.values(byMonthY).reduce((sum,monthTotal)=>{const tier=getTierForIncome(monthTotal,tiers);return sum+monthTotal*((tier.pcts.expenses||0)/100);},0);
     const allocated=yearBudgetTotal*(pct/100);
     const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)).reduce((s,t)=>s+t.amount,0);
     const transfers=budgetSettings.catTransfers||[];
@@ -481,9 +487,7 @@ export default function App(){
     if((form.txType||"expense")==="expense"&&!form.isLoan&&!form.isInvest&&!form.isAsset){
       const expBkt=(budgetSettings.buckets||[]).find(b=>b.type==="expenses");
       if(expBkt){
-        const totalInc2=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-        const totalExp2=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-        const bktBal=(totalInc2*(expBkt.pct/100))-totalExp2;
+        const bktBal=getBucketBalanceLive("expenses");
         const newAmt=parseFloat(form.amount)||0;
         if(bktBal-newAmt<0){
           showErr(`⛔ رصيد الميزانية غير كافي — المتاح: ${fmt(Math.max(0,bktBal))} د.م`);return;
@@ -1540,8 +1544,7 @@ export default function App(){
           {(()=>{
             const expBkt=(budgetSettings.buckets||[]).find(b=>b.type==="expenses");
             if(!expBkt)return null;
-            const totalInc=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-            const totBudget=totalInc*(expBkt.pct/100);
+            const totBudget=computeBucketAllocated("expenses");
             const totExpReal=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
             const remaining=totBudget-totExpReal;
             const pct=totBudget>0?Math.min((totExpReal/totBudget)*100,100):0;
@@ -3163,7 +3166,7 @@ export default function App(){
                   <div style={{display:"flex",alignItems:"center",gap:12}}>
                     <div style={{width:48,height:48,borderRadius:14,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>{b.icon}</div>
                     <div style={{flex:1}}><div style={{fontWeight:700,fontSize:16}}>{b.name}</div><div style={{fontSize:11,color:"#64748b"}}>{b.pct}% من الدخل{balance<0?" — 🔴 عجز":""}</div></div>
-                    <span style={{fontSize:17,fontWeight:900,color:balance>=0?b.color:"#ef4444"}}>{fmt(Math.abs(balance))}</span>
+                    <span style={{fontSize:17,fontWeight:900,color:balance>=0?b.color:"#ef4444"}}>{balance<0?"-":""}{fmt(Math.abs(balance))}</span>
                     <span style={{color:"#64748b",fontSize:20}}>›</span>
                   </div>
                 </div>
@@ -3190,7 +3193,7 @@ export default function App(){
                     <div style={{fontSize:11,color:"#64748b"}}>التوزيع: {b.pct}% من الدخل</div>
                   </div>
                   <div style={{textAlign:"left"}}>
-                    <div style={{fontSize:16,fontWeight:900,color:balance>=0?"#1a6b4a":"#ef4444"}}>{fmt(Math.abs(balance))}</div>
+                    <div style={{fontSize:16,fontWeight:900,color:balance>=0?"#1a6b4a":"#ef4444"}}>{balance<0?"-":""}{fmt(Math.abs(balance))}</div>
                     <div style={{fontSize:10,color:balance>=0?"#10b981":"#ef4444"}}>{balance>=0?"✅ متاح":"🔴 عجز"}</div>
                   </div>
                 </div>

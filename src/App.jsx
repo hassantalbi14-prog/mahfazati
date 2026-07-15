@@ -385,6 +385,13 @@ export default function App(){
     const avgMonthly=monthsSet.length>0?totalExp/monthsSet.length:0;
     return avgMonthly*months;
   };
+  const getCurrentTierPct=(type)=>{
+    const tiers=getActiveTiers();
+    const now=new Date().toISOString().slice(0,7);
+    const monthIncome=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(now)).reduce((s,t)=>s+t.amount,0);
+    const tier=getTierForIncome(monthIncome,tiers);
+    return tier.pcts[type]||0;
+  };
   const computeBucketAllocated=(type)=>{
     const tiers=getActiveTiers();
     const incomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
@@ -1556,7 +1563,7 @@ export default function App(){
                 <div style={{...S.row,marginBottom:10}}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <div style={{width:38,height:38,borderRadius:10,background:"#10b98122",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🛒</div>
-                    <div><div style={{fontWeight:700,fontSize:14}}>ميزانية المصاريف</div><div style={{fontSize:11,color:"#64748b"}}>إجمالي كلي — {expBkt.pct}% من الدخل</div></div>
+                    <div><div style={{fontWeight:700,fontSize:14}}>ميزانية المصاريف</div><div style={{fontSize:11,color:"#64748b"}}>إجمالي كلي — {getCurrentTierPct("expenses")}% من الدخل (هاد الشهر)</div></div>
                   </div>
                   <div style={{textAlign:"left"}}>
                     <div style={{fontSize:11,color:"#64748b"}}>الباقي</div>
@@ -2298,72 +2305,91 @@ export default function App(){
               </>}
             </div>
 
-            {/* نسب التوزيع */}
-            <div style={S.card}>
-              <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>📊 نسب توزيع الأقسام</div>
-              <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>منذ {activePct?activePct.date:"—"} — المجموع خاص 100%</div>
-              {bucketsDef.map(b=>(
-                <div key={b.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:13}}>
-                  <span>{b.icon} {b.name}</span><span style={{fontWeight:700,color:b.color}}>{currentPcts[b.type]||0}%</span>
-                </div>
-              ))}
-
-              {pctHistory.length>0 && <div style={{marginTop:10,marginBottom:10}}>
-                <div style={{fontSize:11,color:"#64748b",fontWeight:700,marginBottom:6}}>السجل</div>
-                {pctHistory.map((g,i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #f1f5f9"}}>
-                    <span style={{fontSize:11,color:"#64748b"}}>{g.date} — {bucketsDef.map(b=>`${b.icon}${g.pcts[b.type]||0}%`).join(" ")}</span>
-                    <button onClick={()=>{
-                      const remaining=(budgetSettings.pctGoalHistory||[]).filter(x=>x.date!==g.date);
-                      const newActive=remaining.slice().sort((a,b)=>b.date.localeCompare(a.date))[0];
-                      const fallbackPcts=newActive?newActive.pcts:{expenses:40,emergency:20,assets:15,investment:15,retirement:10};
-                      const nb={...budgetSettings,pctGoalHistory:remaining,
-                        buckets:(budgetSettings.buckets||[]).map(b=>({...b,pct:fallbackPcts[b.type]!==undefined?fallbackPcts[b.type]:b.pct}))};
-                      setBudgetSettings(nb);_save('budgetSettings',nb);
-                      setErr("✅ تم حذف الإدخال وإرجاع النسب السابقة");setTimeout(()=>setErr(null),3000);
-                    }} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:10,fontFamily:"inherit",flexShrink:0,marginRight:8}}>حذف</button>
+            {/* مستويات الدخل والنسب (النظام الحقيقي المستعمل فالحساب) */}
+            {(()=>{
+              const tierHist=(budgetSettings.tierHistory||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+              const activeTiers=tierHist[0]?tierHist[0].tiers:DEFAULT_TIERS;
+              const canAddTiers=tierHist.length===0||daysSince(tierHist[0].date)>=365;
+              const nextTierDate=tierHist.length?addDays(tierHist[0].date,365):null;
+              const bKeys=["expenses","emergency","assets","investment","retirement"];
+              const bLabels={expenses:"🛒 الميزانية",emergency:"🚨 الطوارئ",assets:"🏠 الممتلكات",investment:"📈 الاستثمار",retirement:"🏦 التقاعد"};
+              return <div style={S.card}>
+                <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>📊 مستويات الدخل والنسب</div>
+                <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>هادو النسب الحقيقية اللي كتستعملها كل الحسابات فالتطبيق (حسب مستوى دخلك الشهري)</div>
+                {activeTiers.map((t,i)=>(
+                  <div key={i} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:6}}>
+                      {i===0?`دخل أقل من ${fmt(t.max)}`:t.max===Infinity||t.max>=999999999?`دخل أكبر من ${fmt(activeTiers[i-1].max)}`:`دخل بين ${fmt(activeTiers[i-1].max)} و${fmt(t.max)}`}
+                    </div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                      {bKeys.map(k=><span key={k} style={{fontSize:11,color:"#475569"}}>{bLabels[k]}: <b>{t.pcts[k]||0}%</b></span>)}
+                    </div>
                   </div>
                 ))}
-              </div>}
 
-              {!canAddPct && <div style={{background:"#fef3c7",color:"#92400e",fontSize:11,fontWeight:700,padding:"8px 10px",borderRadius:8,marginTop:8,textAlign:"center"}}>
-                ⚠️ خاص يمر عام كامل على آخر تحديث — تقدر تحدث بداية من {nextPctDate}
-              </div>}
+                {tierHist.length>0&&<div style={{marginBottom:10}}>
+                  <div style={{fontSize:11,color:"#64748b",fontWeight:700,marginBottom:6}}>السجل</div>
+                  {tierHist.map((h,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #f1f5f9"}}>
+                      <span style={{fontSize:11,color:"#64748b"}}>{h.date}</span>
+                      <button onClick={()=>{
+                        const remaining=(budgetSettings.tierHistory||[]).filter(x=>x.date!==h.date);
+                        const nb={...budgetSettings,tierHistory:remaining};
+                        setBudgetSettings(nb);_save('budgetSettings',nb);
+                        setErr("✅ تم حذف الإدخال");setTimeout(()=>setErr(null),3000);
+                      }} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:10,fontFamily:"inherit"}}>حذف</button>
+                    </div>
+                  ))}
+                </div>}
 
-              {canAddPct && <div style={{marginTop:8}}>
-                {bucketsDef.map(b=>(
-                  <div key={b.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                    <div style={{width:32,height:32,borderRadius:9,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{b.icon}</div>
-                    <div style={{flex:1,fontSize:13,fontWeight:700}}>{b.name}</div>
-                    <input style={{...S.inp,width:64,textAlign:"center",padding:"7px"}} type="number" min="0" max="100"
-                      value={ovExp[`newPct_${b.type}`]!==undefined?ovExp[`newPct_${b.type}`]:(currentPcts[b.type]||0)}
-                      onChange={e=>setOvExp(p=>({...p,[`newPct_${b.type}`]:e.target.value}))}/>
-                    <span style={{fontSize:12,color:"#64748b"}}>%</span>
-                  </div>
-                ))}
-                {(()=>{const tot=bucketsDef.reduce((s,b)=>s+(parseInt(ovExp[`newPct_${b.type}`]!==undefined?ovExp[`newPct_${b.type}`]:(currentPcts[b.type]||0))||0),0);
-                  return <div style={{textAlign:"center",fontSize:12,fontWeight:700,color:tot===100?"#10b981":"#ef4444",marginBottom:8}}>المجموع: {tot}% {tot===100?"✅":"⚠️"}</div>;
-                })()}
-                <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.newPctDate||todayStr} onChange={e=>setOvExp(p=>({...p,newPctDate:e.target.value}))}/>
-                <button style={S.btn("#6366f1")} onClick={()=>{
-                  const pcts={};
-                  bucketsDef.forEach(b=>{pcts[b.type]=parseInt(ovExp[`newPct_${b.type}`]!==undefined?ovExp[`newPct_${b.type}`]:(currentPcts[b.type]||0))||0;});
-                  const tot=Object.values(pcts).reduce((s,v)=>s+v,0);
-                  if(tot!==100){showErr(`⛔ المجموع ${tot}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
-                  const dt=ovExp.newPctDate||todayStr;
-                  if(pctHistory.length>0 && daysSince(pctHistory[0].date)<365){showErr("⛔ خاص يمر عام كامل على آخر تحديث");setTimeout(()=>setErr(null),3000);return;}
-                  const nb={...budgetSettings,pctGoalHistory:[...(budgetSettings.pctGoalHistory||[]),{date:dt,pcts}],
-                    buckets:(budgetSettings.buckets||[]).map(b=>({...b,pct:pcts[b.type]!==undefined?pcts[b.type]:b.pct}))};
-                  setBudgetSettings(nb);_save('budgetSettings',nb);
-                  setOvExp(p=>{
-                    const np={...p,newPctDate:""};
-                    bucketsDef.forEach(b=>{delete np[`newPct_${b.type}`];});
-                    return np;
-                  });
-                  setErr("✅ تم حفظ النسب الجديدة");setTimeout(()=>setErr(null),3000);
-                }}>💾 حفظ نسب جديدة</button>
-              </div>}
-            </div>
+                {!canAddTiers&&<div style={{background:"#fef3c7",color:"#92400e",fontSize:11,fontWeight:700,padding:"8px 10px",borderRadius:8,marginBottom:8,textAlign:"center"}}>
+                  ⚠️ خاص يمر عام كامل على آخر تحديث — تقدر تحدث بداية من {nextTierDate}
+                </div>}
+
+                {canAddTiers&&<div>
+                  {[0,1,2].map(ti=>{
+                    const tKey=n=>`newTier_${ti}_${n}`;
+                    const defaults=activeTiers[ti]||DEFAULT_TIERS[ti];
+                    const tot=bKeys.reduce((s,k)=>s+(parseInt(ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0))||0),0);
+                    return <div key={ti} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
+                      <div style={{fontSize:12,fontWeight:800,marginBottom:6}}>المستوى {ti+1}</div>
+                      {ti<2&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                        <span style={{fontSize:11,color:"#64748b"}}>الحد الأقصى للدخل:</span>
+                        <input style={{...S.inp,width:90,padding:"6px 8px",fontSize:12}} type="number" value={ovExp[tKey("max")]!==undefined?ovExp[tKey("max")]:defaults.max} onChange={e=>setOvExp(p=>({...p,[tKey("max")]:e.target.value}))}/>
+                      </div>}
+                      {bKeys.map(k=>(
+                        <div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                          <div style={{flex:1,fontSize:12}}>{bLabels[k]}</div>
+                          <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100"
+                            value={ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0)} onChange={e=>setOvExp(p=>({...p,[tKey(k)]:e.target.value}))}/>
+                          <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                        </div>
+                      ))}
+                      <div style={{textAlign:"center",fontSize:11,fontWeight:700,color:tot===100?"#10b981":"#ef4444"}}>المجموع: {tot}% {tot===100?"✅":"⚠️"}</div>
+                    </div>;
+                  })}
+                  <button style={S.btn("#6366f1")} onClick={()=>{
+                    const newTiers=[0,1,2].map(ti=>{
+                      const tKey=n=>`newTier_${ti}_${n}`;
+                      const defaults=activeTiers[ti]||DEFAULT_TIERS[ti];
+                      const pcts={};
+                      bKeys.forEach(k=>{pcts[k]=parseInt(ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0))||0;});
+                      const max=ti===2?Infinity:(parseFloat(ovExp[tKey("max")]!==undefined?ovExp[tKey("max")]:defaults.max)||defaults.max);
+                      return{max,pcts};
+                    });
+                    for(const t of newTiers){
+                      const tot=bKeys.reduce((s,k)=>s+(t.pcts[k]||0),0);
+                      if(tot!==100){showErr(`⛔ مجموع نسب كل مستوى خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
+                    }
+                    if(tierHist.length>0&&daysSince(tierHist[0].date)<365){showErr("⛔ خاص يمر عام كامل على آخر تحديث");setTimeout(()=>setErr(null),3000);return;}
+                    const nb={...budgetSettings,tierHistory:[...(budgetSettings.tierHistory||[]),{date:todayStr,tiers:newTiers}]};
+                    setBudgetSettings(nb);_save('budgetSettings',nb);
+                    setOvExp(p=>{const np={...p};[0,1,2].forEach(ti=>{["max",...bKeys].forEach(n=>delete np[`newTier_${ti}_${n}`]);});return np;});
+                    setErr("✅ تم حفظ المستويات الجديدة");setTimeout(()=>setErr(null),3000);
+                  }}>💾 حفظ المستويات الجديدة</button>
+                </div>}
+              </div>;
+            })()}
 
               </div>
             </div>;
@@ -2980,7 +3006,6 @@ export default function App(){
 
         {page==="budget"&&(()=>{
           const buckets = budgetSettings.buckets||[];
-          const totalPct = buckets.reduce((s,b)=>s+b.pct,0);
           const allInc = txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
           const periodInc = filterByPeriod(allInc).reduce((s,t)=>s+t.amount,0);
           const periodExp = filterByPeriod(txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset)).reduce((s,t)=>s+t.amount,0);
@@ -3101,10 +3126,6 @@ export default function App(){
               </>;
             })()}
 
-            {/* نسب التوزيع */}
-            {totalPct!==100&&<div style={{...S.card,background:"#fef3c7",border:"1px solid #f59e0b",padding:10,fontSize:12,color:"#92400e",marginBottom:8}}>
-              ⚠️ مجموع النسب {totalPct}% — خاص يكون 100%
-            </div>}
             <div style={{...S.card,textAlign:"center",cursor:"pointer",padding:14}} onClick={()=>setPage("buckets")}>
               <span style={{fontSize:13,fontWeight:700,color:"#1a6b4a"}}>🧩 عرض الأقسام الخمسة بالتفصيل ›</span>
             </div>
@@ -3165,7 +3186,7 @@ export default function App(){
                 <div key={b.id} style={{...S.card,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,bktSel:b.id}))}>
                   <div style={{display:"flex",alignItems:"center",gap:12}}>
                     <div style={{width:48,height:48,borderRadius:14,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>{b.icon}</div>
-                    <div style={{flex:1}}><div style={{fontWeight:700,fontSize:16}}>{b.name}</div><div style={{fontSize:11,color:"#64748b"}}>{b.pct}% من الدخل{balance<0?" — 🔴 عجز":""}</div></div>
+                    <div style={{flex:1}}><div style={{fontWeight:700,fontSize:16}}>{b.name}</div><div style={{fontSize:11,color:"#64748b"}}>{getCurrentTierPct(b.type)}% من الدخل (هاد الشهر){balance<0?" — 🔴 عجز":""}</div></div>
                     <span style={{fontSize:17,fontWeight:900,color:balance>=0?b.color:"#ef4444"}}>{balance<0?"-":""}{fmt(Math.abs(balance))}</span>
                     <span style={{color:"#64748b",fontSize:20}}>›</span>
                   </div>
@@ -3190,7 +3211,7 @@ export default function App(){
                   <div style={{width:42,height:42,borderRadius:12,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{b.icon}</div>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a"}}>{b.name}</div>
-                    <div style={{fontSize:11,color:"#64748b"}}>التوزيع: {b.pct}% من الدخل</div>
+                    <div style={{fontSize:11,color:"#64748b"}}>التوزيع: {getCurrentTierPct(b.type)}% من الدخل (حسب مستوى الدخل هاد الشهر)</div>
                   </div>
                   <div style={{textAlign:"left"}}>
                     <div style={{fontSize:16,fontWeight:900,color:balance>=0?"#1a6b4a":"#ef4444"}}>{balance<0?"-":""}{fmt(Math.abs(balance))}</div>

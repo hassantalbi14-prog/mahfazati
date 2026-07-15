@@ -57,6 +57,11 @@ import { X, Home, Wallet, Target, BarChart3, Menu, ChevronLeft, Trash2, Cloud, S
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Legend, CartesianGrid } from "recharts";
 
 const PAL=["#10b981","#6366f1","#f59e0b","#ef4444","#14b8a6","#f97316","#8b5cf6","#ec4899","#06b6d4","#84cc16"];
+const DEFAULT_TIERS=[
+  {max:4000,pcts:{expenses:80,emergency:15,assets:0,investment:0,retirement:5}},
+  {max:8000,pcts:{expenses:60,emergency:15,assets:10,investment:10,retirement:5}},
+  {max:Infinity,pcts:{expenses:50,emergency:15,assets:15,investment:10,retirement:10}},
+];
 const MONTH = new Date().toISOString().slice(0,7);
 const fmt=n=>(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const uid=()=>Date.now()+Math.floor(Math.random()*9999);
@@ -353,11 +358,49 @@ export default function App(){
     cm();
   };
 
+  const getActiveTiers=()=>{
+    const hist=(budgetSettings.tierHistory||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+    return hist[0]?hist[0].tiers:DEFAULT_TIERS;
+  };
+  const getTierForIncome=(amount,tiers)=>{
+    const list=tiers||getActiveTiers();
+    return list.find(t=>amount<=t.max)||list[list.length-1];
+  };
+  const checkEmergencyTransferLimits=(amount)=>{
+    const maxAmt=budgetSettings.emergencyMaxAmount;
+    if(maxAmt&&amount>maxAmt)return `⛔ المبلغ (${fmt(amount)}) أكبر من الحد الأقصى للتحويل (${fmt(maxAmt)})`;
+    const maxCount=budgetSettings.emergencyMaxTransfers;
+    if(maxCount){
+      const curMonth=new Date().toISOString().slice(0,7);
+      const countThisMonth=txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")&&t.date.startsWith(curMonth)).length;
+      if(countThisMonth>=maxCount)return `⛔ وصلتي للحد الأقصى ديال التحويلات هاد الشهر (${maxCount})`;
+    }
+    return null;
+  };
+  const getEmergencyTarget=()=>{
+    const months=budgetSettings.emergencyMonths||6;
+    const realExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
+    const monthsSet=[...new Set(realExp.map(t=>t.date.slice(0,7)))];
+    const totalExp=realExp.reduce((s,t)=>s+t.amount,0);
+    const avgMonthly=monthsSet.length>0?totalExp/monthsSet.length:0;
+    return avgMonthly*months;
+  };
+  const computeBucketAllocated=(type)=>{
+    const tiers=getActiveTiers();
+    const incomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
+    const rawFor=key=>incomeTxs.reduce((sum,t)=>{const tier=getTierForIncome(t.amount,tiers);return sum+t.amount*((tier.pcts[key]||0)/100);},0);
+    const rawEmergency=rawFor("emergency");
+    const emergencyTarget=getEmergencyTarget();
+    const cappedEmergency=Math.min(rawEmergency,emergencyTarget);
+    const emergencyExcess=Math.max(0,rawEmergency-emergencyTarget);
+    if(type==="emergency")return cappedEmergency;
+    if(type==="retirement")return rawFor("retirement")+emergencyExcess; // فائض الطوارئ (بعد الوصول للهدف) كيتحول أوتوماتيك للتقاعد
+    return rawFor(type);
+  };
   const getBucketBalanceLive=(type)=>{
     const bkt=(budgetSettings.buckets||[]).find(b=>b.type===type);
     if(!bkt)return null;
-    const totalInc=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-    const allocated=totalInc*(bkt.pct/100);
+    const allocated=computeBucketAllocated(type);
     if(type==="expenses"){
       const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
       return allocated-spent;
@@ -383,6 +426,32 @@ export default function App(){
     return allocated;
   };
 
+  const getCatDistYear=(year)=>(budgetSettings.catDistYears||[]).find(d=>d.year===year);
+  const getCatBalance=(catId,subId,year)=>{
+    const dist=getCatDistYear(year);
+    const entry=dist?.items.find(i=>i.catId===catId&&(i.subId||null)===(subId||null));
+    const pct=entry?.pct||0;
+    const yearIncome=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)).reduce((s,t)=>s+t.amount,0);
+    const expBkt=(budgetSettings.buckets||[]).find(b=>b.type==="expenses");
+    const yearBudgetTotal=expBkt?yearIncome*((expBkt.pct||0)/100):0;
+    const catBudget=yearBudgetTotal*(pct/100);
+    const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)).reduce((s,t)=>s+t.amount,0);
+    const transfers=budgetSettings.catTransfers||[];
+    const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
+    const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
+    return catBudget-spent+transfersIn-transfersOut;
+  };
+  const getRunwayMonths=()=>{
+    const expBal=getBucketBalanceLive("expenses")||0;
+    const rw=budgetSettings.runwayMonths||"3";
+    const monthsSet=[...new Set(txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).map(t=>t.date.slice(0,7)))].sort();
+    const useMonths=rw==="all"?monthsSet:monthsSet.slice(-3);
+    if(useMonths.length===0)return null;
+    const totalSpent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&useMonths.includes(t.date.slice(0,7))).reduce((s,t)=>s+t.amount,0);
+    const avgMonthly=totalSpent/useMonths.length;
+    if(avgMonthly<=0)return null;
+    return expBal/avgMonthly;
+  };
   const addTx=()=>{
     if(!form.amount){showErr("⛔ أدخل المبلغ");return;}
     if(!form.catId){showErr("⛔ اختر التصنيف");return;}
@@ -401,6 +470,18 @@ export default function App(){
         if(bktBal-newAmt<0){
           showErr(`⛔ رصيد الميزانية غير كافي — المتاح: ${fmt(Math.max(0,bktBal))} د.م`);return;
         }
+      }
+      // منع بسبب توزيع التصنيفات السنوي
+      const curYear=new Date().getFullYear().toString();
+      if(!getCatDistYear(curYear)){
+        showErr("⛔ خاصك تدخل توزيع التصنيفات ديال هاد العام أولاً — من الإعدادات");return;
+      }
+      const catIdNum=parseInt(form.catId);
+      const subIdNum=form.subId?parseInt(form.subId):null;
+      const catBal=getCatBalance(catIdNum,subIdNum,curYear);
+      const newAmt2=parseFloat(form.amount)||0;
+      if(catBal-newAmt2<0){
+        showErr(`⛔ رصيد التصنيف غير كافي — المتاح: ${fmt(Math.max(0,catBal))} د.م`);return;
       }
     }
     const acc=form.akey?allAcc.find(a=>a.key===form.akey):null;
@@ -1961,6 +2042,11 @@ export default function App(){
               <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>الأهداف والتوزيع</div><div style={{fontSize:12,color:"#64748b"}}>هدف الدخل، نسب الأقسام، ربط الحسابات</div></div>
               <ChevronLeft size={18} color="#64748b"/>
             </div>
+            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("catDist")}>
+              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>📊</div>
+              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>توزيع الميزانية على التصنيفات</div><div style={{fontSize:12,color:"#64748b"}}>نسب سنوية لكل تصنيف وفرع</div></div>
+              <ChevronLeft size={18} color="#64748b"/>
+            </div>
           </div>
 
           <div style={{fontSize:11,color:"#94a3b8",fontWeight:700,margin:"4px 4px 6px"}}>التصنيفات والبيانات</div>
@@ -1978,7 +2064,7 @@ export default function App(){
               <ChevronLeft size={18} color="#64748b"/>
             </div>
           </div>
-          {dp&&["banks","cash","assets","expCat","incCat","cloud","profile","appearance","security","distribution"].includes(dp)&&(
+          {dp&&["banks","cash","assets","expCat","incCat","cloud","profile","appearance","security","distribution","catDist"].includes(dp)&&(
             <div style={{position:isDesktop?"absolute":"fixed",inset:0,background:"#f5f5f0",zIndex:100,overflowY:"auto",padding:"20px 20px 90px"}}>
               <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');`}</style>
               <div dir="rtl" style={{fontFamily:"Tajawal",color:"#1a1a1a",display:"flex",flexDirection:"column",gap:14}}>
@@ -2328,6 +2414,94 @@ export default function App(){
           </div>
 
                 </>}
+
+                {dp==="catDist"&&(()=>{
+                  const curYear=new Date().getFullYear().toString();
+                  const dist=getCatDistYear(curYear);
+                  const flatItems=[]; // {catId,subId,label,icon}
+                  (cats.expense||[]).forEach(c=>{
+                    if(c.subs&&c.subs.length>0){
+                      c.subs.forEach(s=>flatItems.push({catId:c.id,subId:s.id,label:`${c.name} — ${s.name}`,icon:c.icon}));
+                    } else {
+                      flatItems.push({catId:c.id,subId:null,label:c.name,icon:c.icon});
+                    }
+                  });
+                  const draftKey=it=>`catpct_${it.catId}_${it.subId||"x"}`;
+                  const draftTotal=flatItems.reduce((s,it)=>s+(parseFloat(ovExp[draftKey(it)])||0),0);
+                  return <>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>توزيع الميزانية على التصنيفات</span>
+                      <button onClick={()=>setDp(null)} style={{background:"#e8e8e4",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+                    </div>
+
+                    {dist ? (
+                      <div style={S.card}>
+                        <div style={{background:"#e8f5ee",borderRadius:10,padding:10,marginBottom:10,textAlign:"center"}}>
+                          <div style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>✅ توزيع {curYear} مثبت</div>
+                          <div style={{fontSize:11,color:"#64748b",marginTop:2}}>ثابت طول العام — التعديل غير التحويل اليدوي بين التصنيفات</div>
+                        </div>
+                        {dist.items.map((it,i)=>{
+                          const cat=(cats.expense||[]).find(c=>c.id===it.catId);
+                          const sub=cat?.subs?.find(s=>s.id===it.subId);
+                          return <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f1f5f9",fontSize:13}}>
+                            <span>{cat?.icon} {cat?.name}{sub?` — ${sub.name}`:""}</span><span style={{fontWeight:700,color:"#1a6b4a"}}>{it.pct}%</span>
+                          </div>;
+                        })}
+                      </div>
+                    ) : (
+                      <div style={S.card}>
+                        <div style={{background:"#fef3c7",borderRadius:10,padding:10,marginBottom:10}}>
+                          <div style={{fontSize:12,color:"#92400e",fontWeight:700}}>⚠️ ماكاينش توزيع لعام {curYear} بعد</div>
+                          <div style={{fontSize:11,color:"#78350f",marginTop:4}}>ما تقدرش تصرف من الميزانية حتى تدخل النسب وتحفظ (المجموع = 100%)</div>
+                        </div>
+                        {flatItems.map(it=>(
+                          <div key={draftKey(it)} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                            <div style={{flex:1,fontSize:13}}>{it.icon} {it.label}</div>
+                            <input style={{...S.inp,width:64,textAlign:"center",padding:"7px"}} type="number" min="0" max="100"
+                              value={ovExp[draftKey(it)]||""} onChange={e=>setOvExp(p=>({...p,[draftKey(it)]:e.target.value}))}/>
+                            <span style={{fontSize:12,color:"#64748b"}}>%</span>
+                          </div>
+                        ))}
+                        <div style={{textAlign:"center",fontSize:13,fontWeight:800,color:draftTotal===100?"#10b981":"#ef4444",margin:"10px 0"}}>المجموع: {draftTotal}% {draftTotal===100?"✅":"⚠️"}</div>
+                        <button style={S.btn("#1a6b4a")} onClick={()=>{
+                          if(draftTotal!==100){showErr(`⛔ المجموع ${draftTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
+                          const items=flatItems.map(it=>({catId:it.catId,subId:it.subId,pct:parseFloat(ovExp[draftKey(it)])||0})).filter(it=>it.pct>0);
+                          const nb={...budgetSettings,catDistYears:[...(budgetSettings.catDistYears||[]),{year:curYear,items}]};
+                          setBudgetSettings(nb);_save('budgetSettings',nb);
+                          setErr(`✅ تم حفظ توزيع ${curYear}`);setTimeout(()=>setErr(null),3000);
+                        }}>💾 حفظ توزيع {curYear}</button>
+                      </div>
+                    )}
+
+                    {dist && <>
+                      <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"6px 2px"}}>🔄 تحويل بين التصنيفات</div>
+                      <div style={S.card}>
+                        <select style={{...S.sel,marginBottom:8}} value={ovExp.trFrom||""} onChange={e=>setOvExp(p=>({...p,trFrom:e.target.value}))}>
+                          <option value="">من (تصنيف/فرع)</option>
+                          {flatItems.map(it=><option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`}>{it.label}</option>)}
+                        </select>
+                        <select style={{...S.sel,marginBottom:8}} value={ovExp.trTo||""} onChange={e=>setOvExp(p=>({...p,trTo:e.target.value}))}>
+                          <option value="">إلى (تصنيف/فرع)</option>
+                          {flatItems.map(it=><option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`}>{it.label}</option>)}
+                        </select>
+                        <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ" value={ovExp.trAmt||""} onChange={e=>setOvExp(p=>({...p,trAmt:e.target.value}))}/>
+                        <button style={S.btn("#6366f1")} onClick={()=>{
+                          const amt=parseFloat(ovExp.trAmt);
+                          if(!ovExp.trFrom||!ovExp.trTo||!amt||amt<=0){showErr("⛔ عمر كل الخانات");setTimeout(()=>setErr(null),3000);return;}
+                          if(ovExp.trFrom===ovExp.trTo){showErr("⛔ اختر تصنيفين مختلفين");setTimeout(()=>setErr(null),3000);return;}
+                          const[fCat,fSub]=ovExp.trFrom.split("_");
+                          const[tCat,tSub]=ovExp.trTo.split("_");
+                          const fromBal=getCatBalance(parseInt(fCat),fSub?parseInt(fSub):null,curYear);
+                          if(amt>fromBal){showErr(`⛔ الرصيد غير كافي — المتاح: ${fmt(fromBal)}`);setTimeout(()=>setErr(null),3500);return;}
+                          const nb={...budgetSettings,catTransfers:[...(budgetSettings.catTransfers||[]),{year:curYear,fromCatId:parseInt(fCat),fromSubId:fSub?parseInt(fSub):null,toCatId:parseInt(tCat),toSubId:tSub?parseInt(tSub):null,amount:amt,date:new Date().toISOString().split("T")[0]}]};
+                          setBudgetSettings(nb);_save('budgetSettings',nb);
+                          setOvExp(p=>({...p,trFrom:"",trTo:"",trAmt:""}));
+                          setErr("✅ تم التحويل");setTimeout(()=>setErr(null),3000);
+                        }}>تحويل</button>
+                      </div>
+                    </>}
+                  </>;
+                })()}
 
                 {dp==="banks"&&<>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -2769,7 +2943,7 @@ export default function App(){
           const periodExp = filterByPeriod(txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset)).reduce((s,t)=>s+t.amount,0);
           const totalInc = allInc.reduce((s,t)=>s+t.amount,0);
           const getBucketData = b=>{
-            const allocated = totalInc * (b.pct/100);
+            const allocated = computeBucketAllocated(b.type);
             if(b.type==="expenses"){
               const spent = txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
               return {allocated, spent, transferIn:0, balance:allocated-spent, bucketTxs:[]};
@@ -2787,6 +2961,18 @@ export default function App(){
           return <>
             <PeriodSelector/>
 
+            {/* شحال من شهر تقدر تعيش بلا دخل */}
+            {(()=>{
+              const runway=getRunwayMonths();
+              if(runway===null)return null;
+              const color=runway>=3?"#10b981":runway>=1?"#f59e0b":"#ef4444";
+              return <div style={{...S.card,textAlign:"center",background:"linear-gradient(135deg,#0f172a,#1e293b)",marginBottom:12}}>
+                <div style={{fontSize:12,color:"rgba(255,255,255,.75)",marginBottom:6}}>⏳ شحال من شهر تقدر تعيش بلا دخل</div>
+                <div style={{fontSize:32,fontWeight:900,color}}>{runway.toFixed(1)} <span style={{fontSize:16}}>شهر</span></div>
+                <div style={{fontSize:11,color:"rgba(255,255,255,.6)",marginTop:6}}>بهاد المعدل ديال الصرف، الميزانية غاتكفيك {runway.toFixed(1)} شهر بلا أي دخل جديد</div>
+              </div>;
+            })()}
+
             {/* تنبيه نفاذ الميزانية */}
             {expBalance < 0 && emergBucket && (()=>{
               const emergBal = getBucketBalance(emergBucket).balance;
@@ -2800,6 +2986,8 @@ export default function App(){
                   const toAcc = allAcc.find(a=>((expBucket||{}).accountKeys||[]).includes(a.key));
                   if(!fromAcc||!toAcc){showErr("⛔ ربط الحسابات ناقص — ربط حسابات الميزانية والطوارئ أولاً");return;}
                   if(transferAmt>(fromAcc.balance||0)){showErr("⛔ رصيد حساب الطوارئ الحقيقي غير كافي — المتاح: "+fmt(fromAcc.balance||0));return;}
+                  const limitErr=checkEmergencyTransferLimits(transferAmt);
+                  if(limitErr){showErr(limitErr);setTimeout(()=>setErr(null),4000);return;}
                   const txDate=new Date().toISOString().split("T")[0];
                   setTxs(p=>[
                     {id:uid(),type:"expense",amount:transferAmt,desc:"إعاشة من الطوارئ للميزانية",date:txDate,ref:fromAcc.ref,isTransfer:true,isLoan:false,isInvest:false,isAsset:false,catId:null,subId:null,note:"",pm:"تحويل"},
@@ -2830,6 +3018,35 @@ export default function App(){
               </div>
             </div>
 
+            {/* توزيع الميزانية على التصنيفات */}
+            {(()=>{
+              const curYear=new Date().getFullYear().toString();
+              const dist=getCatDistYear(curYear);
+              if(!dist)return (
+                <div style={{...S.card,background:"#fef3c7",border:"1px solid #f59e0b",textAlign:"center"}}>
+                  <div style={{fontSize:12,color:"#92400e",fontWeight:700,marginBottom:8}}>⚠️ ما دخلتيش توزيع التصنيفات ديال {curYear} بعد</div>
+                  <button style={{...S.btn("#f59e0b"),padding:"9px",fontSize:12}} onClick={()=>{setPage("settings");setDp("catDist");}}>حدده من الإعدادات</button>
+                </div>
+              );
+              return <>
+                <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"4px 2px 8px"}}>🏷️ التصنيفات ({curYear})</div>
+                <div style={S.card}>
+                  {dist.items.map((it,i)=>{
+                    const cat=(cats.expense||[]).find(c=>c.id===it.catId);
+                    const sub=cat?.subs?.find(s=>s.id===it.subId);
+                    const bal=getCatBalance(it.catId,it.subId,curYear);
+                    return <div key={i} style={{padding:"9px 0",borderBottom:"1px solid #f8fafc"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}>
+                        <span>{cat?.icon} {cat?.name}{sub?` — ${sub.name}`:""}</span>
+                        <span style={{fontWeight:700,color:bal>=0?"#1a6b4a":"#ef4444"}}>{fmt(bal)}</span>
+                      </div>
+                      <div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>{it.pct}% من الميزانية{bal<0?" — ⚠️ نافذ":""}</div>
+                    </div>;
+                  })}
+                </div>
+              </>;
+            })()}
+
             {/* نسب التوزيع */}
             {totalPct!==100&&<div style={{...S.card,background:"#fef3c7",border:"1px solid #f59e0b",padding:10,fontSize:12,color:"#92400e",marginBottom:8}}>
               ⚠️ مجموع النسب {totalPct}% — خاص يكون 100%
@@ -2845,7 +3062,7 @@ export default function App(){
           const allInc = txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
           const totalInc = allInc.reduce((s,t)=>s+t.amount,0);
           const getBucketData = b=>{
-            const allocated = totalInc * (b.pct/100);
+            const allocated = computeBucketAllocated(b.type);
             if(b.type==="expenses"){
               const spent = txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
               const balance = allocated - spent;
@@ -2982,6 +3199,8 @@ export default function App(){
                     if(transferAmt>(fromAcc.balance||0)){showErr("⛔ رصيد حساب الطوارئ الحقيقي غير كافي — المتاح: "+fmt(fromAcc.balance||0));return;}
                     const emgBalNow=getBucketBalanceLive("emergency");
                     if(emgBalNow!==null&&transferAmt>emgBalNow){showErr(`⛔ قسم الطوارئ ناقص — المتاح: ${fmt(Math.max(emgBalNow,0))}`);return;}
+                    const limitErr=checkEmergencyTransferLimits(transferAmt);
+                    if(limitErr){showErr(limitErr);setTimeout(()=>setErr(null),4000);return;}
                     const txDate=new Date().toISOString().split("T")[0];
                     setTxs(p=>[
                       {id:uid(),type:"expense",amount:transferAmt,desc:"إعاشة للميزانية",date:txDate,ref:fromAcc.ref,isTransfer:true,isLoan:false,isInvest:false,isAsset:false,catId:null,subId:null,note:"",pm:"تحويل"},
@@ -3101,7 +3320,7 @@ export default function App(){
 
               const totalIncAllTime=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
               const getBucketSnap=b=>{
-                const allocated=totalIncAllTime*(b.pct/100);
+                const allocated=computeBucketAllocated(b.type);
                 if(b.type==="expenses"){const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);return{allocated,spent,balance:allocated-spent};}
                 if(b.type==="emergency"){const out=txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out};}
                 if(b.type==="assets"){const out=txs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);const inB=txs.filter(t=>t.type==="income"&&t.isAsset).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out+inB};}

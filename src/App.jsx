@@ -441,6 +441,24 @@ export default function App(){
     const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
     return catBudget-spent+transfersIn-transfersOut;
   };
+  const getCatDetail=(catId,subId,year)=>{
+    const dist=getCatDistYear(year);
+    const entry=dist?.items.find(i=>i.catId===catId&&(i.subId||null)===(subId||null));
+    const pct=entry?.pct||0;
+    const yearIncome=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)).reduce((s,t)=>s+t.amount,0);
+    const expBkt=(budgetSettings.buckets||[]).find(b=>b.type==="expenses");
+    const yearBudgetTotal=expBkt?yearIncome*((expBkt.pct||0)/100):0;
+    const allocated=yearBudgetTotal*(pct/100);
+    const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)).reduce((s,t)=>s+t.amount,0);
+    const transfers=budgetSettings.catTransfers||[];
+    const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
+    const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
+    const totalAvail=allocated+transfersIn-transfersOut;
+    const balance=totalAvail-spent;
+    const usedPct=totalAvail>0?Math.min((spent/totalAvail)*100,999):0;
+    const remainPct=totalAvail>0?Math.max(100-usedPct,usedPct>100?-(usedPct-100):0):0;
+    return {pct,allocated,spent,transfersIn,transfersOut,totalAvail,balance,usedPct,remainPct};
+  };
   const getRunwayMonths=()=>{
     const expBal=getBucketBalanceLive("expenses")||0;
     const rw=budgetSettings.runwayMonths||"3";
@@ -450,7 +468,7 @@ export default function App(){
     const totalSpent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&useMonths.includes(t.date.slice(0,7))).reduce((s,t)=>s+t.amount,0);
     const avgMonthly=totalSpent/useMonths.length;
     if(avgMonthly<=0)return null;
-    return expBal/avgMonthly;
+    return {months:expBal/avgMonthly,expBal,avgMonthly,monthsCount:useMonths.length,rwSetting:rw};
   };
   const addTx=()=>{
     if(!form.amount){showErr("⛔ أدخل المبلغ");return;}
@@ -2499,11 +2517,11 @@ export default function App(){
                       <div style={S.card}>
                         <select style={{...S.sel,marginBottom:8}} value={ovExp.trFrom||""} onChange={e=>setOvExp(p=>({...p,trFrom:e.target.value}))}>
                           <option value="">من (تصنيف/فرع)</option>
-                          {flatItems.map(it=><option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`}>{it.label}</option>)}
+                          {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`}>{it.label} — باقي {fmt(b)}</option>;})}
                         </select>
                         <select style={{...S.sel,marginBottom:8}} value={ovExp.trTo||""} onChange={e=>setOvExp(p=>({...p,trTo:e.target.value}))}>
                           <option value="">إلى (تصنيف/فرع)</option>
-                          {flatItems.map(it=><option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`}>{it.label}</option>)}
+                          {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`}>{it.label} — باقي {fmt(b)}</option>;})}
                         </select>
                         <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ" value={ovExp.trAmt||""} onChange={e=>setOvExp(p=>({...p,trAmt:e.target.value}))}/>
                         <button style={S.btn("#6366f1")} onClick={()=>{
@@ -2985,13 +3003,17 @@ export default function App(){
 
             {/* شحال من شهر تقدر تعيش بلا دخل */}
             {(()=>{
-              const runway=getRunwayMonths();
-              if(runway===null)return null;
-              const color=runway>=3?"#10b981":runway>=1?"#f59e0b":"#ef4444";
+              const rd=getRunwayMonths();
+              if(rd===null)return null;
+              const color=rd.months>=3?"#10b981":rd.months>=1?"#f59e0b":"#ef4444";
               return <div style={{...S.card,textAlign:"center",background:"linear-gradient(135deg,#0f172a,#1e293b)",marginBottom:12}}>
                 <div style={{fontSize:12,color:"rgba(255,255,255,.75)",marginBottom:6}}>⏳ شحال من شهر تقدر تعيش بلا دخل</div>
-                <div style={{fontSize:32,fontWeight:900,color}}>{runway.toFixed(1)} <span style={{fontSize:16}}>شهر</span></div>
-                <div style={{fontSize:11,color:"rgba(255,255,255,.6)",marginTop:6}}>بهاد المعدل ديال الصرف، الميزانية غاتكفيك {runway.toFixed(1)} شهر بلا أي دخل جديد</div>
+                <div style={{fontSize:32,fontWeight:900,color}}>{rd.months.toFixed(1)} <span style={{fontSize:16}}>شهر</span></div>
+                <div style={{display:"flex",justifyContent:"center",gap:16,marginTop:12,paddingTop:12,borderTop:"1px solid rgba(255,255,255,.15)"}}>
+                  <div><div style={{fontSize:13,fontWeight:800,color:"white"}}>{fmt(rd.expBal)}</div><div style={{fontSize:10,color:"rgba(255,255,255,.6)",marginTop:2}}>رصيد الميزانية</div></div>
+                  <div><div style={{fontSize:13,fontWeight:800,color:"white"}}>{fmt(rd.avgMonthly)}</div><div style={{fontSize:10,color:"rgba(255,255,255,.6)",marginTop:2}}>متوسط الصرف الشهري</div></div>
+                  <div><div style={{fontSize:13,fontWeight:800,color:"white"}}>{rd.rwSetting==="all"?`${rd.monthsCount} شهر`:"آخر 3 أشهر"}</div><div style={{fontSize:10,color:"rgba(255,255,255,.6)",marginTop:2}}>المعدل المستعمل</div></div>
+                </div>
               </div>;
             })()}
 
@@ -3056,13 +3078,20 @@ export default function App(){
                   {dist.items.map((it,i)=>{
                     const cat=(cats.expense||[]).find(c=>c.id===it.catId);
                     const sub=cat?.subs?.find(s=>s.id===it.subId);
-                    const bal=getCatBalance(it.catId,it.subId,curYear);
-                    return <div key={i} style={{padding:"9px 0",borderBottom:"1px solid #f8fafc"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}>
+                    const d=getCatDetail(it.catId,it.subId,curYear);
+                    const barColor=d.balance<0?"#ef4444":d.usedPct>=80?"#f59e0b":"#1a6b4a";
+                    return <div key={i} style={{padding:"10px 0",borderBottom:"1px solid #f8fafc"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
                         <span>{cat?.icon} {cat?.name}{sub?` — ${sub.name}`:""}</span>
-                        <span style={{fontWeight:700,color:bal>=0?"#1a6b4a":"#ef4444"}}>{fmt(bal)}</span>
+                        <span style={{fontWeight:800,color:d.balance>=0?"#1a6b4a":"#ef4444"}}>{fmt(d.balance)}</span>
                       </div>
-                      <div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>{it.pct}% من الميزانية{bal<0?" — ⚠️ نافذ":""}</div>
+                      <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
+                        <div style={{height:"100%",width:Math.min(d.usedPct,100)+"%",background:barColor,borderRadius:3}}/>
+                      </div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
+                        <span>مخصص: {fmt(d.totalAvail)} · صرف: {fmt(d.spent)}</span>
+                        <span>{d.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-d.usedPct,0).toFixed(0)}%`}</span>
+                      </div>
                     </div>;
                   })}
                 </div>

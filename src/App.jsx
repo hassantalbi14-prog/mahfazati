@@ -198,6 +198,8 @@ export default function App(){
   },[autoLockMin]);
   const[bioTried,setBioTried]=useState(false);
   const[darkMode,setDarkMode]=useState(()=>localStorage.getItem("mhf_dark")==="1");
+  const[profileName,setProfileName]=useState(()=>localStorage.getItem("mhf_pname")||"");
+  const[profilePhoto,setProfilePhoto]=useState(()=>localStorage.getItem("mhf_pphoto")||"");
   const[isDesktop,setIsDesktop]=useState(()=>typeof window!=="undefined"&&window.innerWidth>900);
   useEffect(()=>{
     const onResize=()=>setIsDesktop(window.innerWidth>900);
@@ -1068,7 +1070,11 @@ export default function App(){
 
   const DesktopSidebar=()=>(
     <div dir="rtl" style={{position:"absolute",top:0,bottom:0,right:0,width:230,background:"linear-gradient(180deg,#1a6b4a,#0f4a33)",padding:"28px 16px",display:"flex",flexDirection:"column",gap:4,boxSizing:"border-box",overflowY:"auto"}}>
-      <div style={{color:"white",fontSize:20,fontWeight:900,marginBottom:24,textAlign:"center",whiteSpace:"nowrap"}}>💰 محفظتي</div>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8,marginBottom:24}}>
+        {profilePhoto?<img src={profilePhoto} style={{width:52,height:52,borderRadius:"50%",objectFit:"cover"}}/>:
+          <div style={{width:52,height:52,borderRadius:"50%",background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:900,color:"white"}}>{profileName?profileName[0]:"💰"}</div>}
+        <div style={{color:"white",fontSize:16,fontWeight:900,whiteSpace:"nowrap"}}>{profileName||"محفظتي"}</div>
+      </div>
       {[
         {id:"dashboard",icon:<Home size={17}/>,lbl:"الرئيسية"},
         {id:"overview",icon:<span style={{fontSize:16}}>💼</span>,lbl:"الملخص المالي"},
@@ -1127,6 +1133,11 @@ export default function App(){
             <button onClick={()=>setDrw(false)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 8px",color:"#1a1a1a",cursor:"pointer"}}><X size={18}/></button>
           </div>
           {dp===null&&<>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 0",borderBottom:"1px solid rgba(255,255,255,.15)",marginBottom:6,cursor:"pointer"}} onClick={()=>{setDrw(false);setPage("settings");setDp("profile");}}>
+              {profilePhoto?<img src={profilePhoto} style={{width:44,height:44,borderRadius:"50%",objectFit:"cover"}}/>:
+                <div style={{width:44,height:44,borderRadius:"50%",background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,fontWeight:900,color:"#1a1a1a"}}>{profileName?profileName[0]:"💰"}</div>}
+              <div style={{fontWeight:800,fontSize:16,color:"#1a1a1a"}}>{profileName||"محفظتي"}</div>
+            </div>
             <div className="mi" onClick={()=>{setDrw(false);setPage("dashboard");}}><Home size={18}/> الرئيسية</div>
             <div className="mi" onClick={()=>{setDrw(false);setPage("overview");}}><span style={{fontSize:18}}>💼</span> الملخص المالي</div>
             <div className="mi" onClick={()=>{setDrw(false);setPage("buckets");}}><span style={{fontSize:18}}>🧩</span> الأقسام</div>
@@ -1912,6 +1923,96 @@ export default function App(){
             <span style={{fontWeight:800,fontSize:18}}>الإعدادات</span>
             <button onClick={()=>setPage("dashboard")} style={{background:"#e8e8e4",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:13}}>← رجوع</button>
           </div>
+
+          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("profile")}>
+              {profilePhoto?<img src={profilePhoto} style={{width:44,height:44,borderRadius:"50%",objectFit:"cover",marginLeft:14,flexShrink:0}}/>:
+                <div style={{width:44,height:44,borderRadius:"50%",background:"#e8f5ee",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,fontWeight:900,color:"#1a6b4a",marginLeft:14,flexShrink:0}}>{profileName?profileName[0]:"👤"}</div>}
+              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{profileName||"الملف الشخصي"}</div><div style={{fontSize:11,color:"#64748b"}}>الاسم والصورة</div></div>
+              <ChevronLeft size={18} color="#64748b"/>
+            </div>
+          </div>
+
+          <div style={{fontSize:11,color:"#94a3b8",fontWeight:700,margin:"4px 4px 6px"}}>المظهر والأمان</div>
+          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+            {[
+              {id:"appearance",icon:"🎨",label:"المظهر",desc:"حجم الخط، الوضع الليلي"},
+              {id:"security",icon:"🔐",label:"الأمان والحساب",desc:"البصمة، القفل التلقائي، كلمة السر، جهة الاسترجاع"},
+            ].map((item,i,arr)=>(
+              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #e2e8f0":"none"}} onClick={()=>setDp(item.id)}>
+                <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
+                <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</div><div style={{fontSize:12,color:"#64748b"}}>{item.desc}</div></div>
+                <ChevronLeft size={18} color="#64748b"/>
+              </div>
+            ))}
+          </div>
+
+          <div style={{fontSize:11,color:"#94a3b8",fontWeight:700,margin:"4px 4px 6px"}}>الأموال والأهداف</div>
+          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+            {[{id:"banks",icon:"🏦",label:"البنوك"},{id:"cash",icon:"💵",label:"الكاش"},{id:"assets",icon:"🏠",label:"الممتلكات"}].map((item,i,arr)=>(
+              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>setDp(item.id)}>
+                <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
+                <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</span>
+                <ChevronLeft size={18} color="#64748b"/>
+              </div>
+            ))}
+            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("distribution")}>
+              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🎯</div>
+              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>الأهداف والتوزيع</div><div style={{fontSize:12,color:"#64748b"}}>هدف الدخل، نسب الأقسام، ربط الحسابات</div></div>
+              <ChevronLeft size={18} color="#64748b"/>
+            </div>
+          </div>
+
+          <div style={{fontSize:11,color:"#94a3b8",fontWeight:700,margin:"4px 4px 6px"}}>التصنيفات والبيانات</div>
+          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+            {[{id:"expCat",icon:"🔴",label:"تصنيفات النفقات",count:`${cats.expense.length} تصنيف`},{id:"incCat",icon:"🟢",label:"تصنيفات الدخل",count:`${cats.income.length} تصنيف`}].map((item,i,arr)=>(
+              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>setDp(item.id)}>
+                <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
+                <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</div><div style={{fontSize:12,color:"#64748b"}}>{item.count}</div></div>
+                <ChevronLeft size={18} color="#64748b"/>
+              </div>
+            ))}
+            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("cloud")}>
+              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>☁️</div>
+              <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>النسخ والتصدير</span>
+              <ChevronLeft size={18} color="#64748b"/>
+            </div>
+          </div>
+          {dp&&["banks","cash","assets","expCat","incCat","cloud","profile","appearance","security","distribution"].includes(dp)&&(
+            <div style={{position:isDesktop?"absolute":"fixed",inset:0,background:"#f5f5f0",zIndex:100,overflowY:"auto",padding:"20px 20px 90px"}}>
+              <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');`}</style>
+              <div dir="rtl" style={{fontFamily:"Tajawal",color:"#1a1a1a",display:"flex",flexDirection:"column",gap:14}}>
+
+                {dp==="profile"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>الملف الشخصي</span>
+                    <button onClick={()=>setDp(null)} style={{background:"#e8e8e4",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+                  </div>
+                  <div style={S.card}>
+                    <div style={{textAlign:"center",marginBottom:16}}>
+                      {profilePhoto?<img src={profilePhoto} style={{width:90,height:90,borderRadius:"50%",objectFit:"cover"}}/>:
+                        <div style={{width:90,height:90,borderRadius:"50%",background:"#e8f5ee",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,fontWeight:900,color:"#1a6b4a",margin:"0 auto"}}>{profileName?profileName[0]:"👤"}</div>}
+                      <label style={{display:"inline-block",marginTop:10,fontSize:12,color:"#1a6b4a",fontWeight:700,cursor:"pointer"}}>
+                        تغيير الصورة
+                        <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                          const file=e.target.files[0];if(!file)return;
+                          const r=new FileReader();
+                          r.onload=ev=>{const base64=ev.target.result;localStorage.setItem("mhf_pphoto",base64);setProfilePhoto(base64);};
+                          r.readAsDataURL(file);
+                        }}/>
+                      </label>
+                      {profilePhoto&&<button onClick={()=>{localStorage.removeItem("mhf_pphoto");setProfilePhoto("");}} style={{display:"block",margin:"6px auto 0",background:"none",border:"none",color:"#ef4444",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>حذف الصورة</button>}
+                    </div>
+                    <div style={{fontSize:12,color:"#64748b",marginBottom:6}}>الاسم</div>
+                    <input style={{...S.inp,marginBottom:10}} placeholder="اسمك" value={profileName} onChange={e=>{setProfileName(e.target.value);localStorage.setItem("mhf_pname",e.target.value);}}/>
+                  </div>
+                </>}
+
+                {dp==="appearance"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>المظهر</span>
+                    <button onClick={()=>setDp(null)} style={{background:"#e8e8e4",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+                  </div>
           <div style={S.card}>
             <div style={{fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,marginBottom:10}}>🔠 حجم الخط</div>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
@@ -1936,6 +2037,14 @@ export default function App(){
               </button>
             </div>
           </div>
+
+                </>}
+
+                {dp==="security"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>الأمان والحساب</span>
+                    <button onClick={()=>setDp(null)} style={{background:"#e8e8e4",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+                  </div>
           <div style={S.card}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
@@ -1967,26 +2076,36 @@ export default function App(){
               ))}
             </div>
           </div>
-          <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الأموال والممتلكات</div>
-            {[{id:"banks",icon:"🏦",label:"البنوك"},{id:"cash",icon:"💵",label:"الكاش"},{id:"assets",icon:"🏠",label:"الممتلكات"}].map((item,i,arr)=>(
-              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #e2e8f0":"none"}} onClick={()=>setDp(item.id)}>
-                <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
-                <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</span>
-                <ChevronLeft size={18} color="#64748b"/>
-              </div>
-            ))}
-          </div>
-          <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>التصنيفات</div>
-            {[{id:"expCat",icon:"🔴",label:"تصنيفات النفقات",count:`${cats.expense.length} تصنيف`},{id:"incCat",icon:"🟢",label:"تصنيفات الدخل",count:`${cats.income.length} تصنيف`}].map((item,i,arr)=>(
-              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #e2e8f0":"none"}} onClick={()=>setDp(item.id)}>
-                <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
-                <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</div><div style={{fontSize:12,color:"#64748b"}}>{item.count}</div></div>
-                <ChevronLeft size={18} color="#64748b"/>
-              </div>
-            ))}
-          </div>
+
+                  <div style={{...S.card,padding:0,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>om("changePw")}>
+              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🔑</div>
+              <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>تغيير كلمة السر</span>
+              <ChevronLeft size={18} color="#64748b"/>
+            </div>
+            {/* جهة الاسترجاع */}
+            <div style={{padding:"14px 16px",borderTop:"1px solid #f1f5f9"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📱 جهة استرجاع كلمة السر</div>
+              <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>إيميل أو رقم الهاتف — كيبان ملي تنسى كلمة السر</div>
+              <input style={{...S.inp,marginBottom:8}} type="text"
+                placeholder="example@email.com أو 0600000000"
+                value={recoveryContact}
+                onChange={e=>setRecoveryContact(e.target.value)}/>
+              {recoveryContact&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#10b98110",borderRadius:8}}>
+                <span style={{fontSize:16}}>✅</span>
+                <span style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>{recoveryContact}</span>
+              </div>}
+              {!recoveryContact&&<div style={{fontSize:11,color:"#f59e0b"}}>⚠️ ما سجلتيش جهة استرجاع بعد</div>}
+            </div>
+
+                  </div>
+                </>}
+
+                {dp==="distribution"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>الأهداف والتوزيع</span>
+                    <button onClick={()=>setDp(null)} style={{background:"#e8e8e4",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+                  </div>
           {/* ====== أهداف الدخل والتوزيع ====== */}
           {(()=>{
           const todayStr=new Date().toISOString().split("T")[0];
@@ -2208,37 +2327,8 @@ export default function App(){
             </div>
           </div>
 
-          <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>الحساب</div>
-            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>om("changePw")}>
-              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🔑</div>
-              <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>تغيير كلمة السر</span>
-              <ChevronLeft size={18} color="#64748b"/>
-            </div>
-            {/* جهة الاسترجاع */}
-            <div style={{padding:"14px 16px",borderTop:"1px solid #f1f5f9"}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📱 جهة استرجاع كلمة السر</div>
-              <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>إيميل أو رقم الهاتف — كيبان ملي تنسى كلمة السر</div>
-              <input style={{...S.inp,marginBottom:8}} type="text"
-                placeholder="example@email.com أو 0600000000"
-                value={recoveryContact}
-                onChange={e=>setRecoveryContact(e.target.value)}/>
-              {recoveryContact&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#10b98110",borderRadius:8}}>
-                <span style={{fontSize:16}}>✅</span>
-                <span style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>{recoveryContact}</span>
-              </div>}
-              {!recoveryContact&&<div style={{fontSize:11,color:"#f59e0b"}}>⚠️ ما سجلتيش جهة استرجاع بعد</div>}
-            </div>
-            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("cloud")}>
-              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>☁️</div>
-              <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>النسخ الاحتياطي</span>
-              <ChevronLeft size={18} color="#64748b"/>
-            </div>
-          </div>
-          {dp&&["banks","cash","assets","expCat","incCat","cloud"].includes(dp)&&(
-            <div style={{position:isDesktop?"absolute":"fixed",inset:0,background:"#f5f5f0",zIndex:100,overflowY:"auto",padding:"20px 20px 90px"}}>
-              <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');`}</style>
-              <div dir="rtl" style={{fontFamily:"Tajawal",color:"#1a1a1a",display:"flex",flexDirection:"column",gap:14}}>
+                </>}
+
                 {dp==="banks"&&<>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>البنوك</span>
@@ -2585,16 +2675,34 @@ export default function App(){
           const bucketsDef=budgetSettings.buckets||[];
           const currentPcts=activePct?activePct.pcts:Object.fromEntries(bucketsDef.map(b=>[b.type,b.pct]));
 
-          const curMonth=todayStr.slice(0,7);
-          const monthTxs=txs.filter(t=>t.date.startsWith(curMonth));
-          const incomeReached=monthTxs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-          const expenseReached=monthTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
-          const emergencyReached=monthTxs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
-          const assetsReached=monthTxs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);
-          const investReached=monthTxs.filter(t=>t.type==="expense"&&t.isInvest).reduce((s,t)=>s+t.amount,0);
-          const retireReached=monthTxs.filter(t=>t.type==="expense"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);
+          const goalsPeriod=ovExp.goalsPeriod||"month";
+          const now=new Date();
+          const curMonthStr=todayStr.slice(0,7);
+          const curYearStr=String(now.getFullYear());
+          let periodTxs,monthsMult,periodLabel;
+          if(goalsPeriod==="year"){
+            periodTxs=txs.filter(t=>t.date.startsWith(curYearStr));
+            monthsMult=now.getMonth()+1; // عدد الأشهر لي داز من هاد السنة (يناير=1)
+            periodLabel=curYearStr;
+          } else if(goalsPeriod==="all"){
+            periodTxs=txs;
+            const allMonthsSet=[...new Set(txs.map(t=>t.date.slice(0,7)))];
+            monthsMult=Math.max(allMonthsSet.length,1);
+            periodLabel="كل الفترة";
+          } else {
+            periodTxs=txs.filter(t=>t.date.startsWith(curMonthStr));
+            monthsMult=1;
+            periodLabel=new Date().toLocaleString("ar-MA",{month:"long",year:"numeric"});
+          }
+          const incomeReached=periodTxs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+          const expenseReached=periodTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+          const emergencyReached=periodTxs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
+          const assetsReached=periodTxs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);
+          const investReached=periodTxs.filter(t=>t.type==="expense"&&t.isInvest).reduce((s,t)=>s+t.amount,0);
+          const retireReached=periodTxs.filter(t=>t.type==="expense"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);
 
-          const incomeTarget=activeIncome?activeIncome.amount:0;
+          const incomeTargetMonthly=activeIncome?activeIncome.amount:0;
+          const incomeTarget=incomeTargetMonthly*monthsMult;
           const cardsData=[
             {key:"income",icon:"💰",name:"الدخل",color:"#1a6b4a",target:incomeTarget,reached:incomeReached,isIncome:true},
             {key:"expenses",icon:"🛒",name:"الميزانية",color:"#3b82f6",target:incomeTarget*((currentPcts.expenses||0)/100),reached:expenseReached},
@@ -2607,7 +2715,15 @@ export default function App(){
           return <>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
               <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setPage("dashboard")}>← رجوع</button>
-              <span style={{fontWeight:800,fontSize:17}}>🎯 الأهداف — {new Date().toLocaleString("ar-MA",{month:"long",year:"numeric"})}</span>
+              <span style={{fontWeight:800,fontSize:17}}>🎯 الأهداف — {periodLabel}</span>
+            </div>
+
+            <div style={{...S.card,padding:"10px 12px"}}>
+              <div style={{display:"flex",gap:6}}>
+                {[["month","الشهر"],["year","السنة"],["all","الكل"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setOvExp(p=>({...p,goalsPeriod:v}))} style={{...S.btn(goalsPeriod===v?"#1a6b4a":"#f1f5f9",false),flex:1,padding:"9px 6px",fontSize:12,color:goalsPeriod===v?"white":"#475569"}}>{l}</button>
+                ))}
+              </div>
             </div>
 
             {!activeIncome && <div style={{...S.card,background:"#fef3c7",border:"1px solid #f59e0b",textAlign:"center"}}>
@@ -2626,7 +2742,7 @@ export default function App(){
                     <div style={{width:40,height:40,borderRadius:12,background:c.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19}}>{c.icon}</div>
                     <div style={{flex:1}}>
                       <div style={{fontWeight:800,fontSize:14}}>{c.name}</div>
-                      <div style={{fontSize:11,color:"#64748b"}}>الهدف الشهري: {fmt(c.target)}</div>
+                      <div style={{fontSize:11,color:"#64748b"}}>الهدف: {fmt(c.target)}</div>
                     </div>
                     <div style={{textAlign:"left"}}>
                       <div style={{fontSize:16,fontWeight:900,color:barColor}}>{pct.toFixed(0)}%</div>
@@ -2644,7 +2760,6 @@ export default function App(){
             })}
           </>;
         })()}
-
 
         {page==="budget"&&(()=>{
           const buckets = budgetSettings.buckets||[];

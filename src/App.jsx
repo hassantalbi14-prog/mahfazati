@@ -378,6 +378,9 @@ export default function App(){
     return null;
   };
   const getEmergencyTarget=()=>{
+    if(budgetSettings.emergencyTargetMode==="fixed"&&budgetSettings.emergencyFixedAmount){
+      return budgetSettings.emergencyFixedAmount;
+    }
     const months=budgetSettings.emergencyMonths||6;
     const realExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
     const monthsSet=[...new Set(realExp.map(t=>t.date.slice(0,7)))];
@@ -2438,13 +2441,33 @@ export default function App(){
             <div style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
               <div style={{background:"#f8fafc",borderRadius:10,padding:10}}>
                 <div style={{fontSize:12,color:"#1a1a1a",fontWeight:700,marginBottom:8}}>🎯 هدف صندوق الطوارئ</div>
-                <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>الهدف = متوسط مصروفك الشهري × عدد الأشهر — يتوقف التمويل ملي يوصل ليه</div>
-                <div style={{display:"flex",gap:6,marginBottom:12}}>
-                  {[3,6,12].map(m=>(
-                    <button key={m} onClick={()=>{const nb={...budgetSettings,emergencyMonths:m};setBudgetSettings(nb);_save('budgetSettings',nb);}}
-                      style={{...S.btn((budgetSettings.emergencyMonths||6)===m?"#1a6b4a":"#f1f5f9",false),flex:1,padding:"8px 6px",fontSize:12,color:(budgetSettings.emergencyMonths||6)===m?"white":"#475569"}}>{m} أشهر</button>
+                <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>يتوقف التمويل تلقائيا ملي يوصل الرصيد لهاد الهدف</div>
+                <div style={{display:"flex",gap:6,marginBottom:10}}>
+                  {[["months","عدد الأشهر"],["fixed","مبلغ محدد"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>{const nb={...budgetSettings,emergencyTargetMode:v};setBudgetSettings(nb);_save('budgetSettings',nb);}}
+                      style={{...S.btn((budgetSettings.emergencyTargetMode||"months")===v?"#1a6b4a":"#f1f5f9",false),flex:1,padding:"8px 6px",fontSize:12,color:(budgetSettings.emergencyTargetMode||"months")===v?"white":"#475569"}}>{l}</button>
                   ))}
                 </div>
+                {(budgetSettings.emergencyTargetMode||"months")==="months"?(
+                  <>
+                    <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>الهدف = متوسط مصروفك الشهري × عدد الأشهر</div>
+                    <div style={{display:"flex",gap:6,marginBottom:10}}>
+                      {[3,6,12].map(m=>(
+                        <button key={m} onClick={()=>{const nb={...budgetSettings,emergencyMonths:m};setBudgetSettings(nb);_save('budgetSettings',nb);}}
+                          style={{...S.btn((budgetSettings.emergencyMonths||6)===m?"#1a6b4a":"#f1f5f9",false),flex:1,padding:"8px 6px",fontSize:12,color:(budgetSettings.emergencyMonths||6)===m?"white":"#475569"}}>{m} أشهر</button>
+                      ))}
+                    </div>
+                    <div style={{fontSize:11,color:"#64748b",marginBottom:6}}>أو رقم آخر</div>
+                    <input style={{...S.inp,marginBottom:12,padding:"8px",fontSize:13}} type="number" min="1" placeholder="مثلا 18"
+                      value={budgetSettings.emergencyMonths||""} onChange={e=>{const v=parseInt(e.target.value)||1;const nb={...budgetSettings,emergencyMonths:v};setBudgetSettings(nb);_save('budgetSettings',nb);}}/>
+                  </>
+                ):(
+                  <div style={{marginBottom:12}}>
+                    <div style={{fontSize:11,color:"#64748b",marginBottom:6}}>المبلغ المستهدف مباشرة</div>
+                    <input style={{...S.inp,padding:"8px",fontSize:13}} type="number" min="0" placeholder="مثلا 50000"
+                      value={budgetSettings.emergencyFixedAmount||""} onChange={e=>{const v=parseFloat(e.target.value)||0;const nb={...budgetSettings,emergencyFixedAmount:v};setBudgetSettings(nb);_save('budgetSettings',nb);}}/>
+                  </div>
+                )}
                 <div style={{fontSize:12,color:"#1a1a1a",fontWeight:700,marginBottom:6}}>عدد التحويلات المسموحة شهريا من الطوارئ للميزانية</div>
                 <input style={{...S.inp,marginBottom:10,padding:"8px",fontSize:13}} type="number" min="0" placeholder="بلا حد (فارغ = بلا حد)"
                   value={budgetSettings.emergencyMaxTransfers||""} onChange={e=>{const v=e.target.value?parseInt(e.target.value):null;const nb={...budgetSettings,emergencyMaxTransfers:v};setBudgetSettings(nb);_save('budgetSettings',nb);}}/>

@@ -2430,6 +2430,26 @@ export default function App(){
               </div>
             </div>
 
+            {/* هدف صندوق الطوارئ وحدود التحويل */}
+            <div style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
+              <div style={{background:"#f8fafc",borderRadius:10,padding:10}}>
+                <div style={{fontSize:12,color:"#1a1a1a",fontWeight:700,marginBottom:8}}>🎯 هدف صندوق الطوارئ</div>
+                <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>الهدف = متوسط مصروفك الشهري × عدد الأشهر — يتوقف التمويل ملي يوصل ليه</div>
+                <div style={{display:"flex",gap:6,marginBottom:12}}>
+                  {[3,6,12].map(m=>(
+                    <button key={m} onClick={()=>{const nb={...budgetSettings,emergencyMonths:m};setBudgetSettings(nb);_save('budgetSettings',nb);}}
+                      style={{...S.btn((budgetSettings.emergencyMonths||6)===m?"#1a6b4a":"#f1f5f9",false),flex:1,padding:"8px 6px",fontSize:12,color:(budgetSettings.emergencyMonths||6)===m?"white":"#475569"}}>{m} أشهر</button>
+                  ))}
+                </div>
+                <div style={{fontSize:12,color:"#1a1a1a",fontWeight:700,marginBottom:6}}>عدد التحويلات المسموحة شهريا من الطوارئ للميزانية</div>
+                <input style={{...S.inp,marginBottom:10,padding:"8px",fontSize:13}} type="number" min="0" placeholder="بلا حد (فارغ = بلا حد)"
+                  value={budgetSettings.emergencyMaxTransfers||""} onChange={e=>{const v=e.target.value?parseInt(e.target.value):null;const nb={...budgetSettings,emergencyMaxTransfers:v};setBudgetSettings(nb);_save('budgetSettings',nb);}}/>
+                <div style={{fontSize:12,color:"#1a1a1a",fontWeight:700,marginBottom:6}}>الحد الأقصى لمبلغ التحويل الواحد</div>
+                <input style={{...S.inp,padding:"8px",fontSize:13}} type="number" min="0" placeholder="بلا حد (فارغ = بلا حد)"
+                  value={budgetSettings.emergencyMaxAmount||""} onChange={e=>{const v=e.target.value?parseFloat(e.target.value):null;const nb={...budgetSettings,emergencyMaxAmount:v};setBudgetSettings(nb);_save('budgetSettings',nb);}}/>
+              </div>
+            </div>
+
             {/* ربط الحسابات */}
             <div style={{borderBottom:"1px solid #f1f5f9"}}>
               <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setBudgetSec(p=>({...p,alloc:!p.alloc}))}>

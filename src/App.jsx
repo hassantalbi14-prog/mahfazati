@@ -2671,26 +2671,6 @@ export default function App(){
                               if(subTotal!==100){showErr(`⛔ مجموع فروع "${c.name}" ${subTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
                             }
                           }
-                          // التحقق: كل تصنيف/فرع خاصو يكون موجود (ولو بـ0%) فكل السنين الأقدم اللي عندها توزيع
-                          const earlierYears=(budgetSettings.catDistYears||[]).filter(d=>parseInt(d.year)<parseInt(selYear));
-                          for(const oldDist of earlierYears){
-                            for(const c of expCats){
-                              const oldCatEntry=(oldDist.catPcts||[]).find(x=>x.catId===c.id);
-                              if(!oldCatEntry){
-                                showErr(`⛔ التصنيف "${c.name}" ماكاينش فتوزيع ${oldDist.year} — خاصك تزيدو ليه (ولو 0%) قبل ما تحفظ ${selYear}`);
-                                setTimeout(()=>setErr(null),5000);return;
-                              }
-                              if(c.subs&&c.subs.length>0){
-                                const oldSubList=(oldDist.subPcts||{})[c.id]||[];
-                                for(const sub of c.subs){
-                                  if(!oldSubList.find(x=>x.subId===sub.id)){
-                                    showErr(`⛔ الفرع "${sub.name}" (${c.name}) ماكاينش فتوزيع ${oldDist.year} — خاصك تزيدو ليه (ولو 0%) قبل ما تحفظ ${selYear}`);
-                                    setTimeout(()=>setErr(null),5000);return;
-                                  }
-                                }
-                              }
-                            }
-                          }
                           const catPcts=expCats.map(c=>({catId:c.id,pct:parseFloat(ovExp[catDraftKey(c)])||0}));
                           const subPcts={};
                           expCats.forEach(c=>{
@@ -3271,7 +3251,27 @@ export default function App(){
                 if(c.subs&&c.subs.length>0)c.subs.forEach(s=>flatItems.push({catId:c.id,subId:s.id}));
                 else flatItems.push({catId:c.id,subId:null});
               });
+              const negativeOnes=flatItems.map(it=>{
+                const cat=(cats.expense||[]).find(c=>c.id===it.catId);
+                const sub=cat?.subs?.find(s=>s.id===it.subId);
+                const d=getCatDetail(it.catId,it.subId,curYear);
+                return{...it,cat,sub,d};
+              }).filter(x=>x.d.balance<0);
               return <>
+                {negativeOnes.length>0&&<div style={{...S.card,background:"#fee2e2",border:"1px solid #ef4444"}}>
+                  <div style={{fontSize:12,color:"#991b1b",fontWeight:800,marginBottom:8}}>⛔ {negativeOnes.length} فرع/تصنيف فعجز — خاصك تصلحو</div>
+                  {negativeOnes.map((x,i)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:i<negativeOnes.length-1?"1px solid #fecaca":"none"}}>
+                      <span style={{fontSize:12,color:"#7f1d1d"}}>{x.cat?.icon} {x.cat?.name}{x.sub?` — ${x.sub.name}`:""}</span>
+                      <span style={{fontSize:12,fontWeight:800,color:"#ef4444"}}>-{fmt(Math.abs(x.d.balance))}</span>
+                    </div>
+                  ))}
+                  <button style={{...S.btn("#ef4444"),padding:"9px",fontSize:12,marginTop:8}} onClick={()=>{
+                    const first=negativeOnes[0];
+                    setPage("settings");setDp("catDist");
+                    setOvExp(p=>({...p,catDistYearSel:curYear,trTo:`${first.catId}_${first.subId||""}`}));
+                  }}>🔄 روح دير تحويل ليه دابا</button>
+                </div>}
                 <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"4px 2px 8px"}}>🏷️ التصنيفات ({curYear})</div>
                 <div style={S.card}>
                   {flatItems.map((it,i)=>{

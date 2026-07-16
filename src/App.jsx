@@ -2671,6 +2671,26 @@ export default function App(){
                               if(subTotal!==100){showErr(`⛔ مجموع فروع "${c.name}" ${subTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
                             }
                           }
+                          // التحقق: كل تصنيف/فرع خاصو يكون موجود (ولو بـ0%) فكل السنين الأقدم اللي عندها توزيع
+                          const earlierYears=(budgetSettings.catDistYears||[]).filter(d=>parseInt(d.year)<parseInt(selYear));
+                          for(const oldDist of earlierYears){
+                            for(const c of expCats){
+                              const oldCatEntry=(oldDist.catPcts||[]).find(x=>x.catId===c.id);
+                              if(!oldCatEntry){
+                                showErr(`⛔ التصنيف "${c.name}" ماكاينش فتوزيع ${oldDist.year} — خاصك تزيدو ليه (ولو 0%) قبل ما تحفظ ${selYear}`);
+                                setTimeout(()=>setErr(null),5000);return;
+                              }
+                              if(c.subs&&c.subs.length>0){
+                                const oldSubList=(oldDist.subPcts||{})[c.id]||[];
+                                for(const sub of c.subs){
+                                  if(!oldSubList.find(x=>x.subId===sub.id)){
+                                    showErr(`⛔ الفرع "${sub.name}" (${c.name}) ماكاينش فتوزيع ${oldDist.year} — خاصك تزيدو ليه (ولو 0%) قبل ما تحفظ ${selYear}`);
+                                    setTimeout(()=>setErr(null),5000);return;
+                                  }
+                                }
+                              }
+                            }
+                          }
                           const catPcts=expCats.map(c=>({catId:c.id,pct:parseFloat(ovExp[catDraftKey(c)])||0}));
                           const subPcts={};
                           expCats.forEach(c=>{

@@ -2573,8 +2573,20 @@ export default function App(){
                         {dist.items.map((it,i)=>{
                           const cat=(cats.expense||[]).find(c=>c.id===it.catId);
                           const sub=cat?.subs?.find(s=>s.id===it.subId);
-                          return <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f1f5f9",fontSize:13}}>
-                            <span>{cat?.icon} {cat?.name}{sub?` — ${sub.name}`:""}</span><span style={{fontWeight:700,color:"#1a6b4a"}}>{it.pct}%</span>
+                          const d=getCatDetail(it.catId,it.subId,selYear);
+                          const barColor=d.balance<0?"#ef4444":d.usedPct>=80?"#f59e0b":"#1a6b4a";
+                          return <div key={i} style={{padding:"9px 0",borderBottom:"1px solid #f1f5f9"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
+                              <span>{cat?.icon} {cat?.name}{sub?` — ${sub.name}`:""} <span style={{color:"#94a3b8",fontSize:11}}>({it.pct}%)</span></span>
+                              <span style={{fontWeight:800,color:d.balance>=0?"#1a6b4a":"#ef4444"}}>{d.balance<0?"-":""}{fmt(Math.abs(d.balance))}</span>
+                            </div>
+                            <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
+                              <div style={{height:"100%",width:Math.min(d.usedPct,100)+"%",background:barColor,borderRadius:3}}/>
+                            </div>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
+                              <span>مخصص: {fmt(d.totalAvail)} · صرف: {fmt(d.spent)}</span>
+                              <span>{d.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-d.usedPct,0).toFixed(0)}%`}</span>
+                            </div>
                           </div>;
                         })}
                       </div>

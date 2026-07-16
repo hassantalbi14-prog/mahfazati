@@ -398,6 +398,10 @@ export default function App(){
     const byMonth={};
     incomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+t.amount;});
     const rawFor=key=>Object.values(byMonth).reduce((sum,monthTotal)=>{const tier=getTierForIncome(monthTotal,tiers);return sum+monthTotal*((tier.pcts[key]||0)/100);},0);
+    if(type==="expenses"){
+      const emgRefill=txs.filter(t=>t.type==="income"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
+      return rawFor("expenses")+emgRefill;
+    }
     if(type!=="emergency"&&type!=="retirement")return rawFor(type);
 
     // محاكاة زمنية شهر بشهر للطوارئ: كيتوقف التمويل عند الهدف، وكيرجع يعمر إلا نقص الرصيد بعد سحب
@@ -3177,7 +3181,7 @@ export default function App(){
               const spent = txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
               const balance = allocated - spent;
               return {allocated, spent, transferIn:0, balance,
-                bucketTxs: txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).slice(0,20)
+                bucketTxs: txs.filter(t=>(t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset)||(t.type==="income"&&t.isTransfer&&(t.desc||"").includes("إعاشة"))).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30)
               };
             } else if(b.type==="emergency"){
               const out = txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
@@ -3230,6 +3234,42 @@ export default function App(){
             })}
           </>;
 
+          const getBucketMonthlyEntries=(type)=>{
+            const tiers=getActiveTiers();
+            const incomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
+            const byMonth={};
+            incomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+t.amount;});
+            if(type==="emergency"||type==="retirement"){
+              const emergencyTarget=getEmergencyTarget();
+              const withdrawals=txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة"));
+              const withdrawByMonth={};
+              withdrawals.forEach(t=>{const m=t.date.slice(0,7);withdrawByMonth[m]=(withdrawByMonth[m]||0)+t.amount;});
+              const allMonths=[...new Set([...Object.keys(byMonth),...Object.keys(withdrawByMonth)])].sort();
+              let emgBalance=0;const rows=[];
+              allMonths.forEach(m=>{
+                emgBalance-=(withdrawByMonth[m]||0);
+                const monthInc=byMonth[m]||0;
+                let applied=0,excess=0,retRaw=0;
+                if(monthInc>0){
+                  const tier=getTierForIncome(monthInc,tiers);
+                  const raw=monthInc*((tier.pcts.emergency||0)/100);
+                  const room=Math.max(emergencyTarget-emgBalance,0);
+                  applied=Math.min(raw,room);
+                  excess=raw-applied;
+                  emgBalance+=applied;
+                  retRaw=monthInc*((tier.pcts.retirement||0)/100);
+                }
+                if(type==="emergency"&&monthInc>0)rows.push({month:m,monthIncome:monthInc,contribution:applied});
+                if(type==="retirement"&&monthInc>0)rows.push({month:m,monthIncome:monthInc,contribution:retRaw+excess});
+              });
+              return rows.reverse();
+            }
+            return Object.keys(byMonth).sort().reverse().map(m=>{
+              const monthInc=byMonth[m];
+              const tier=getTierForIncome(monthInc,tiers);
+              return{month:m,monthIncome:monthInc,contribution:monthInc*((tier.pcts[type]||0)/100)};
+            });
+          };
           const b = buckets.find(x=>x.id===bktSel);
           if(!b) return null;
           const {allocated, spent, transferIn, balance, bucketTxs} = getBucketData(b);
@@ -3281,23 +3321,45 @@ export default function App(){
                 </div>
 
                 <div style={{marginTop:10,borderTop:"1px solid #f0f0f0",paddingTop:10}}>
-                  <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📋 سجل الحركات ({bucketTxs.length})</div>
-                  {bucketTxs.length===0?
-                    <div style={{textAlign:"center",color:"#64748b",padding:16,fontSize:12}}>ما كاينش حركات بعد</div>:
-                    bucketTxs.slice(0,10).map(t=>(
-                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #f5f5f5"}}>
-                        <div style={{width:30,height:30,borderRadius:8,background:t.type==="income"?"#10b98120":"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
-                          {t.type==="income"?"↓":"↑"}
+                  <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📥 الدخول (شهر بشهر)</div>
+                  {(()=>{const entries=getBucketMonthlyEntries(b.type).filter(r=>r.contribution>0);
+                    return entries.length===0?
+                      <div style={{textAlign:"center",color:"#64748b",padding:12,fontSize:12}}>ما كاينش دخول بعد</div>:
+                      entries.map(r=>(
+                        <div key={r.month} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f5f5f5"}}>
+                          <div><div style={{fontSize:12,fontWeight:600}}>{r.month}</div><div style={{fontSize:10,color:"#94a3b8"}}>دخل الشهر: {fmt(r.monthIncome)}</div></div>
+                          <span style={{fontSize:13,fontWeight:700,color:"#10b981"}}>+{fmt(r.contribution)}</span>
                         </div>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12,fontWeight:600}}>{t.desc||"معاملة"}</div>
-                          <div style={{fontSize:10,color:"#64748b"}}>{t.date}</div>
+                      ));
+                  })()}
+                </div>
+
+                <div style={{marginTop:14,borderTop:"1px solid #f0f0f0",paddingTop:10}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📤 الخروج</div>
+                  {(()=>{const exits=bucketTxs.filter(t=>t.type==="expense");
+                    return exits.length===0?
+                      <div style={{textAlign:"center",color:"#64748b",padding:12,fontSize:12}}>ما كاينش خروج بعد</div>:
+                      exits.slice(0,15).map(t=>(
+                        <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f5f5f5"}}>
+                          <div><div style={{fontSize:12,fontWeight:600}}>{t.desc||"معاملة"}</div><div style={{fontSize:10,color:"#94a3b8"}}>{t.date}</div></div>
+                          <span style={{fontSize:13,fontWeight:700,color:"#ef4444"}}>-{fmt(t.amount)}</span>
                         </div>
-                        <span style={{fontSize:13,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
-                      </div>
-                    ))
-                  }
-                  {bucketTxs.length>10&&<div style={{textAlign:"center",fontSize:11,color:"#64748b",marginTop:6}}>و{bucketTxs.length-10} معاملة أخرى...</div>}
+                      ));
+                  })()}
+                </div>
+
+                <div style={{marginTop:14,borderTop:"1px solid #f0f0f0",paddingTop:10}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🔄 التحويلات</div>
+                  {(()=>{const transfersIn=bucketTxs.filter(t=>t.type==="income");
+                    return transfersIn.length===0?
+                      <div style={{textAlign:"center",color:"#64748b",padding:12,fontSize:12}}>ما كاينش تحويلات بعد</div>:
+                      transfersIn.slice(0,15).map(t=>(
+                        <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f5f5f5"}}>
+                          <div><div style={{fontSize:12,fontWeight:600}}>{t.desc||"معاملة"}</div><div style={{fontSize:10,color:"#94a3b8"}}>{t.date}</div></div>
+                          <span style={{fontSize:13,fontWeight:700,color:"#10b981"}}>+{fmt(t.amount)}</span>
+                        </div>
+                      ));
+                  })()}
                 </div>
 
                 {b.type==="emergency"&&expBalance<0&&(()=>{

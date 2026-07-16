@@ -268,21 +268,38 @@ export default function App(){
       const pw=await _load('appPassword'); if(pw){setAppPassword(pw);localStorage.setItem("mhf_pw",pw);}
       const rc=await _load('recoveryContact'); if(rc)setRecoveryContact(rc);
       const bs=await _load('budgetSettings');
+      const migrateCatDistYears=(catDistYears)=>(catDistYears||[]).map(d=>{
+        if(d.catPcts)return d; // نظام جديد ديجا
+        if(!d.items)return d;
+        const catTotals={};const catSubs={};
+        d.items.forEach(it=>{
+          catTotals[it.catId]=(catTotals[it.catId]||0)+it.pct;
+          if(it.subId){if(!catSubs[it.catId])catSubs[it.catId]=[];catSubs[it.catId].push({subId:it.subId,pct:it.pct});}
+        });
+        const catPcts=Object.keys(catTotals).map(catId=>({catId:parseInt(catId),pct:catTotals[catId]}));
+        const subPcts={};
+        Object.keys(catSubs).forEach(catId=>{
+          const total=catTotals[catId]||1;
+          subPcts[catId]=catSubs[catId].map(s=>({subId:s.subId,pct:total>0?(s.pct/total*100):0}));
+        });
+        return {year:d.year,catPcts,subPcts};
+      });
       const OLD2NEW_COLOR={"#ef4444":"#3b82f6","#f59e0b":"#f97316","#1a6b4a":"#8b5cf6"};
       const migrateColor=c=>OLD2NEW_COLOR[c]||c;
       const defaultBuckets=[
         ...[{"id":1,"name":"الميزانية","icon":"🛒","color":"#3b82f6","pct":50,"accountKeys":["b-1783600840182-1783600840122"],"type":"expenses"},{"id":2,"name":"الطوارئ","icon":"🚨","color":"#f97316","pct":10,"accountKeys":["b-1783600840182-1783600840163"],"type":"emergency","emergencyPct":20},{"id":3,"name":"الممتلكات","icon":"🏠","color":"#14b8a6","pct":17,"accountKeys":["b-1783600840132-1783600840193"],"type":"assets"},{"id":4,"name":"الاستثمار","icon":"📈","color":"#8b5cf6","pct":15,"accountKeys":["c-1783600840163"],"type":"investment"},{"id":5,"name":"التقاعد","icon":"🏦","color":"#6366f1","pct":8,"accountKeys":["c-1783600840161"],"type":"retirement"}].slice(0)
       ];
       if(bs){
+        const migratedCatDistYears=migrateCatDistYears(bs.catDistYears);
         if(bs.buckets&&bs.buckets.length>0){
           // نظام جديد — حمل مباشرة (مع تحديث الألوان القديمة تلقائيا)
-          setBudgetSettings({...bs,buckets:bs.buckets.map(b=>({...b,color:migrateColor(b.color),accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))});
+          setBudgetSettings({...bs,catDistYears:migratedCatDistYears,buckets:bs.buckets.map(b=>({...b,color:migrateColor(b.color),accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))});
         } else if(bs.allocations&&bs.allocations.length>0){
           // ترحيل من النظام القديم
-          setBudgetSettings({buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))});
+          setBudgetSettings({...bs,catDistYears:migratedCatDistYears,buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))});
         } else {
           // ما فيهوش buckets ولا allocations — استعمل default
-          setBudgetSettings({buckets:defaultBuckets});
+          setBudgetSettings({...bs,catDistYears:migratedCatDistYears,buckets:defaultBuckets});
         }
       } else {
         // أول مرة — استعمل default
@@ -458,10 +475,25 @@ export default function App(){
   };
 
   const getCatDistYear=(year)=>(budgetSettings.catDistYears||[]).find(d=>d.year===year);
-  const getCatBalance=(catId,subId,year)=>{
+  const getCatEffectivePct=(catId,subId,year)=>{
     const dist=getCatDistYear(year);
-    const entry=dist?.items.find(i=>i.catId===catId&&(i.subId||null)===(subId||null));
-    const pct=entry?.pct||0;
+    if(!dist)return 0;
+    const catEntry=(dist.catPcts||[]).find(c=>c.catId===catId);
+    const catPct=catEntry?catEntry.pct:0;
+    if(subId==null)return catPct;
+    const subList=(dist.subPcts||{})[catId]||[];
+    const subEntry=subList.find(s=>s.subId===subId);
+    const subPct=subEntry?subEntry.pct:0;
+    return catPct*(subPct/100);
+  };
+  const getCatCarryover=(catId,subId,year)=>{
+    const prevYear=(parseInt(year)-1).toString();
+    if(parseInt(prevYear)<2017)return 0;
+    if(!getCatDistYear(prevYear))return 0; // ماكاينش توزيع للعام السابق = بلا ترحيل
+    return getCatBalance(catId,subId,prevYear);
+  };
+  const getCatBalance=(catId,subId,year)=>{
+    const pct=getCatEffectivePct(catId,subId,year);
     const yearIncomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year));
     const tiers=getActiveTiers();
     const byMonthY={};
@@ -472,12 +504,11 @@ export default function App(){
     const transfers=budgetSettings.catTransfers||[];
     const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
     const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
-    return catBudget-spent+transfersIn-transfersOut;
+    const carryover=getCatCarryover(catId,subId,year);
+    return carryover+catBudget-spent+transfersIn-transfersOut;
   };
   const getCatDetail=(catId,subId,year)=>{
-    const dist=getCatDistYear(year);
-    const entry=dist?.items.find(i=>i.catId===catId&&(i.subId||null)===(subId||null));
-    const pct=entry?.pct||0;
+    const pct=getCatEffectivePct(catId,subId,year);
     const yearIncomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year));
     const tiers=getActiveTiers();
     const byMonthY={};
@@ -488,11 +519,13 @@ export default function App(){
     const transfers=budgetSettings.catTransfers||[];
     const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
     const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
-    const totalAvail=allocated+transfersIn-transfersOut;
+    const carryover=getCatCarryover(catId,subId,year);
+    const totalAvail=carryover+allocated+transfersIn-transfersOut;
     const balance=totalAvail-spent;
+    const effectivePct=yearBudgetTotal>0?(totalAvail/yearBudgetTotal)*100:0;
     const usedPct=totalAvail>0?Math.min((spent/totalAvail)*100,999):0;
     const remainPct=totalAvail>0?Math.max(100-usedPct,usedPct>100?-(usedPct-100):0):0;
-    return {pct,allocated,spent,transfersIn,transfersOut,totalAvail,balance,usedPct,remainPct};
+    return {pct,allocated,spent,transfersIn,transfersOut,carryover,totalAvail,balance,usedPct,remainPct,effectivePct};
   };
   const getRunwayMonths=()=>{
     const expBal=getBucketBalanceLive("expenses")||0;
@@ -2530,8 +2563,9 @@ export default function App(){
                   const yearOptions=[];
                   for(let y=nowYear;y>=2017;y--)yearOptions.push(y.toString());
                   const dist=getCatDistYear(selYear);
-                  const flatItems=[]; // {catId,subId,label,icon}
-                  (cats.expense||[]).forEach(c=>{
+                  const expCats=cats.expense||[];
+                  const flatItems=[]; // {catId,subId,label,icon} — للعرض والتحويل فقط
+                  expCats.forEach(c=>{
                     if(c.subs&&c.subs.length>0){
                       c.subs.forEach(s=>flatItems.push({catId:c.id,subId:s.id,label:`${c.name} — ${s.name}`,icon:c.icon}));
                     } else {
@@ -2539,7 +2573,10 @@ export default function App(){
                     }
                   });
                   const draftKey=it=>`catpct_${selYear}_${it.catId}_${it.subId||"x"}`;
-                  const draftTotal=flatItems.reduce((s,it)=>s+(parseFloat(ovExp[draftKey(it)])||0),0);
+                  const catDraftKey=c=>`catpctL1_${selYear}_${c.id}`;
+                  const subDraftKey=(c,s)=>`catpctL2_${selYear}_${c.id}_${s.id}`;
+                  const catDraftTotal=expCats.reduce((s,c)=>s+(parseFloat(ovExp[catDraftKey(c)])||0),0);
+
                   return <>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                       <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>توزيع الميزانية على التصنيفات</span>
@@ -2570,16 +2607,17 @@ export default function App(){
                           <div style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>✅ توزيع {selYear} مثبت</div>
                           <div style={{fontSize:11,color:"#64748b",marginTop:2}}>ثابت طول العام — التعديل غير التحويل اليدوي بين التصنيفات</div>
                         </div>
-                        {dist.items.map((it,i)=>{
-                          const cat=(cats.expense||[]).find(c=>c.id===it.catId);
+                        {flatItems.map((it,i)=>{
+                          const cat=expCats.find(c=>c.id===it.catId);
                           const sub=cat?.subs?.find(s=>s.id===it.subId);
                           const d=getCatDetail(it.catId,it.subId,selYear);
                           const barColor=d.balance<0?"#ef4444":d.usedPct>=80?"#f59e0b":"#1a6b4a";
                           return <div key={i} style={{padding:"9px 0",borderBottom:"1px solid #f1f5f9"}}>
-                            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
-                              <span>{cat?.icon} {cat?.name}{sub?` — ${sub.name}`:""} <span style={{color:"#94a3b8",fontSize:11}}>({it.pct}%)</span></span>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}>
+                              <span>{cat?.icon} {cat?.name}{sub?` — ${sub.name}`:""}</span>
                               <span style={{fontWeight:800,color:d.balance>=0?"#1a6b4a":"#ef4444"}}>{d.balance<0?"-":""}{fmt(Math.abs(d.balance))}</span>
                             </div>
+                            <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>مثبت: {d.pct.toFixed(1)}% · فعليا دابا: {d.effectivePct.toFixed(1)}% من الميزانية</div>
                             <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
                               <div style={{height:"100%",width:Math.min(d.usedPct,100)+"%",background:barColor,borderRadius:3}}/>
                             </div>
@@ -2594,21 +2632,53 @@ export default function App(){
                       <div style={S.card}>
                         <div style={{background:"#fef3c7",borderRadius:10,padding:10,marginBottom:10}}>
                           <div style={{fontSize:12,color:"#92400e",fontWeight:700}}>⚠️ ماكاينش توزيع لعام {selYear} بعد</div>
-                          <div style={{fontSize:11,color:"#78350f",marginTop:4}}>{selYear===nowYear.toString()?"ما تقدرش تصرف من الميزانية حتى تدخل النسب وتحفظ (المجموع = 100%)":"دخل التوزيع ديال هاد العام القديم باش تكمل السجل التاريخي"}</div>
+                          <div style={{fontSize:11,color:"#78350f",marginTop:4}}>{selYear===nowYear.toString()?"ما تقدرش تصرف من الميزانية حتى تدخل النسب وتحفظ":"دخل التوزيع ديال هاد العام القديم باش تكمل السجل التاريخي"}</div>
                         </div>
-                        {flatItems.map(it=>(
-                          <div key={draftKey(it)} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                            <div style={{flex:1,fontSize:13}}>{it.icon} {it.label}</div>
-                            <input style={{...S.inp,width:64,textAlign:"center",padding:"7px"}} type="number" min="0" max="100"
-                              value={ovExp[draftKey(it)]||""} onChange={e=>setOvExp(p=>({...p,[draftKey(it)]:e.target.value}))}/>
-                            <span style={{fontSize:12,color:"#64748b"}}>%</span>
+
+                        <div style={{fontSize:12,fontWeight:800,color:"#334155",marginBottom:8}}>1️⃣ وزع 100% على التصنيفات</div>
+                        {expCats.map(c=>(
+                          <div key={c.id} style={{marginBottom:c.subs&&c.subs.length>0?4:8}}>
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{flex:1,fontSize:13}}>{c.icon} {c.name}</div>
+                              <input style={{...S.inp,width:64,textAlign:"center",padding:"7px"}} type="number" min="0" max="100"
+                                value={ovExp[catDraftKey(c)]!==undefined?ovExp[catDraftKey(c)]:"0"} onChange={e=>setOvExp(p=>({...p,[catDraftKey(c)]:e.target.value}))}/>
+                              <span style={{fontSize:12,color:"#64748b"}}>%</span>
+                            </div>
+                            {c.subs&&c.subs.length>0&&(()=>{
+                              const catPct=parseFloat(ovExp[catDraftKey(c)])||0;
+                              const subTotal=c.subs.reduce((s,sub)=>s+(parseFloat(ovExp[subDraftKey(c,sub)])||0),0);
+                              return <div style={{marginRight:20,marginTop:6,paddingRight:10,borderRight:"2px solid #e2e8f0"}}>
+                                <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>2️⃣ وزع النسبة ديال "{c.name}" ({catPct}%) على الفروع</div>
+                                {c.subs.map(sub=>(
+                                  <div key={sub.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                                    <div style={{flex:1,fontSize:12,color:"#475569"}}>{sub.name}</div>
+                                    <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100"
+                                      value={ovExp[subDraftKey(c,sub)]!==undefined?ovExp[subDraftKey(c,sub)]:"0"} onChange={e=>setOvExp(p=>({...p,[subDraftKey(c,sub)]:e.target.value}))}/>
+                                    <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                                  </div>
+                                ))}
+                                <div style={{fontSize:10,fontWeight:700,color:subTotal===100?"#10b981":"#ef4444",marginBottom:8}}>مجموع فروع "{c.name}": {subTotal}% {subTotal===100?"✅":"⚠️"}</div>
+                              </div>;
+                            })()}
                           </div>
                         ))}
-                        <div style={{textAlign:"center",fontSize:13,fontWeight:800,color:draftTotal===100?"#10b981":"#ef4444",margin:"10px 0"}}>المجموع: {draftTotal}% {draftTotal===100?"✅":"⚠️"}</div>
+                        <div style={{textAlign:"center",fontSize:13,fontWeight:800,color:catDraftTotal===100?"#10b981":"#ef4444",margin:"10px 0"}}>مجموع كل التصنيفات: {catDraftTotal}% {catDraftTotal===100?"✅":"⚠️"}</div>
                         <button style={S.btn("#1a6b4a")} onClick={()=>{
-                          if(draftTotal!==100){showErr(`⛔ المجموع ${draftTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
-                          const items=flatItems.map(it=>({catId:it.catId,subId:it.subId,pct:parseFloat(ovExp[draftKey(it)])||0})).filter(it=>it.pct>0);
-                          const nb={...budgetSettings,catDistYears:[...(budgetSettings.catDistYears||[]),{year:selYear,items}]};
+                          if(catDraftTotal!==100){showErr(`⛔ مجموع نسب التصنيفات ${catDraftTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
+                          for(const c of expCats){
+                            if(c.subs&&c.subs.length>0){
+                              const subTotal=c.subs.reduce((s,sub)=>s+(parseFloat(ovExp[subDraftKey(c,sub)])||0),0);
+                              if(subTotal!==100){showErr(`⛔ مجموع فروع "${c.name}" ${subTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
+                            }
+                          }
+                          const catPcts=expCats.map(c=>({catId:c.id,pct:parseFloat(ovExp[catDraftKey(c)])||0}));
+                          const subPcts={};
+                          expCats.forEach(c=>{
+                            if(c.subs&&c.subs.length>0){
+                              subPcts[c.id]=c.subs.map(sub=>({subId:sub.id,pct:parseFloat(ovExp[subDraftKey(c,sub)])||0}));
+                            }
+                          });
+                          const nb={...budgetSettings,catDistYears:[...(budgetSettings.catDistYears||[]),{year:selYear,catPcts,subPcts}]};
                           setBudgetSettings(nb);_save('budgetSettings',nb);
                           setErr(`✅ تم حفظ توزيع ${selYear}`);setTimeout(()=>setErr(null),3000);
                         }}>💾 حفظ توزيع {selYear}</button>
@@ -2644,6 +2714,8 @@ export default function App(){
                     </>}
                   </>;
                 })()}
+
+
 
 
                 {dp==="banks"&&<>
@@ -3174,19 +3246,26 @@ export default function App(){
                   <button style={{...S.btn("#f59e0b"),padding:"9px",fontSize:12}} onClick={()=>{setPage("settings");setDp("catDist");}}>حدده من الإعدادات</button>
                 </div>
               );
+              const flatItems=[];
+              (cats.expense||[]).forEach(c=>{
+                if(c.subs&&c.subs.length>0)c.subs.forEach(s=>flatItems.push({catId:c.id,subId:s.id}));
+                else flatItems.push({catId:c.id,subId:null});
+              });
               return <>
                 <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"4px 2px 8px"}}>🏷️ التصنيفات ({curYear})</div>
                 <div style={S.card}>
-                  {dist.items.map((it,i)=>{
+                  {flatItems.map((it,i)=>{
                     const cat=(cats.expense||[]).find(c=>c.id===it.catId);
                     const sub=cat?.subs?.find(s=>s.id===it.subId);
                     const d=getCatDetail(it.catId,it.subId,curYear);
+                    if(d.pct<=0&&d.balance===0)return null;
                     const barColor=d.balance<0?"#ef4444":d.usedPct>=80?"#f59e0b":"#1a6b4a";
                     return <div key={i} style={{padding:"10px 0",borderBottom:"1px solid #f8fafc"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}>
                         <span>{cat?.icon} {cat?.name}{sub?` — ${sub.name}`:""}</span>
-                        <span style={{fontWeight:800,color:d.balance>=0?"#1a6b4a":"#ef4444"}}>{fmt(d.balance)}</span>
+                        <span style={{fontWeight:800,color:d.balance>=0?"#1a6b4a":"#ef4444"}}>{d.balance<0?"-":""}{fmt(Math.abs(d.balance))}</span>
                       </div>
+                      <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>مثبت: {d.pct.toFixed(1)}% · فعليا دابا: {d.effectivePct.toFixed(1)}% من الميزانية</div>
                       <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
                         <div style={{height:"100%",width:Math.min(d.usedPct,100)+"%",background:barColor,borderRadius:3}}/>
                       </div>

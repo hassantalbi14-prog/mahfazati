@@ -398,13 +398,29 @@ export default function App(){
     const byMonth={};
     incomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+t.amount;});
     const rawFor=key=>Object.values(byMonth).reduce((sum,monthTotal)=>{const tier=getTierForIncome(monthTotal,tiers);return sum+monthTotal*((tier.pcts[key]||0)/100);},0);
-    const rawEmergency=rawFor("emergency");
+    if(type!=="emergency"&&type!=="retirement")return rawFor(type);
+
+    // محاكاة زمنية شهر بشهر للطوارئ: كيتوقف التمويل عند الهدف، وكيرجع يعمر إلا نقص الرصيد بعد سحب
     const emergencyTarget=getEmergencyTarget();
-    const cappedEmergency=Math.min(rawEmergency,emergencyTarget);
-    const emergencyExcess=Math.max(0,rawEmergency-emergencyTarget);
-    if(type==="emergency")return cappedEmergency;
-    if(type==="retirement")return rawFor("retirement")+emergencyExcess; // فائض الطوارئ (بعد الوصول للهدف) كيتحول أوتوماتيك للتقاعد
-    return rawFor(type);
+    const withdrawals=txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة"));
+    const withdrawByMonth={};
+    withdrawals.forEach(t=>{const m=t.date.slice(0,7);withdrawByMonth[m]=(withdrawByMonth[m]||0)+t.amount;});
+    const allMonths=[...new Set([...Object.keys(byMonth),...Object.keys(withdrawByMonth)])].sort();
+    let emgBalance=0,retirementExcess=0;
+    allMonths.forEach(m=>{
+      emgBalance-=(withdrawByMonth[m]||0);
+      const monthInc=byMonth[m]||0;
+      if(monthInc>0){
+        const tier=getTierForIncome(monthInc,tiers);
+        const rawContribution=monthInc*((tier.pcts.emergency||0)/100);
+        const room=Math.max(emergencyTarget-emgBalance,0);
+        const applied=Math.min(rawContribution,room);
+        emgBalance+=applied;
+        retirementExcess+=(rawContribution-applied);
+      }
+    });
+    if(type==="emergency")return emgBalance;
+    return rawFor("retirement")+retirementExcess; // فائض الطوارئ (بعد الوصول للهدف) كيتحول أوتوماتيك للتقاعد
   };
   const getBucketBalanceLive=(type)=>{
     const bkt=(budgetSettings.buckets||[]).find(b=>b.type===type);
@@ -415,8 +431,7 @@ export default function App(){
       return allocated-spent;
     }
     if(type==="emergency"){
-      const out=txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
-      return allocated-out;
+      return allocated; // computeBucketAllocated بالنسبة للطوارئ كيرجع الرصيد الصافي مباشرة (السحب محسوب فيه ديجا)
     }
     if(type==="assets"){
       const out=txs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);
@@ -3017,7 +3032,7 @@ export default function App(){
               return {allocated, spent, transferIn:0, balance:allocated-spent, bucketTxs:[]};
             } else if(b.type==="emergency"){
               const out = txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
-              return {allocated, spent:out, transferIn:0, balance:allocated-out, bucketTxs:[]};
+              return {allocated, spent:out, transferIn:0, balance:allocated, bucketTxs:[]};
             }
             return {allocated, spent:0, transferIn:0, balance:allocated, bucketTxs:[]};
           };
@@ -3146,7 +3161,7 @@ export default function App(){
               };
             } else if(b.type==="emergency"){
               const out = txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
-              const balance = allocated - out;
+              const balance = allocated;
               return {allocated, spent:out, transferIn:0, balance, bucketTxs: txs.filter(t=>t.isTransfer&&(t.desc||"").includes("إعاشة")).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20)};
             } else if(b.type==="assets"){
               const out = txs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);
@@ -3397,7 +3412,7 @@ export default function App(){
               const getBucketSnap=b=>{
                 const allocated=computeBucketAllocated(b.type);
                 if(b.type==="expenses"){const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);return{allocated,spent,balance:allocated-spent};}
-                if(b.type==="emergency"){const out=txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out};}
+                if(b.type==="emergency"){const out=txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated};}
                 if(b.type==="assets"){const out=txs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);const inB=txs.filter(t=>t.type==="income"&&t.isAsset).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out+inB};}
                 if(b.type==="investment"){const out=txs.filter(t=>t.type==="expense"&&t.isInvest).reduce((s,t)=>s+t.amount,0);const inB=txs.filter(t=>t.type==="income"&&t.isInvest).reduce((s,t)=>s+t.amount,0);return{allocated,spent:out,balance:allocated-out+inB};}
                 if(b.type==="retirement"){const out=loans.filter(l=>l.kind==="أعطيت").reduce((s,l)=>s+(l.remaining||0),0);return{allocated,spent:out,balance:allocated-out};}

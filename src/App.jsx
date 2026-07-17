@@ -2926,6 +2926,10 @@ export default function App(){
                     </div>
                     {ovExp[`pay_${t.id}`]?
                       <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        <input style={{...S.inp}} type="number" placeholder="المبلغ المخلص" step="0.01"
+                          value={ovExp[`payAmt_${t.id}`]!==undefined?ovExp[`payAmt_${t.id}`]:t.amount.toFixed(2)}
+                          onChange={e=>setOvExp(p=>({...p,[`payAmt_${t.id}`]:e.target.value}))}
+                          onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v))setOvExp(p=>({...p,[`payAmt_${t.id}`]:v.toFixed(2)}));}}/>
                         <select style={{...S.sel,border:`2px solid ${ovExp[`payErr_${t.id}`]?"#ef4444":"#e8e8e4"}`}} value={ovExp[`pacc_${t.id}`]||""} onChange={e=>setOvExp(p=>({...p,[`pacc_${t.id}`]:e.target.value,[`payErr_${t.id}`]:false}))}>
                           <option value="">⚠️ اختر الحساب</option>
                           {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name} ({fmt(a.balance||0)})</option>)}
@@ -2935,10 +2939,20 @@ export default function App(){
                           if(!ovExp[`pacc_${t.id}`]){setOvExp(p=>({...p,[`payErr_${t.id}`]:true}));return;}
                           const acc=allAcc.find(a=>a.key===ovExp[`pacc_${t.id}`]);
                           if(!acc)return;
-                          if(t.amount>(acc.balance||0)){showErr("⛔ الرصيد غير كافي");return;}
-                          updBal(acc.ref,t.amount,"expense","add");
-                          setTxs(p=>p.map(x=>x.id===t.id?{...x,creditPaid:true,ref:acc.ref}:x));
-                          setOvExp(p=>({...p,[`pay_${t.id}`]:false,[`pacc_${t.id}`]:""}));
+                          const payAmt=ovExp[`payAmt_${t.id}`]!==undefined?parseFloat(ovExp[`payAmt_${t.id}`]):t.amount;
+                          if(!payAmt||payAmt<=0){showErr("⛔ أدخل مبلغ صحيح");return;}
+                          if(payAmt>t.amount+0.001){showErr("⛔ المبلغ أكبر من الدين — الحد الأقصى: "+fmt(t.amount));return;}
+                          if(payAmt>(acc.balance||0)){showErr("⛔ الرصيد غير كافي");return;}
+                          updBal(acc.ref,payAmt,"expense","add");
+                          if(payAmt>=t.amount-0.001){
+                            setTxs(p=>p.map(x=>x.id===t.id?{...x,creditPaid:true,ref:acc.ref}:x));
+                          } else {
+                            setTxs(p=>[
+                              {id:uid(),type:"expense",amount:payAmt,catId:t.catId,subId:t.subId,desc:t.desc,date:new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref,note:"تخليص جزئي من الكريدي"},
+                              ...p.map(x=>x.id===t.id?{...x,amount:parseFloat((x.amount-payAmt).toFixed(2))}:x)
+                            ]);
+                          }
+                          setOvExp(p=>({...p,[`pay_${t.id}`]:false,[`pacc_${t.id}`]:"",[`payAmt_${t.id}`]:""}));
                         }}>✓ تأكيد الخلاص</button>
                         <button style={{background:"none",border:"none",color:"#64748b",fontFamily:"Tajawal",fontSize:12,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`pay_${t.id}`]:false}))}>إلغاء</button>
                       </div>:
@@ -4009,7 +4023,8 @@ export default function App(){
               <div style={{padding:"8px 14px",background:form.txType==="income"?"#10b98122":"#ef444422",borderRadius:10,marginBottom:4,textAlign:"center",fontWeight:700,fontSize:14,color:form.txType==="income"?"#10b981":"#ef4444"}}>
                 {modal==="addTx"?(form.txType==="income"?"🟢 إضافة دخل":form.txType==="invest"?"📈 إضافة استثمار":form.txType==="retire"?"🏦 التقاعد":form.txType==="emergency"?"🚨 الطوارئ":"🔴 إضافة مصروف"):"✏️ تعديل المعاملة"}
               </div>
-              <input style={S.num} placeholder="0.00" type="number" value={modal==="addTx"?form.amount||"":ei?.amount||""} onChange={e=>modal==="addTx"?F("amount",e.target.value):setEi(p=>({...p,amount:e.target.value}))} step="0.01"/>
+              <input style={S.num} placeholder="0.00" type="number" value={modal==="addTx"?form.amount||"":ei?.amount||""} onChange={e=>modal==="addTx"?F("amount",e.target.value):setEi(p=>({...p,amount:e.target.value}))}
+                onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){const formatted=v.toFixed(2);if(modal==="addTx")F("amount",formatted);else setEi(p=>({...p,amount:formatted}));}}} step="0.01"/>
               <select style={S.sel} value={modal==="addTx"?form.catId||"":ei?.catId||""} onChange={e=>{if(modal==="addTx"){F("catId",e.target.value);F("subId","");}else setEi(p=>({...p,catId:e.target.value,subId:""}));}}>
                 <option value="">اختر التصنيف</option>
                 {cats[modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense")].map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}

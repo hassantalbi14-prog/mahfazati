@@ -3235,19 +3235,57 @@ export default function App(){
 
             {/* ملخص الفترة */}
             <div style={{background:"linear-gradient(135deg,#0f172a,#1e293b)",borderRadius:20,padding:18,marginBottom:12}}>
-              <div style={{fontSize:12,color:"rgba(255,255,255,.75)",fontWeight:700,marginBottom:12}}>📊 ملخص {period.type==="month"?"الشهر":period.type==="year"?"السنة":"الكلي"}</div>
-              <div style={{display:"flex",gap:10,marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div style={{fontSize:12,color:"rgba(255,255,255,.75)",fontWeight:700}}>📊 ملخص {period.type==="month"?"الشهر":period.type==="year"?"السنة":"الكلي"}</div>
+                <div style={{display:"flex",gap:4}}>
+                  {[["all","الكل"],["budget","الميزانية"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setOvExp(p=>({...p,summaryMode:v}))} style={{background:(ovExp.summaryMode||"all")===v?"rgba(255,255,255,.2)":"rgba(255,255,255,.05)",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,color:"white",cursor:"pointer",fontFamily:"Tajawal",fontWeight:700}}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              {(ovExp.summaryMode||"all")==="all"&&<div style={{display:"flex",gap:10,marginBottom:12}}>
                 {[["📥 الدخل",periodInc,"#10b981"],["📤 المصاريف",periodExp,"#ef4444"]].map(([l,v,c])=>(
                   <div key={l} style={{flex:1,background:"rgba(255,255,255,.07)",borderRadius:14,padding:"12px 10px",textAlign:"center"}}>
                     <div style={{fontSize:10,color:"rgba(255,255,255,.75)",marginBottom:4}}>{l}</div>
                     <div style={{fontSize:16,fontWeight:900,color:c}}>{fmt(v)}</div>
                   </div>
                 ))}
-              </div>
-              <div style={{background:(periodInc-periodExp)>=0?"rgba(16,185,129,.15)":"rgba(239,68,68,.15)",borderRadius:14,padding:"12px 16px",display:"flex",justifyContent:"space-between"}}>
-                <div style={{fontSize:13,color:(periodInc-periodExp)>=0?"#10b981":"#ef4444",fontWeight:700}}>{(periodInc-periodExp)>=0?"💚 الفائض":"🔴 العجز"}</div>
-                <div style={{fontSize:20,fontWeight:900,color:(periodInc-periodExp)>=0?"#10b981":"#ef4444"}}>{fmt(Math.abs(periodInc-periodExp))}</div>
-              </div>
+              </div>}
+              {(ovExp.summaryMode||"all")==="all"?(
+                <div style={{background:(periodInc-periodExp)>=0?"rgba(16,185,129,.15)":"rgba(239,68,68,.15)",borderRadius:14,padding:"12px 16px",display:"flex",justifyContent:"space-between"}}>
+                  <div style={{fontSize:13,color:(periodInc-periodExp)>=0?"#10b981":"#ef4444",fontWeight:700}}>{(periodInc-periodExp)>=0?"💚 الفائض":"🔴 العجز"}</div>
+                  <div style={{fontSize:20,fontWeight:900,color:(periodInc-periodExp)>=0?"#10b981":"#ef4444"}}>{fmt(Math.abs(periodInc-periodExp))}</div>
+                </div>
+              ):(()=>{
+                const targetMonth=period.month||new Date().toISOString().slice(0,7);
+                const tiers=getActiveTiers();
+                const monthIncomeTotal=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(targetMonth)).reduce((s,t)=>s+t.amount,0);
+                const monthTier=getTierForIncome(monthIncomeTotal,tiers);
+                const monthBudgetIncome=monthIncomeTotal*((monthTier.pcts.expenses||0)/100);
+                const monthEmgRefill=txs.filter(t=>t.type==="income"&&t.isTransfer&&(t.desc||"").includes("إعاشة")&&t.date.startsWith(targetMonth)).reduce((s,t)=>s+t.amount,0);
+                const monthExpense=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(targetMonth)).reduce((s,t)=>s+t.amount,0);
+                const monthNet=monthBudgetIncome+monthEmgRefill-monthExpense;
+                const balanceAfter=getBucketBalanceLive("expenses");
+                const balanceBefore=balanceAfter-monthNet;
+                return <>
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,.1)"}}>
+                    <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>الرصيد قبل ({targetMonth})</span>
+                    <span style={{fontSize:13,fontWeight:700,color:balanceBefore>=0?"#a7f3d0":"#fca5a5"}}>{balanceBefore<0?"-":""}{fmt(Math.abs(balanceBefore))}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,.1)"}}>
+                    <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>+ دخل الشهر (نصيب الميزانية)</span>
+                    <span style={{fontSize:13,fontWeight:700,color:"#a7f3d0"}}>{fmt(monthBudgetIncome+monthEmgRefill)}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,.1)"}}>
+                    <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>− خروج الشهر (المصروف)</span>
+                    <span style={{fontSize:13,fontWeight:700,color:"#fca5a5"}}>{fmt(monthExpense)}</span>
+                  </div>
+                  <div style={{background:balanceAfter>=0?"rgba(16,185,129,.15)":"rgba(239,68,68,.15)",borderRadius:14,padding:"12px 16px",display:"flex",justifyContent:"space-between",marginTop:8}}>
+                    <div style={{fontSize:13,color:balanceAfter>=0?"#10b981":"#ef4444",fontWeight:700}}>{balanceAfter>=0?"💚 الباقي فالميزانية":"🔴 عجز الميزانية"}</div>
+                    <div style={{fontSize:20,fontWeight:900,color:balanceAfter>=0?"#10b981":"#ef4444"}}>{balanceAfter<0?"-":""}{fmt(Math.abs(balanceAfter))}</div>
+                  </div>
+                </>;
+              })()}
             </div>
 
             {/* توزيع الميزانية على التصنيفات */}
@@ -3288,25 +3326,46 @@ export default function App(){
                 </div>}
                 <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"4px 2px 8px"}}>🏷️ التصنيفات ({curYear})</div>
                 <div style={S.card}>
-                  {flatItems.map((it,i)=>{
-                    const cat=(cats.expense||[]).find(c=>c.id===it.catId);
-                    const sub=cat?.subs?.find(s=>s.id===it.subId);
-                    const d=getCatDetail(it.catId,it.subId,curYear);
-                    if(d.pct<=0&&d.balance===0)return null;
-                    const barColor=d.balance<0?"#ef4444":d.usedPct>=80?"#f59e0b":"#1a6b4a";
-                    return <div key={i} style={{padding:"10px 0",borderBottom:"1px solid #f8fafc"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}>
-                        <span>{cat?.icon} {cat?.name}{sub?` — ${sub.name}`:""}</span>
-                        <span style={{fontWeight:800,color:d.balance>=0?"#1a6b4a":"#ef4444"}}>{d.balance<0?"-":""}{fmt(Math.abs(d.balance))}</span>
+                  {(cats.expense||[]).map(cat=>{
+                    const hasSubsShown=cat.subs&&cat.subs.length>0;
+                    const leafItems=hasSubsShown?cat.subs.map(s=>({catId:cat.id,subId:s.id,sub:s})):[{catId:cat.id,subId:null,sub:null}];
+                    const details=leafItems.map(li=>({...li,d:getCatDetail(li.catId,li.subId,curYear)}));
+                    const catTotalBalance=details.reduce((s,x)=>s+x.d.balance,0);
+                    const catTotalAvail=details.reduce((s,x)=>s+x.d.totalAvail,0);
+                    const catTotalSpent=details.reduce((s,x)=>s+x.d.spent,0);
+                    const catUsedPct=catTotalAvail>0?Math.min((catTotalSpent/catTotalAvail)*100,999):0;
+                    const barColor=catTotalBalance<0?"#ef4444":catUsedPct>=80?"#f59e0b":"#1a6b4a";
+                    const isOpen=ovExp[`catOpen_${cat.id}`];
+                    return <div key={cat.id} style={{padding:"10px 0",borderBottom:"1px solid #f8fafc"}}>
+                      <div style={{cursor:hasSubsShown?"pointer":"default"}} onClick={()=>hasSubsShown&&setOvExp(p=>({...p,[`catOpen_${cat.id}`]:!p[`catOpen_${cat.id}`]}))}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}>
+                          <span>{cat.icon} {cat.name}{hasSubsShown?(isOpen?" ▲":" ▾"):""}</span>
+                          <span style={{fontWeight:800,color:catTotalBalance>=0?"#1a6b4a":"#ef4444"}}>{catTotalBalance<0?"-":""}{fmt(Math.abs(catTotalBalance))}</span>
+                        </div>
+                        <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
+                          <div style={{height:"100%",width:Math.min(catUsedPct,100)+"%",background:barColor,borderRadius:3}}/>
+                        </div>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
+                          <span>مخصص: {fmt(catTotalAvail)} · صرف: {fmt(catTotalSpent)}</span>
+                          <span>{catTotalBalance<0?"⚠️ نافذ":`باقي ${Math.max(100-catUsedPct,0).toFixed(0)}%`}</span>
+                        </div>
                       </div>
-                      <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>مثبت: {d.pct.toFixed(1)}% · فعليا دابا: {d.effectivePct.toFixed(1)}% من الميزانية</div>
-                      <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
-                        <div style={{height:"100%",width:Math.min(d.usedPct,100)+"%",background:barColor,borderRadius:3}}/>
-                      </div>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
-                        <span>مخصص: {fmt(d.totalAvail)} · صرف: {fmt(d.spent)}</span>
-                        <span>{d.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-d.usedPct,0).toFixed(0)}%`}</span>
-                      </div>
+                      {hasSubsShown&&isOpen&&<div style={{marginRight:16,marginTop:8,paddingRight:10,borderRight:"2px solid #e2e8f0"}}>
+                        {details.map((x,i)=>{
+                          const d=x.d;
+                          const subBarColor=d.balance<0?"#ef4444":d.usedPct>=80?"#f59e0b":"#1a6b4a";
+                          return <div key={i} style={{padding:"8px 0",borderBottom:i<details.length-1?"1px dashed #f1f5f9":"none"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}>
+                              <span style={{color:"#475569"}}>{x.sub.name}</span>
+                              <span style={{fontWeight:700,color:d.balance>=0?"#1a6b4a":"#ef4444"}}>{d.balance<0?"-":""}{fmt(Math.abs(d.balance))}</span>
+                            </div>
+                            <div style={{height:4,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:3}}>
+                              <div style={{height:"100%",width:Math.min(d.usedPct,100)+"%",background:subBarColor,borderRadius:3}}/>
+                            </div>
+                            <div style={{fontSize:9,color:"#94a3b8"}}>مخصص: {fmt(d.totalAvail)} · صرف: {fmt(d.spent)} · {d.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-d.usedPct,0).toFixed(0)}%`}</div>
+                          </div>;
+                        })}
+                      </div>}
                     </div>;
                   })}
                 </div>

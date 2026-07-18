@@ -53,7 +53,7 @@ const _load = async(k)=>{
   const all=await _readFullFile();
   return all[k]!==undefined?all[k]:null;
 };
-import { X, Home, Wallet, Target, BarChart3, Menu, ChevronLeft, Trash2, Cloud, Settings, Camera } from "lucide-react";
+import { X, Home, Wallet, Target, BarChart3, Menu, ChevronLeft, Trash2, Settings, Camera } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Legend, CartesianGrid } from "recharts";
 
 const PAL=["#10b981","#6366f1","#f59e0b","#ef4444","#14b8a6","#f97316","#8b5cf6","#ec4899","#06b6d4","#84cc16"];
@@ -1174,7 +1174,7 @@ export default function App(){
     return <>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 14px",borderBottom:"1px solid rgba(255,255,255,.12)"}}>
         <span style={{fontWeight:800,fontSize:17,color:"#1a1a1a"}}>{isE?"تصنيفات النفقات":"تصنيفات الدخل"}</span>
-        <button onClick={()=>setDp("settings")} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+        <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
       </div>
       <div style={{padding:"10px 14px"}}>
         <button style={{...S.btn(isE?"#ef4444":"#10b981"),padding:"11px"}} onClick={()=>om("addMCat",{catType})}>+ إضافة تصنيف جديد</button>
@@ -1340,7 +1340,7 @@ export default function App(){
           {dp==="banks"&&<>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 14px",borderBottom:"1px solid rgba(255,255,255,.12)"}}>
               <span style={{fontWeight:800,fontSize:17,color:"#1a1a1a"}}>البنوك</span>
-              <button onClick={()=>setDp("settings")} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+              <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
             </div>
             <div style={{padding:"10px 14px"}}>
               <button style={{...S.btn("#10b981"),padding:"11px"}} onClick={()=>om("addBank")}>+ إضافة بنك جديد</button>
@@ -1401,7 +1401,7 @@ export default function App(){
           {dp==="cash"&&<>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 14px",borderBottom:"1px solid rgba(255,255,255,.12)"}}>
               <span style={{fontWeight:800,fontSize:17,color:"#1a1a1a"}}>الكاش</span>
-              <button onClick={()=>setDp("settings")} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+              <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
             </div>
             <div style={{padding:"10px 14px"}}>
               <button style={{...S.btn("#f59e0b"),padding:"11px"}} onClick={()=>om("addCash")}>+ إضافة محفظة جديدة</button>
@@ -1428,7 +1428,7 @@ export default function App(){
           {dp==="assets"&&<>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 14px",borderBottom:"1px solid rgba(255,255,255,.12)"}}>
               <span style={{fontWeight:800,fontSize:17,color:"#1a1a1a"}}>الممتلكات</span>
-              <button onClick={()=>setDp("settings")} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+              <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
             </div>
             <div style={{padding:"10px 14px"}}>
               <button style={{...S.btn("#14b8a6"),padding:"11px"}} onClick={()=>om("addAst")}>+ إضافة ممتلك جديد</button>
@@ -1452,34 +1452,7 @@ export default function App(){
             {assets.length===0&&<div style={{textAlign:"center",padding:30,color:"rgba(255,255,255,.3)",fontSize:14}}>لا توجد ممتلكات — أضف ممتلكاً</div>}
           </>}
 
-          {dp==="loans"&&<>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 14px",borderBottom:"1px solid rgba(255,255,255,.12)"}}>
-              <span style={{fontWeight:800,fontSize:17,color:"#1a1a1a"}}>السلف والقروض</span>
-              <button onClick={()=>setDp("settings")} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
-            </div>
-            <div style={{padding:"10px 14px"}}>
-              <button style={{...S.btn("#8b5cf6"),padding:"11px"}} onClick={()=>om("addLoan")}>+ إضافة سلفة/قرض جديد</button>
-            </div>
-            {loans.map(l=>(
-              <div key={l.id} style={{padding:"14px",borderBottom:"1px solid rgba(255,255,255,.07)"}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{background:l.kind==="أعطيت"?"#10b98130":"#ef444430",color:l.kind==="أعطيت"?"#10b981":"#ef4444",padding:"2px 10px",borderRadius:12,fontSize:12,fontWeight:700}}>{l.kind}</span>
-                    <span style={{fontSize:15,fontWeight:700,color:"#1a1a1a"}}>{l.person}</span>
-                  </div>
-                  <button style={{background:"rgba(239,68,68,.2)",border:"none",borderRadius:8,padding:"5px 8px",cursor:"pointer"}} onClick={()=>ask("loan",l.id,l.person)}><Trash2 size={13} color="#fca5a5"/></button>
-                </div>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-                  <span style={{fontSize:12,color:"rgba(255,255,255,.4)"}}>المتبقي: <strong style={{color:"#f59e0b"}}>{fmt(l.remaining)}</strong></span>
-                  <span style={{fontSize:12,color:"rgba(255,255,255,.4)"}}>الأصل: {fmt(l.amount)}</span>
-                </div>
-                <div style={{display:"flex",gap:6}}>
-                  <button style={{...S.btn("#10b981",false),flex:1,padding:"9px"}} onClick={()=>{setEi(l);om("returnLoan");}}>💰 تسجيل رجوع/سداد</button>
-                </div>
-              </div>
-            ))}
-            {loans.length===0&&<div style={{textAlign:"center",padding:30,color:"rgba(255,255,255,.3)",fontSize:14}}>لا توجد سلف — أضف سلفة</div>}
-          </>}
+
 
           {dp==="expCat"&&<CatSection catType="expense"/>}
           {dp==="incCat"&&<CatSection catType="income"/>}

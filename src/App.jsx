@@ -538,6 +538,21 @@ export default function App(){
     if(avgMonthly<=0)return null;
     return {months:expBal/avgMonthly,expBal,avgMonthly,monthsCount:useMonths.length,rwSetting:rw};
   };
+  const fireNotifyNow=async(title,body)=>{
+    try{
+      const {LocalNotifications}=await import("@capacitor/local-notifications");
+      const perm=await LocalNotifications.checkPermissions();
+      if(perm.display!=="granted"){
+        const req=await LocalNotifications.requestPermissions();
+        if(req.display!=="granted")return;
+      }
+      await LocalNotifications.schedule({notifications:[{
+        title,body,id:Math.floor(Math.random()*2000000000),
+        schedule:{at:new Date(Date.now()+1000)},
+        smallIcon:"ic_stat_icon_config_sample",
+      }]});
+    }catch(e){console.error("notify failed",e);}
+  };
   const addTx=()=>{
     if(!form.amount){showErr("⛔ أدخل المبلغ");return;}
     if(!form.catId){showErr("⛔ اختر التصنيف");return;}
@@ -554,6 +569,17 @@ export default function App(){
         if(bktBal-newAmt<0){
           showErr(`⛔ رصيد الميزانية غير كافي — المتاح: ${fmt(Math.max(0,bktBal))} د.م`);return;
         }
+        const bktAllocated=computeBucketAllocated("expenses");
+        if(bktAllocated>0){
+          const spentBefore=bktAllocated-bktBal;
+          const pctBeforeB=(spentBefore/bktAllocated)*100;
+          const pctAfterB=((spentBefore+newAmt)/bktAllocated)*100;
+          if(pctBeforeB<100&&pctAfterB>=100){
+            fireNotifyNow("⛔ نفذت الميزانية","وصلت 100% من ميزانيتك الكلية لهاد الشهر/الدخل");
+          } else if(pctBeforeB<80&&pctAfterB>=80){
+            fireNotifyNow("⚠️ اقتراب من نفاذ الميزانية",`وصلت ${pctAfterB.toFixed(0)}% من الميزانية الكلية`);
+          }
+        }
       }
       // منع بسبب توزيع التصنيفات السنوي
       const curYear=new Date().getFullYear().toString();
@@ -566,6 +592,17 @@ export default function App(){
       const newAmt2=parseFloat(form.amount)||0;
       if(catBal-newAmt2<0){
         showErr(`⛔ رصيد التصنيف غير كافي — المتاح: ${fmt(Math.max(0,catBal))} د.م`);return;
+      }
+      const catDetailBefore=getCatDetail(catIdNum,subIdNum,curYear);
+      if(catDetailBefore.totalAvail>0){
+        const pctBefore=(catDetailBefore.spent/catDetailBefore.totalAvail)*100;
+        const pctAfter=((catDetailBefore.spent+newAmt2)/catDetailBefore.totalAvail)*100;
+        const catName=gc("expense",catIdNum)?.name||"التصنيف";
+        if(pctBefore<100&&pctAfter>=100){
+          fireNotifyNow("⛔ نفذ رصيد التصنيف",`"${catName}" وصل 100% من المخصص ديالو هاد العام`);
+        } else if(pctBefore<80&&pctAfter>=80){
+          fireNotifyNow("⚠️ اقتراب من الحد",`"${catName}" وصل ${pctAfter.toFixed(0)}% من المخصص ديالو`);
+        }
       }
     }
     const acc=form.akey?allAcc.find(a=>a.key===form.akey):null;
@@ -2984,20 +3021,42 @@ export default function App(){
           };
           const periodTxs=filterByPeriod(txs);
           const typeFiltered0=txTypeFilter==="all"?periodTxs:periodTxs.filter(t=>getTxType(t)===txTypeFilter);
-          const searchQ=(ovExp.txSearch||"").trim().toLowerCase();
-          const typeFiltered=searchQ?typeFiltered0.filter(t=>{
+          const rawSearchQ=(ovExp.txSearch||"").trim().toLowerCase();
+          const smartParse=q=>{
+            const now=new Date();
+            let from=null,text=q;
+            const patterns=[
+              [/آخر\s*(\d+)\s*شهر/,m=>{const d=new Date(now);d.setMonth(d.getMonth()-parseInt(m[1]));return d;}],
+              [/آخر\s*(\d+)\s*يوم/,m=>{const d=new Date(now);d.setDate(d.getDate()-parseInt(m[1]));return d;}],
+              [/آخر شهر/,()=>{const d=new Date(now);d.setMonth(d.getMonth()-1);return d;}],
+              [/آخر سنة|العام الماضي/,()=>{const d=new Date(now);d.setFullYear(d.getFullYear()-1);return d;}],
+              [/اليوم/,()=>new Date(now)],
+              [/أمس/,()=>{const d=new Date(now);d.setDate(d.getDate()-1);return d;}],
+              [/هاد الشهر|هذا الشهر/,()=>new Date(now.getFullYear(),now.getMonth(),1)],
+            ];
+            for(const[re,fn]of patterns){
+              const m=q.match(re);
+              if(m){from=fn(m);text=q.replace(re,"").trim();break;}
+            }
+            return{from,text};
+          };
+          const {from:smartFrom,text:searchQ}=smartParse(rawSearchQ);
+          const typeFiltered1=smartFrom?typeFiltered0.filter(t=>new Date(t.date)>=smartFrom):typeFiltered0;
+          const typeFiltered=searchQ?typeFiltered1.filter(t=>{
             const c=gc(t.type==="income"?"income":"expense",t.catId);
             const s=t.subId?gs(t.type==="income"?"income":"expense",t.catId,t.subId):null;
             const hay=`${t.desc||""} ${c?.name||""} ${s?.name||""} ${t.amount}`.toLowerCase();
             return hay.includes(searchQ);
-          }):typeFiltered0;
+          }):typeFiltered1;
           const mInc=periodTxs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
           const mExp=periodTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.pm!=="تحويل").reduce((s,t)=>s+t.amount,0);
           const typeLabels={all:"الكل",income:"💰 المداخل",expense:"💸 المصاريف",transfer:"🔄 التحويلات",credit:"💳 الكريدي",loan:"🤝 السلف",asset:"🏠 الممتلكات",invest:"📈 الاستثمار"};
           return(<>
           <div style={{...S.row}}><span style={{fontWeight:700,fontSize:16}}>المعاملات</span></div>
           <PeriodSelector/>
-          <input style={{...S.inp,marginBottom:10}} placeholder="🔍 بحث بالاسم، التصنيف، أو المبلغ..." value={ovExp.txSearch||""} onChange={e=>setOvExp(p=>({...p,txSearch:e.target.value}))}/>
+          <input style={{...S.inp,marginBottom:4}} placeholder="🔍 بحث ذكي: مطاعم آخر 3 أشهر، اليوم..." value={ovExp.txSearch||""} onChange={e=>setOvExp(p=>({...p,txSearch:e.target.value}))}/>
+          {smartFrom&&<div style={{fontSize:11,color:"#1a6b4a",marginBottom:8}}>🔎 فلترة ذكية: من {smartFrom.toISOString().split("T")[0]}{searchQ?` + "${searchQ}"`:""}</div>}
+          {!smartFrom&&<div style={{marginBottom:10}}/>}
           <select style={{...S.sel,marginBottom:10}} value={txTypeFilter} onChange={e=>{setTxTypeFilter(e.target.value);setOpenTxId(null);}}>
             {Object.entries(typeLabels).map(([k,l])=><option key={k} value={k}>{l}</option>)}
           </select>
@@ -3347,6 +3406,9 @@ export default function App(){
 
             <div style={{...S.card,textAlign:"center",cursor:"pointer",padding:14}} onClick={()=>setPage("buckets")}>
               <span style={{fontSize:13,fontWeight:700,color:"#1a6b4a"}}>🧩 عرض الأقسام الخمسة بالتفصيل ›</span>
+            </div>
+            <div style={{...S.card,textAlign:"center",cursor:"pointer",padding:14,background:"linear-gradient(135deg,#6366f1,#4f46e5)"}} onClick={()=>om("whatIf")}>
+              <span style={{fontSize:13,fontWeight:700,color:"white"}}>🔮 شنو إلى... (محاكي شراء)</span>
             </div>
           </>;
         })()}
@@ -3698,6 +3760,22 @@ export default function App(){
               const topRetireTxPeriod=[...periodTxs.filter(t=>t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت")].sort((a,b)=>b.amount-a.amount)[0];
               const expCatBreak=buildCatBreakdownFor("expense",flowTxs);
               const incCatBreak=buildCatBreakdownFor("income",flowTxs);
+              // مقارنة شهرية (هاد الشهر مقابل الشهر لي فات)
+              const momCompare=(()=>{
+                if(period.type!=="month")return null;
+                const curM=period.month;
+                const [cy,cm]=curM.split("-").map(Number);
+                const prevDate=new Date(cy,cm-2,1);
+                const prevM=`${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,"0")}`;
+                const realFlow=t=>!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset;
+                const curInc=txs.filter(t=>t.type==="income"&&realFlow(t)&&t.date.startsWith(curM)).reduce((s,t)=>s+t.amount,0);
+                const curExp=txs.filter(t=>t.type==="expense"&&realFlow(t)&&t.date.startsWith(curM)).reduce((s,t)=>s+t.amount,0);
+                const prevInc=txs.filter(t=>t.type==="income"&&realFlow(t)&&t.date.startsWith(prevM)).reduce((s,t)=>s+t.amount,0);
+                const prevExp=txs.filter(t=>t.type==="expense"&&realFlow(t)&&t.date.startsWith(prevM)).reduce((s,t)=>s+t.amount,0);
+                const incChange=prevInc>0?((curInc-prevInc)/prevInc*100):null;
+                const expChange=prevExp>0?((curExp-prevExp)/prevExp*100):null;
+                return{curM,prevM,curInc,curExp,prevInc,prevExp,incChange,expChange};
+              })();
               const catTab=ovExp.catTab||"expense";
               const activeCatBreak=catTab==="expense"?expCatBreak:incCatBreak;
               const activeCatTotal=activeCatBreak.reduce((s,c)=>s+c.amount,0)||1;
@@ -3819,6 +3897,35 @@ export default function App(){
                   <div style={{marginTop:12,fontSize:11,color:"#94a3b8"}}>💎 الثروة الكلية: <span style={{fontWeight:900,color:"#1a1a1a"}}>{fmt(wealthNow)}</span></div>
                 </div>
 
+                {(()=>{
+                  const realFlow=t=>!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset;
+                  const flowTxsAll=txs.filter(t=>(t.type==="income"||t.type==="expense")&&realFlow(t));
+                  const byMonthNet={};
+                  flowTxsAll.forEach(t=>{const m=t.date.slice(0,7);byMonthNet[m]=(byMonthNet[m]||0)+(t.type==="income"?t.amount:-t.amount);});
+                  const months=Object.keys(byMonthNet).sort();
+                  if(months.length<2)return null;
+                  let run=0;const points=months.map(m=>{run+=byMonthNet[m];return{m,v:run};});
+                  const vals=points.map(p=>p.v);
+                  const minV=Math.min(...vals,0),maxV=Math.max(...vals,0);
+                  const range=maxV-minV||1;
+                  const W=320,H=110,PAD=10;
+                  const stepX=points.length>1?(W-PAD*2)/(points.length-1):0;
+                  const toY=v=>H-PAD-((v-minV)/range)*(H-PAD*2);
+                  const pathD=points.map((p,i)=>`${i===0?"M":"L"} ${PAD+i*stepX} ${toY(p.v)}`).join(" ");
+                  const last=points[points.length-1];
+                  return <div style={S.card}>
+                    <div style={{fontSize:13,fontWeight:800,color:"#1a1a1a",marginBottom:2}}>📈 نمو صافي التدفق النقدي</div>
+                    <div style={{fontSize:10,color:"#94a3b8",marginBottom:10}}>مجموع الدخل ناقص المصروف تراكميا عبر الزمن (بلا الممتلكات والاستثمارات)</div>
+                    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+                      <line x1="0" y1={toY(0)} x2={W} y2={toY(0)} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 3"/>
+                      <path d={pathD} fill="none" stroke={last.v>=0?"#10b981":"#ef4444"} strokeWidth="2.5"/>
+                    </svg>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8",marginTop:4}}>
+                      <span>{months[0]}</span><span>{months[months.length-1]}</span>
+                    </div>
+                  </div>;
+                })()}
+
                 <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"4px 2px 8px"}}>الأقسام الخمسة</div>
                 <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,marginBottom:6}}>
                   {bucketSnaps.map(b=>{
@@ -3840,6 +3947,23 @@ export default function App(){
                   })}
                 </div>
 
+                {momCompare&&<>
+                  <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"10px 2px 8px"}}>📊 مقارنة بالشهر لي فات</div>
+                  <div style={{...S.card,display:"flex",gap:10}}>
+                    <div style={{flex:1,textAlign:"center"}}>
+                      <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>💰 الدخل</div>
+                      <div style={{fontSize:16,fontWeight:900,color:"#10b981"}}>{fmt(momCompare.curInc)}</div>
+                      {momCompare.incChange!==null&&<div style={{fontSize:11,fontWeight:700,color:momCompare.incChange>=0?"#10b981":"#ef4444",marginTop:2}}>{momCompare.incChange>=0?"▲":"▼"} {Math.abs(momCompare.incChange).toFixed(0)}%</div>}
+                    </div>
+                    <div style={{width:1,background:"#f1f5f9"}}/>
+                    <div style={{flex:1,textAlign:"center"}}>
+                      <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>💸 المصروف</div>
+                      <div style={{fontSize:16,fontWeight:900,color:"#ef4444"}}>{fmt(momCompare.curExp)}</div>
+                      {momCompare.expChange!==null&&<div style={{fontSize:11,fontWeight:700,color:momCompare.expChange<=0?"#10b981":"#ef4444",marginTop:2}}>{momCompare.expChange>=0?"▲":"▼"} {Math.abs(momCompare.expChange).toFixed(0)}%</div>}
+                    </div>
+                  </div>
+                </>}
+
                 <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"10px 2px 8px"}}>🏷️ حسب التصنيف</div>
                 <div style={S.card}>
                   <div className="no-print" style={{display:"flex",gap:6,marginBottom:10}}>
@@ -3847,6 +3971,23 @@ export default function App(){
                     <button onClick={()=>setOvExp(p=>({...p,catTab:"income"}))} style={{...S.btn(catTab==="income"?"#10b981":"#f1f5f9",false),flex:1,padding:"7px",fontSize:12,color:catTab==="income"?"white":"#64748b"}}>دخل</button>
                   </div>
                   {activeCatBreak.length===0&&<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>لا توجد بيانات فهاد الفترة</div>}
+                  {activeCatBreak.length>0&&(()=>{
+                    const r=60,circ=2*Math.PI*r;let acc=0;
+                    return <div className="no-print" style={{display:"flex",justifyContent:"center",marginBottom:14}}>
+                      <svg width="160" height="160" viewBox="0 0 160 160" style={{transform:"rotate(-90deg)"}}>
+                        {activeCatBreak.map(c=>{
+                          const pct=c.amount/activeCatTotal;
+                          const dash=pct*circ;
+                          const offset=circ-acc*circ;
+                          acc+=pct;
+                          const isOpen=expandedCat===c.id;
+                          return <circle key={c.id} cx="80" cy="80" r={r} fill="none" stroke={c.color} strokeWidth={isOpen?20:16}
+                            strokeDasharray={`${dash} ${circ-dash}`} strokeDashoffset={offset} style={{cursor:"pointer",transition:"stroke-width .15s"}}
+                            onClick={()=>setOvExp(p=>({...p,expandedCat:isOpen?null:c.id}))}/>;
+                        })}
+                      </svg>
+                    </div>;
+                  })()}
                   {activeCatBreak.map(c=>{
                     const pct=(c.amount/activeCatTotal*100);
                     const isOpen=expandedCat===c.id;
@@ -4046,6 +4187,7 @@ export default function App(){
                 {modal==="buyAsset"&&"🏠 شراء ممتلك"}
                 {modal==="addInvest"&&"📈 إضافة استثمار"}
                 {modal==="changePw"&&"تغيير كلمة السر"}
+                {modal==="whatIf"&&"🔮 شنو إلى..."}
                 {modal==="returnLoan"&&"رجوع سلفة"}
               </h3>
               <button onClick={cm} style={{background:"none",border:"none",color:"#475569",cursor:"pointer"}}><X size={20}/></button>
@@ -4132,6 +4274,52 @@ export default function App(){
               <input style={S.inp} type="date" value={form.remindDate||""} onChange={e=>F("remindDate",e.target.value)}/>
               <button style={S.btn("#8b5cf6")} onClick={addLoan}>حفظ</button>
             </div>}
+
+            {modal==="whatIf"&&(()=>{
+              const curYear=new Date().getFullYear().toString();
+              const flatItems=[];
+              (cats.expense||[]).forEach(c=>{
+                if(c.subs&&c.subs.length>0)c.subs.forEach(s=>flatItems.push({catId:c.id,subId:s.id,label:`${c.name} — ${s.name}`}));
+                else flatItems.push({catId:c.id,subId:null,label:c.name});
+              });
+              const sel=ovExp.whatIfSel||"";
+              const amt=parseFloat(ovExp.whatIfAmt)||0;
+              const [selCat,selSub]=sel?sel.split("_"):[null,null];
+              const catId=selCat?parseInt(selCat):null;
+              const subId=selSub?parseInt(selSub):null;
+              const catDetail=catId?getCatDetail(catId,subId,curYear):null;
+              const bktBalNow=getBucketBalanceLive("expenses");
+              const rd=getRunwayMonths();
+              return <div style={S.col}>
+                <div style={{fontSize:12,color:"#64748b"}}>اختبر تأثير شراء افتراضي قبل ما تأكده — بلا ما يتسجل حتى حاجة</div>
+                <select style={S.sel} value={sel} onChange={e=>setOvExp(p=>({...p,whatIfSel:e.target.value}))}>
+                  <option value="">اختر التصنيف/الفرع</option>
+                  {flatItems.map((it,i)=><option key={i} value={`${it.catId}_${it.subId||""}`}>{it.label}</option>)}
+                </select>
+                <input style={S.inp} type="number" placeholder="المبلغ الافتراضي" value={ovExp.whatIfAmt||""} onChange={e=>setOvExp(p=>({...p,whatIfAmt:e.target.value}))}/>
+                {catId&&amt>0&&catDetail&&(()=>{
+                  const newCatBal=catDetail.balance-amt;
+                  const newBudgetBal=bktBalNow-amt;
+                  const newRunway=rd&&rd.avgMonthly>0?newBudgetBal/rd.avgMonthly:null;
+                  return <div style={{background:"#f8fafc",borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between"}}>
+                      <span style={{fontSize:12,color:"#64748b"}}>رصيد التصنيف بعد الشراء</span>
+                      <span style={{fontSize:14,fontWeight:800,color:newCatBal>=0?"#1a6b4a":"#ef4444"}}>{newCatBal<0?"-":""}{fmt(Math.abs(newCatBal))}</span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between"}}>
+                      <span style={{fontSize:12,color:"#64748b"}}>رصيد الميزانية الكلي بعد</span>
+                      <span style={{fontSize:14,fontWeight:800,color:newBudgetBal>=0?"#1a6b4a":"#ef4444"}}>{newBudgetBal<0?"-":""}{fmt(Math.abs(newBudgetBal))}</span>
+                    </div>
+                    {newRunway!==null&&<div style={{display:"flex",justifyContent:"space-between"}}>
+                      <span style={{fontSize:12,color:"#64748b"}}>شهور البقاء بعد</span>
+                      <span style={{fontSize:14,fontWeight:800,color:newRunway>=1?"#1a6b4a":"#ef4444"}}>{newRunway.toFixed(1)} شهر</span>
+                    </div>}
+                    {(newCatBal<0||newBudgetBal<0)&&<div style={{background:"#fee2e2",borderRadius:8,padding:8,fontSize:11,color:"#991b1b",fontWeight:700,textAlign:"center"}}>⚠️ هاد الشراء غادي يخلي رصيد فعجز</div>}
+                  </div>;
+                })()}
+                <button style={{...S.btn("#e8e8e4",false),color:"#475569"}} onClick={()=>{setOvExp(p=>({...p,whatIfSel:"",whatIfAmt:""}));cm();}}>إغلاق</button>
+              </div>;
+            })()}
 
             {modal==="changePw"&&<div style={S.col}>
               <div style={{fontSize:13,color:"#475569",fontWeight:700}}>🔑 تغيير كلمة السر</div>

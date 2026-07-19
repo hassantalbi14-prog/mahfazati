@@ -77,12 +77,14 @@ const ILN=[];
 const IINV=[];
 const ITX=[];
 
+let _darkFlag=false;
+const setDarkFlag=v=>{_darkFlag=v;};
 const S={
-  card:{background:"rgba(255,255,255,0.85)",borderRadius:20,padding:18,border:"1px solid rgba(226,232,240,0.7)",boxShadow:"0 2px 16px rgba(15,23,42,0.07)",backdropFilter:"blur(12px)"},
-  inp:{background:"rgba(248,250,252,0.9)",border:"1.5px solid #e2e8f0",borderRadius:12,padding:"11px 14px",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:14,width:"100%",outline:"none",transition:"border-color .2s"},
-  num:{background:"rgba(248,250,252,0.9)",border:"2px solid #e2e8f0",borderRadius:14,padding:"14px 16px",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:22,fontWeight:900,width:"100%",outline:"none",textAlign:"center",letterSpacing:1},
-  sel:{background:"rgba(248,250,252,0.9)",border:"1.5px solid #e2e8f0",borderRadius:12,padding:"11px 14px",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:14,width:"100%",outline:"none"},
-  btn:(bg="#10b981",full=true)=>({background:bg,color:"#1a1a1a",border:"none",padding:"12px 18px",borderRadius:14,fontFamily:"Tajawal",fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:`0 2px 8px ${bg}40`,...(full?{width:"100%"}:{})}),
+  get card(){return _darkFlag?{background:"rgba(30,41,59,0.85)",borderRadius:20,padding:18,border:"1px solid rgba(71,85,105,0.5)",boxShadow:"0 2px 16px rgba(0,0,0,0.35)",backdropFilter:"blur(12px)",color:"#e2e8f0"}:{background:"rgba(255,255,255,0.85)",borderRadius:20,padding:18,border:"1px solid rgba(226,232,240,0.7)",boxShadow:"0 2px 16px rgba(15,23,42,0.07)",backdropFilter:"blur(12px)"};},
+  get inp(){return _darkFlag?{background:"rgba(15,23,42,0.9)",border:"1.5px solid #334155",borderRadius:12,padding:"11px 14px",color:"#e2e8f0",fontFamily:"Tajawal",fontSize:14,width:"100%",outline:"none",transition:"border-color .2s"}:{background:"rgba(248,250,252,0.9)",border:"1.5px solid #e2e8f0",borderRadius:12,padding:"11px 14px",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:14,width:"100%",outline:"none",transition:"border-color .2s"};},
+  get num(){return _darkFlag?{background:"rgba(15,23,42,0.9)",border:"2px solid #334155",borderRadius:14,padding:"14px 16px",color:"#e2e8f0",fontFamily:"Tajawal",fontSize:22,fontWeight:900,width:"100%",outline:"none",textAlign:"center",letterSpacing:1}:{background:"rgba(248,250,252,0.9)",border:"2px solid #e2e8f0",borderRadius:14,padding:"14px 16px",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:22,fontWeight:900,width:"100%",outline:"none",textAlign:"center",letterSpacing:1};},
+  get sel(){return _darkFlag?{background:"rgba(15,23,42,0.9)",border:"1.5px solid #334155",borderRadius:12,padding:"11px 14px",color:"#e2e8f0",fontFamily:"Tajawal",fontSize:14,width:"100%",outline:"none"}:{background:"rgba(248,250,252,0.9)",border:"1.5px solid #e2e8f0",borderRadius:12,padding:"11px 14px",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:14,width:"100%",outline:"none"};},
+  btn:(bg="#10b981",full=true)=>({background:bg,color:_darkFlag?"#f1f5f9":"#1a1a1a",border:"none",padding:"12px 18px",borderRadius:14,fontFamily:"Tajawal",fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:`0 2px 8px ${bg}40`,...(full?{width:"100%"}:{})}),
   row:{display:"flex",alignItems:"center",justifyContent:"space-between"},
   col:{display:"flex",flexDirection:"column",gap:12},
 };
@@ -94,9 +96,11 @@ input,select,textarea{font-weight:700;}
 body{background:linear-gradient(135deg,#f0f4ff 0%,#e8f5f0 50%,#f0f4ff 100%);min-height:100vh;}
 ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
 .tx{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(226,232,240,0.6);}.tx:last-child{border-bottom:none;}
+.dark .tx{border-bottom:1px solid rgba(71,85,105,0.4);}
 .nb{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:14px;cursor:pointer;color:#94a3b8;font-size:10px;flex:1;background:none;border:none;font-family:Tajawal;transition:all .25s;font-weight:600;}
 .nb.on{color:#10b981;background:rgba(16,185,129,.1);}
 .pbar{height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;}.pfill{height:100%;border-radius:4px;transition:width .8s;}
+.dark .pbar{background:#334155;}
 .drw{position:fixed;top:0;right:0;height:100%;width:285px;background:linear-gradient(180deg,#1a6b4a,#0f4a33);border-left:1px solid rgba(255,255,255,.1);z-index:200;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:-8px 0 32px rgba(0,0,0,.2);}
 .drw.op{transform:translateX(0);}
 .ovl{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:199;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(4px);}
@@ -209,6 +213,7 @@ export default function App(){
   },[autoLockMin]);
   const[bioTried,setBioTried]=useState(false);
   const[darkMode,setDarkMode]=useState(()=>localStorage.getItem("mhf_dark")==="1");
+  setDarkFlag(darkMode);
   const[profileName,setProfileName]=useState(()=>localStorage.getItem("mhf_pname")||"");
   const[profilePhoto,setProfilePhoto]=useState(()=>localStorage.getItem("mhf_pphoto")||"");
   const[isDesktop,setIsDesktop]=useState(()=>typeof window!=="undefined"&&window.innerWidth>900);
@@ -570,6 +575,40 @@ export default function App(){
         smallIcon:"ic_stat_icon_config_sample",
       }]});
     }catch(e){console.error("notify failed",e);}
+  };
+  const addSplitTx=()=>{
+    const parts=(form.splitParts||[]).filter(p=>p.catId&&parseFloat(p.amount)>0);
+    if(parts.length<2){showErr("⛔ زيد على الأقل جزئين بمبلغ وتصنيف صحيح");return;}
+    for(const p of parts){
+      const cat=gc("expense",parseInt(p.catId));
+      if(cat?.subs?.length>0&&!p.subId){showErr(`⛔ الفرع إجباري لتصنيف "${cat.name}"`);return;}
+    }
+    if(!form.akey){showErr("⛔ اختر الحساب");return;}
+    const acc=allAcc.find(a=>a.key===form.akey);
+    if(!acc)return;
+    const total=parts.reduce((s,p)=>s+parseFloat(p.amount),0);
+    if(total>(acc.balance||0)){showErr("⛔ الرصيد غير كافي — الرصيد المتاح: "+fmt(acc.balance||0));return;}
+    const bktBal=getBucketBalanceLive("expenses");
+    if(bktBal-total<0){showErr(`⛔ رصيد الميزانية غير كافي — المتاح: ${fmt(Math.max(0,bktBal))} د.م`);return;}
+    const curYear=new Date().getFullYear().toString();
+    if(!getCatDistYear(curYear)){showErr("⛔ خاصك تدخل توزيع التصنيفات ديال هاد العام أولاً — من الإعدادات");return;}
+    // تجميع الأجزاء حسب التصنيف/الفرع باش نتحقق من الرصيد لكل واحد بمجموع أجزائه
+    const grouped={};
+    parts.forEach(p=>{const k=`${p.catId}_${p.subId||""}`;grouped[k]=(grouped[k]||0)+parseFloat(p.amount);});
+    for(const k in grouped){
+      const[cid,sid]=k.split("_");
+      const catBal=getCatBalance(parseInt(cid),sid?parseInt(sid):null,curYear);
+      if(catBal-grouped[k]<0){
+        const cat=gc("expense",parseInt(cid));
+        showErr(`⛔ رصيد "${cat?.name}" غير كافي — المتاح: ${fmt(Math.max(0,catBal))} د.م`);return;
+      }
+    }
+    const date=form.date||new Date().toISOString().split("T")[0];
+    const newTxs=parts.map(p=>({id:uid(),type:"expense",amount:parseFloat(p.amount),catId:parseInt(p.catId),subId:p.subId?parseInt(p.subId):null,desc:form.desc||"",date,pm:form.pm||"نقدي",ref:acc.ref,note:"جزء من معاملة مقسمة"}));
+    setTxs(p=>[...newTxs,...p]);
+    updBal(acc.ref,total,"expense","add");
+    cm();
+    setErr(`✅ تم تسجيل ${parts.length} أجزاء بمجموع ${fmt(total)}`);setTimeout(()=>setErr(null),3500);
   };
   const addTx=()=>{
     if(!form.amount){showErr("⛔ أدخل المبلغ");return;}
@@ -1109,7 +1148,7 @@ export default function App(){
   },[bioEnabled,isAuth,bioTried]);
 
   if(!isAuth) return (
-    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"linear-gradient(135deg,#f5f5f0,#e8f5ee)",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20,filter:darkMode?"invert(1) hue-rotate(180deg)":"none"}}>
+    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:darkMode?"linear-gradient(135deg,#0f172a,#1e293b)":"linear-gradient(135deg,#f5f5f0,#e8f5ee)",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');*{box-sizing:border-box;margin:0;padding:0;}`}</style>
       <div style={{background:"white",borderRadius:24,padding:36,width:"100%",maxWidth:340,boxShadow:"0 8px 32px rgba(26,107,74,.12)",textAlign:"center"}}>
         <div style={{fontSize:50,marginBottom:16}}>💰</div>
@@ -1321,7 +1360,7 @@ export default function App(){
   return (
     <div dir="rtl" style={isDesktop?{position:"fixed",inset:0,overflow:"hidden",background:"#e8ece9"}:undefined}>
     {isDesktop&&<DesktopSidebar/>}
-    <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",background:"#f5f5f0",minHeight:isDesktop?undefined:"100vh",height:isDesktop?undefined:"auto",color:"#1a1a1a",display:"flex",flexDirection:"column",position:isDesktop?"absolute":"relative",overflow:isDesktop?"hidden":"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,filter:darkMode?"invert(1) hue-rotate(180deg)":"none",...(isDesktop?{top:0,bottom:0,left:0,right:230,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
+    <div dir="rtl" className={darkMode?"dark":""} style={{fontFamily:"'Tajawal',sans-serif",background:darkMode?"#0f172a":"#f5f5f0",minHeight:isDesktop?undefined:"100vh",height:isDesktop?undefined:"auto",color:darkMode?"#e2e8f0":"#1a1a1a",display:"flex",flexDirection:"column",position:isDesktop?"absolute":"relative",overflow:isDesktop?"hidden":"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,...(isDesktop?{top:0,bottom:0,left:0,right:230,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
       <style>{CSS}</style>
       <input ref={fRef} type="file" accept=".json" style={{display:"none"}} onChange={impData}/>
       <input ref={iRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("ci",b));e.target.value="";}}/>
@@ -4215,6 +4254,39 @@ export default function App(){
               <div style={{padding:"8px 14px",background:form.txType==="income"?"#10b98122":"#ef444422",borderRadius:10,marginBottom:4,textAlign:"center",fontWeight:700,fontSize:14,color:form.txType==="income"?"#10b981":"#ef4444"}}>
                 {modal==="addTx"?(form.txType==="income"?"🟢 إضافة دخل":form.txType==="invest"?"📈 إضافة استثمار":form.txType==="retire"?"🏦 التقاعد":form.txType==="emergency"?"🚨 الطوارئ":"🔴 إضافة مصروف"):"✏️ تعديل المعاملة"}
               </div>
+              {modal==="addTx"&&(form.txType||"expense")==="expense"&&<button onClick={()=>F("splitMode",!form.splitMode)} style={{background:form.splitMode?"#6366f1":"#f1f5f9",color:form.splitMode?"white":"#475569",border:"none",borderRadius:10,padding:"9px",fontFamily:"Tajawal",fontSize:12,fontWeight:700,cursor:"pointer"}}>➗ {form.splitMode?"إلغاء التقسيم":"تقسيم على عدة تصنيفات"}</button>}
+
+              {modal==="addTx"&&form.splitMode?(
+                <>
+                  {(form.splitParts||[{catId:"",subId:"",amount:""}]).map((part,i)=>{
+                    const partCat=gc("expense",parseInt(part.catId));
+                    const parts=form.splitParts||[{catId:"",subId:"",amount:""}];
+                    const updatePart=(k,v)=>{const np=[...parts];np[i]={...np[i],[k]:v};F("splitParts",np);};
+                    return <div key={i} style={{background:"#f8fafc",borderRadius:10,padding:10,display:"flex",flexDirection:"column",gap:6}}>
+                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        <span style={{fontSize:11,color:"#64748b",fontWeight:700}}>جزء {i+1}</span>
+                        {parts.length>1&&<button onClick={()=>F("splitParts",parts.filter((_,j)=>j!==i))} style={{marginRight:"auto",background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:12}}>حذف ✕</button>}
+                      </div>
+                      <select style={{...S.sel,padding:"8px"}} value={part.catId||""} onChange={e=>updatePart("catId",e.target.value)}>
+                        <option value="">اختر التصنيف</option>
+                        {cats.expense.map(c=><option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                      </select>
+                      {partCat?.subs?.length>0&&<select style={{...S.sel,padding:"8px"}} value={part.subId||""} onChange={e=>updatePart("subId",e.target.value)}>
+                        <option value="">⚠️ الفرع (إجباري)</option>
+                        {partCat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>}
+                      <input style={{...S.inp,padding:"8px"}} type="number" placeholder="مبلغ هاد الجزء" value={part.amount||""} onChange={e=>updatePart("amount",e.target.value)}
+                        onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v))updatePart("amount",v.toFixed(2));}}/>
+                    </div>;
+                  })}
+                  <button style={{...S.btn("#e8e8e4",false),color:"#475569",padding:"9px"}} onClick={()=>F("splitParts",[...(form.splitParts||[{catId:"",subId:"",amount:""}]),{catId:"",subId:"",amount:""}])}>+ زيد جزء</button>
+                  <div style={{textAlign:"center",fontSize:14,fontWeight:800,color:"#1a6b4a"}}>الإجمالي: {fmt((form.splitParts||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0))}</div>
+                  <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1" accList={getBucketAccs("expenses")}/>
+                  <input style={S.inp} placeholder="الوصف (اختياري)" value={form.desc||""} onChange={e=>F("desc",e.target.value)}/>
+                  <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
+                  <button style={S.btn("#6366f1")} onClick={addSplitTx}>حفظ الأجزاء</button>
+                </>
+              ):(<>
               <input style={S.num} placeholder="0.00" type="number" value={modal==="addTx"?form.amount||"":ei?.amount||""} onChange={e=>modal==="addTx"?F("amount",e.target.value):setEi(p=>({...p,amount:e.target.value}))}
                 onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){const formatted=v.toFixed(2);if(modal==="addTx")F("amount",formatted);else setEi(p=>({...p,amount:formatted}));}}} step="0.01"/>
               <select style={S.sel} value={modal==="addTx"?form.catId||"":ei?.catId||""} onChange={e=>{if(modal==="addTx"){F("catId",e.target.value);F("subId","");}else setEi(p=>({...p,catId:e.target.value,subId:""}));}}>
@@ -4229,6 +4301,7 @@ export default function App(){
               <input style={S.inp} type="date" value={modal==="addTx"?form.date||new Date().toISOString().split("T")[0]:ei?.date||""} onChange={e=>modal==="addTx"?F("date",e.target.value):setEi(p=>({...p,date:e.target.value}))}/>
               {(modal==="addTx"?(form.txType||"expense"):ei?.type)==="expense"&&<PmBtns val={modal==="addTx"?form.pm||"نقدي":ei?.pm||"نقدي"} onChange={v=>modal==="addTx"?F("pm",v):setEi(p=>({...p,pm:v}))}/>}
               <button style={S.btn(modal==="addTx"?"#10b981":"#6366f1")} onClick={modal==="addTx"?addTx:saveTxEdit}>حفظ</button>
+              </>)}
             </div>}
 
             {(modal==="addMCat"||modal==="edMCat")&&<div style={S.col}>

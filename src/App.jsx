@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 // ========== نظام تخزين محلي آمن (بحال تطبيقات Play Store) ==========
@@ -41,6 +41,7 @@ const _writeFullFile=async(obj)=>{
     _memCache=obj;
   }catch(e){
     console.log("save err",e);
+    try{window.dispatchEvent(new CustomEvent("mhf-save-error"));}catch(e2){}
   }
 };
 
@@ -185,6 +186,11 @@ export default function App(){
   const[isAuth,setIsAuth]=useState(()=>sessionStorage.getItem("mhf_auth")==="1");
   const[bioEnabled,setBioEnabled]=useState(()=>localStorage.getItem("mhf_bio")==="1");
   const[autoLockMin,setAutoLockMin]=useState(()=>parseInt(localStorage.getItem("mhf_autolock")||"0"));
+  useEffect(()=>{
+    const onSaveError=()=>{setErr("⛔ فشل حفظ البيانات — تحقق من مساحة التخزين فهاتفك");setTimeout(()=>setErr(null),5000);};
+    window.addEventListener("mhf-save-error",onSaveError);
+    return ()=>window.removeEventListener("mhf-save-error",onSaveError);
+  },[]);
   useEffect(()=>{
     if(!autoLockMin)return;
     const onHide=()=>{
@@ -383,6 +389,26 @@ export default function App(){
     const list=tiers||getActiveTiers();
     return list.find(t=>amount<=t.max)||list[list.length-1];
   };
+  // يحسب مجموع "ميزانية السنة" مرة وحدة لكل سنة (بدل ما يتعاود لكل تصنيف/فرع بوحدو)
+  const yearBudgetTotals=useMemo(()=>{
+    const tiers=getActiveTiers();
+    const byYear={};
+    txs.forEach(t=>{
+      if(t.type!=="income"||t.isTransfer||t.isLoan||t.isInvest||t.isAsset)return;
+      const year=t.date.slice(0,4);
+      byYear[year]=byYear[year]||{};
+      const m=t.date.slice(0,7);
+      byYear[year][m]=(byYear[year][m]||0)+t.amount;
+    });
+    const totals={};
+    Object.keys(byYear).forEach(year=>{
+      totals[year]=Object.values(byYear[year]).reduce((sum,monthTotal)=>{
+        const tier=getTierForIncome(monthTotal,tiers);
+        return sum+monthTotal*((tier.pcts.expenses||0)/100);
+      },0);
+    });
+    return totals;
+  },[txs,budgetSettings.tierHistory]);
   const checkEmergencyTransferLimits=(amount)=>{
     const maxAmt=budgetSettings.emergencyMaxAmount;
     if(maxAmt&&amount>maxAmt)return `⛔ المبلغ (${fmt(amount)}) أكبر من الحد الأقصى للتحويل (${fmt(maxAmt)})`;
@@ -494,11 +520,7 @@ export default function App(){
   };
   const getCatBalance=(catId,subId,year)=>{
     const pct=getCatEffectivePct(catId,subId,year);
-    const yearIncomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year));
-    const tiers=getActiveTiers();
-    const byMonthY={};
-    yearIncomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonthY[m]=(byMonthY[m]||0)+t.amount;});
-    const yearBudgetTotal=Object.values(byMonthY).reduce((sum,monthTotal)=>{const tier=getTierForIncome(monthTotal,tiers);return sum+monthTotal*((tier.pcts.expenses||0)/100);},0);
+    const yearBudgetTotal=yearBudgetTotals[year]||0;
     const catBudget=yearBudgetTotal*(pct/100);
     const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)).reduce((s,t)=>s+t.amount,0);
     const transfers=budgetSettings.catTransfers||[];
@@ -509,11 +531,7 @@ export default function App(){
   };
   const getCatDetail=(catId,subId,year)=>{
     const pct=getCatEffectivePct(catId,subId,year);
-    const yearIncomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year));
-    const tiers=getActiveTiers();
-    const byMonthY={};
-    yearIncomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonthY[m]=(byMonthY[m]||0)+t.amount;});
-    const yearBudgetTotal=Object.values(byMonthY).reduce((sum,monthTotal)=>{const tier=getTierForIncome(monthTotal,tiers);return sum+monthTotal*((tier.pcts.expenses||0)/100);},0);
+    const yearBudgetTotal=yearBudgetTotals[year]||0;
     const allocated=yearBudgetTotal*(pct/100);
     const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)).reduce((s,t)=>s+t.amount,0);
     const transfers=budgetSettings.catTransfers||[];

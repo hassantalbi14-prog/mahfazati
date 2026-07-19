@@ -550,6 +550,44 @@ export default function App(){
     const remainPct=totalAvail>0?Math.max(100-usedPct,usedPct>100?-(usedPct-100):0):0;
     return {pct,allocated,spent,transfersIn,transfersOut,carryover,totalAvail,balance,usedPct,remainPct,effectivePct};
   };
+  const getHealthScore=()=>{
+    const now=new Date();
+    const curMonth=now.toISOString().slice(0,7);
+    const daysInMonth=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+    const dayOfMonth=now.getDate();
+    const elapsedPct=(dayOfMonth/daysInMonth)*100;
+
+    // 1) الالتزام بالميزانية (25 نقطة)
+    const bktAllocated=computeBucketAllocated("expenses");
+    const monthSpent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(curMonth)).reduce((s,t)=>s+t.amount,0);
+    const monthAllocated=bktAllocated>0?bktAllocated/12:0; // تقريب شهري من التخصيص السنوي التراكمي — نستعمل بدلها معدل شهري بسيط
+    const spentPct=monthAllocated>0?(monthSpent/monthAllocated)*100:0;
+    const adherenceScore=spentPct<=elapsedPct?25:Math.max(0,25-((spentPct-elapsedPct)/elapsedPct)*25);
+
+    // 2) عدم تجاوز حدود التصنيفات (25 نقطة)
+    const curYear=now.getFullYear().toString();
+    const flatItems=[];
+    (cats.expense||[]).forEach(c=>{
+      if(c.subs&&c.subs.length>0)c.subs.forEach(s=>flatItems.push({catId:c.id,subId:s.id}));
+      else flatItems.push({catId:c.id,subId:null});
+    });
+    const withDist=flatItems.filter(it=>getCatEffectivePct(it.catId,it.subId,curYear)>0);
+    const negCount=withDist.filter(it=>getCatBalance(it.catId,it.subId,curYear)<0).length;
+    const catScore=withDist.length>0?Math.max(0,25*(1-(negCount/withDist.length))):25;
+
+    // 3) معدل الصرف اليومي (25 نقطة)
+    const healthyDailyRate=monthAllocated>0?monthAllocated/daysInMonth:0;
+    const actualDailyRate=dayOfMonth>0?monthSpent/dayOfMonth:0;
+    const dailyScore=healthyDailyRate>0?(actualDailyRate<=healthyDailyRate?25:Math.max(0,25-((actualDailyRate-healthyDailyRate)/healthyDailyRate)*25)):25;
+
+    // 4) عدد مرات دعم صندوق الطوارئ (25 نقطة)
+    const emgDraws=txs.filter(t=>t.type==="expense"&&t.isTransfer&&(t.desc||"").includes("إعاشة")&&t.date.startsWith(curMonth)).length;
+    const emgScore=Math.max(0,25-emgDraws*8);
+
+    const total=Math.round(adherenceScore+catScore+dailyScore+emgScore);
+    const label=total>=90?{txt:"ممتاز",color:"#10b981",emoji:"🟢"}:total>=75?{txt:"جيد",color:"#3b82f6",emoji:"🔵"}:total>=50?{txt:"متوسط",color:"#f59e0b",emoji:"🟡"}:{txt:"يحتاج تحسين",color:"#ef4444",emoji:"🔴"};
+    return{total,label,parts:{adherenceScore:Math.round(adherenceScore),catScore:Math.round(catScore),dailyScore:Math.round(dailyScore),emgScore:Math.round(emgScore)},negCount,emgDraws};
+  };
   const getRunwayMonths=()=>{
     const expBal=getBucketBalanceLive("expenses")||0;
     const rw=budgetSettings.runwayMonths||"3";
@@ -1587,6 +1625,38 @@ export default function App(){
               <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"rgba(255,255,255,.85)"}}>السلف</div><div style={{fontSize:13,fontWeight:700,color:"#1a1a1a"}}>{hideBalance?"•••":fmt(totGiv-totOwd)}</div></div>
             </div>
           </div>
+
+          {(()=>{
+            const h=getHealthScore();
+            const r=42,circ=2*Math.PI*r;
+            const dash=(h.total/100)*circ;
+            return <div style={S.card} onClick={()=>setOvExp(p=>({...p,healthOpen:!p.healthOpen}))} >
+              <div style={{display:"flex",alignItems:"center",gap:16,cursor:"pointer"}}>
+                <svg width="90" height="90" viewBox="0 0 100 100" style={{transform:"rotate(-90deg)",flexShrink:0}}>
+                  <circle cx="50" cy="50" r={r} fill="none" stroke="#f1f5f9" strokeWidth="9"/>
+                  <circle cx="50" cy="50" r={r} fill="none" stroke={h.label.color} strokeWidth="9" strokeDasharray={`${dash} ${circ-dash}`} strokeLinecap="round"/>
+                </svg>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:"#64748b",marginBottom:2}}>مؤشر الصحة المالية</div>
+                  <div style={{fontSize:26,fontWeight:900,color:h.label.color}}>{h.total}<span style={{fontSize:14}}>/100</span></div>
+                  <div style={{fontSize:12,fontWeight:700,color:h.label.color}}>{h.label.emoji} {h.label.txt}</div>
+                </div>
+                <span style={{fontSize:18,color:"#94a3b8"}}>{ovExp.healthOpen?"▲":"▾"}</span>
+              </div>
+              {ovExp.healthOpen&&<div style={{marginTop:14,paddingTop:14,borderTop:"1px solid #f1f5f9",display:"flex",flexDirection:"column",gap:8}}>
+                {[["الالتزام بالميزانية",h.parts.adherenceScore],["عدم تجاوز حدود التصنيفات",h.parts.catScore],["معدل الصرف اليومي",h.parts.dailyScore],["دعم صندوق الطوارئ",h.parts.emgScore]].map(([l,v])=>(
+                  <div key={l}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                      <span style={{color:"#475569"}}>{l}</span><span style={{fontWeight:700}}>{v}/25</span>
+                    </div>
+                    <div className="pbar"><div className="pfill" style={{width:`${(v/25)*100}%`,background:v>=20?"#10b981":v>=12?"#f59e0b":"#ef4444"}}/></div>
+                  </div>
+                ))}
+                {h.negCount>0&&<div style={{fontSize:11,color:"#ef4444"}}>⚠️ {h.negCount} تصنيف/فرع فعجز حاليا</div>}
+                {h.emgDraws>0&&<div style={{fontSize:11,color:"#f59e0b"}}>⚠️ لجأت للطوارئ {h.emgDraws} مرة هاد الشهر</div>}
+              </div>}
+            </div>;
+          })()}
 
           <PeriodSelector/>
 

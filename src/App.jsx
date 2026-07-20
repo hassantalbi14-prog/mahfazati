@@ -3689,6 +3689,64 @@ export default function App(){
                   </div>
                 </div>
 
+                {(b.type==="assets"||b.type==="investment")&&(()=>{
+                  const goalsKey=b.type==="assets"?"assetGoals":"investGoals";
+                  const goals=budgetSettings[goalsKey]||[];
+                  const typeOptions=b.type==="assets"?["🏠 دار","🚗 سيارة","🏪 محل","🌍 عقار/أرض","🥇 ذهب","🔧 معدات","📦 أخرى"]:["🛒 تجارة","📈 أسهم","💼 محفظة استثمارية","🚀 مشروع","🏦 صندوق استثماري","📦 أخرى"];
+                  return <div style={{marginTop:10,borderTop:"1px solid #f0f0f0",paddingTop:10}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🎯 الأهداف</div>
+                    {goals.map(g=>{
+                      const pct=g.target>0?Math.min((g.saved/g.target)*100,100):0;
+                      const remaining=g.target-g.saved;
+                      return <div key={g.id} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                          <span style={{fontSize:12,fontWeight:700}}>{g.type} {g.name}</span>
+                          <button onClick={()=>{const nb={...budgetSettings,[goalsKey]:(budgetSettings[goalsKey]||[]).filter(x=>x.id!==g.id)};setBudgetSettings(nb);_save('budgetSettings',nb);}} style={{background:"none",border:"none",color:"#ef4444",fontSize:11,cursor:"pointer"}}>حذف</button>
+                        </div>
+                        <div className="pbar" style={{marginBottom:4}}><div className="pfill" style={{width:`${pct}%`,background:"#1a6b4a"}}/></div>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#64748b"}}>
+                          <span>{fmt(g.saved)} / {fmt(g.target)}</span>
+                          <span>{pct.toFixed(0)}% {g.expectedDate?`· متوقع ${g.expectedDate}`:""}</span>
+                        </div>
+                        {remaining>0&&<div style={{display:"flex",gap:6,marginTop:6}}>
+                          <input style={{...S.inp,padding:"6px",fontSize:12}} type="number" placeholder="مبلغ إضافي" value={ovExp[`goalAdd_${g.id}`]||""} onChange={e=>setOvExp(p=>({...p,[`goalAdd_${g.id}`]:e.target.value}))}/>
+                          <button style={{...S.btn("#1a6b4a",false),padding:"6px 12px",fontSize:12}} onClick={()=>{
+                            const amt=parseFloat(ovExp[`goalAdd_${g.id}`]);
+                            if(!amt||amt<=0){showErr("⛔ أدخل مبلغ صحيح");return;}
+                            const nb={...budgetSettings,[goalsKey]:(budgetSettings[goalsKey]||[]).map(x=>x.id===g.id?{...x,saved:x.saved+amt}:x)};
+                            setBudgetSettings(nb);_save('budgetSettings',nb);
+                            setOvExp(p=>({...p,[`goalAdd_${g.id}`]:""}));
+                          }}>+ إيداع</button>
+                        </div>}
+                      </div>;
+                    })}
+                    {ovExp[`newGoal_${b.type}`]?(
+                      <div style={{background:"#f8fafc",borderRadius:10,padding:10,display:"flex",flexDirection:"column",gap:6}}>
+                        <select style={{...S.sel,padding:"7px"}} value={ovExp[`ngType_${b.type}`]||""} onChange={e=>setOvExp(p=>({...p,[`ngType_${b.type}`]:e.target.value}))}>
+                          <option value="">اختر النوع</option>
+                          {typeOptions.map(t=><option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <input style={{...S.inp,padding:"7px"}} placeholder="اسم الهدف" value={ovExp[`ngName_${b.type}`]||""} onChange={e=>setOvExp(p=>({...p,[`ngName_${b.type}`]:e.target.value}))}/>
+                        <input style={{...S.inp,padding:"7px"}} type="number" placeholder="المبلغ المستهدف" value={ovExp[`ngTarget_${b.type}`]||""} onChange={e=>setOvExp(p=>({...p,[`ngTarget_${b.type}`]:e.target.value}))}/>
+                        <input style={{...S.inp,padding:"7px"}} type="date" placeholder="تاريخ متوقع (اختياري)" value={ovExp[`ngDate_${b.type}`]||""} onChange={e=>setOvExp(p=>({...p,[`ngDate_${b.type}`]:e.target.value}))}/>
+                        <div style={{display:"flex",gap:6}}>
+                          <button style={{...S.btn("#e8e8e4",false),color:"#475569",flex:1,padding:"8px"}} onClick={()=>setOvExp(p=>({...p,[`newGoal_${b.type}`]:false}))}>إلغاء</button>
+                          <button style={{...S.btn("#1a6b4a"),flex:1,padding:"8px"}} onClick={()=>{
+                            const type=ovExp[`ngType_${b.type}`],name=ovExp[`ngName_${b.type}`],target=parseFloat(ovExp[`ngTarget_${b.type}`]);
+                            if(!type||!name||!target||target<=0){showErr("⛔ عمر كل الخانات");return;}
+                            const newGoal={id:uid(),type,name,target,saved:0,expectedDate:ovExp[`ngDate_${b.type}`]||null};
+                            const nb={...budgetSettings,[goalsKey]:[...(budgetSettings[goalsKey]||[]),newGoal]};
+                            setBudgetSettings(nb);_save('budgetSettings',nb);
+                            setOvExp(p=>({...p,[`newGoal_${b.type}`]:false,[`ngType_${b.type}`]:"",[`ngName_${b.type}`]:"",[`ngTarget_${b.type}`]:"",[`ngDate_${b.type}`]:""}));
+                          }}>حفظ</button>
+                        </div>
+                      </div>
+                    ):(
+                      <button style={{...S.btn("#f1f5f9",false),color:"#475569",padding:"9px"}} onClick={()=>setOvExp(p=>({...p,[`newGoal_${b.type}`]:true}))}>+ هدف جديد</button>
+                    )}
+                  </div>;
+                })()}
+
                 <div style={{marginTop:10,borderTop:"1px solid #f0f0f0",paddingTop:10}}>
                   <div style={{fontSize:12,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📥 الدخول (شهر بشهر)</div>
                   {(()=>{const entries=getBucketMonthlyEntries(b.type).filter(r=>r.contribution>0);

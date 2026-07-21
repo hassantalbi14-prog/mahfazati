@@ -425,6 +425,20 @@ export default function App(){
     const list=tiers||getActiveTiers();
     return list.find(t=>amount<=t.max)||list[list.length-1];
   };
+  // حساب تدريجي (بحال شرائح الضريبة) — كل جزء من الدخل كياخد نسبة المستوى ديالو بوحدو، بلا "قفزة" مفاجئة
+  const getProgressiveAmount=(amount,tiers,key)=>{
+    let prevMax=0,total=0,remaining=amount;
+    for(const tier of tiers){
+      if(remaining<=0)break;
+      const bracketSize=tier.max===Infinity?remaining:Math.max(0,Math.min(tier.max,amount)-prevMax);
+      if(bracketSize>0){
+        total+=bracketSize*((tier.pcts[key]||0)/100);
+        remaining-=bracketSize;
+      }
+      prevMax=tier.max;
+    }
+    return total;
+  };
   // يحسب مجموع "ميزانية السنة" مرة وحدة لكل سنة (بدل ما يتعاود لكل تصنيف/فرع بوحدو)
   const yearBudgetTotals=useMemo(()=>{
     const byYear={};
@@ -439,8 +453,7 @@ export default function App(){
     Object.keys(byYear).forEach(year=>{
       const tiers=getActiveTiers(year);
       totals[year]=Object.values(byYear[year]).reduce((sum,monthTotal)=>{
-        const tier=getTierForIncome(monthTotal,tiers);
-        return sum+monthTotal*((tier.pcts.expenses||0)/100);
+        return sum+getProgressiveAmount(monthTotal,tiers,"expenses");
       },0);
     });
     return totals;
@@ -471,14 +484,14 @@ export default function App(){
     const tiers=getActiveTiers();
     const now=new Date().toISOString().slice(0,7);
     const monthIncome=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(now)).reduce((s,t)=>s+t.amount,0);
-    const tier=getTierForIncome(monthIncome,tiers);
-    return tier.pcts[type]||0;
+    if(monthIncome<=0){const list=tiers;return (list[0]?.pcts[type])||0;}
+    return (getProgressiveAmount(monthIncome,tiers,type)/monthIncome)*100;
   };
   const computeBucketAllocated=(type)=>{
     const incomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
     const byMonth={};
     incomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+t.amount;});
-    const rawFor=key=>Object.entries(byMonth).reduce((sum,[m,monthTotal])=>{const tiers=getActiveTiers(m.slice(0,4));const tier=getTierForIncome(monthTotal,tiers);return sum+monthTotal*((tier.pcts[key]||0)/100);},0);
+    const rawFor=key=>Object.entries(byMonth).reduce((sum,[m,monthTotal])=>{const tiers=getActiveTiers(m.slice(0,4));return sum+getProgressiveAmount(monthTotal,tiers,key);},0);
     if(type==="expenses"){
       const emgRefill=txs.filter(t=>t.type==="income"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
       return rawFor("expenses")+emgRefill;
@@ -497,8 +510,7 @@ export default function App(){
       const monthInc=byMonth[m]||0;
       if(monthInc>0){
         const tiers=getActiveTiers(m.slice(0,4));
-        const tier=getTierForIncome(monthInc,tiers);
-        const rawContribution=monthInc*((tier.pcts.emergency||0)/100);
+        const rawContribution=getProgressiveAmount(monthInc,tiers,"emergency");
         const room=Math.max(emergencyTarget-emgBalance,0);
         const applied=Math.min(rawContribution,room);
         emgBalance+=applied;
@@ -1809,7 +1821,7 @@ export default function App(){
                 <div style={{...S.row,marginBottom:10}}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <div style={{width:38,height:38,borderRadius:10,background:"#10b98122",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🛒</div>
-                    <div><div style={{fontWeight:700,fontSize:14}}>ميزانية المصاريف</div><div style={{fontSize:11,color:"#64748b"}}>إجمالي كلي — {getCurrentTierPct("expenses")}% من الدخل (هاد الشهر)</div></div>
+                    <div><div style={{fontWeight:700,fontSize:14}}>ميزانية المصاريف</div><div style={{fontSize:11,color:"#64748b"}}>إجمالي كلي — {getCurrentTierPct("expenses").toFixed(1)}% من الدخل (هاد الشهر)</div></div>
                   </div>
                   <div style={{textAlign:"left"}}>
                     <div style={{fontSize:11,color:"#64748b"}}>الباقي</div>
@@ -3445,8 +3457,7 @@ export default function App(){
                 const targetMonth=period.month||new Date().toISOString().slice(0,7);
                 const tiers=getActiveTiers(targetMonth.slice(0,4));
                 const monthIncomeTotal=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(targetMonth)).reduce((s,t)=>s+t.amount,0);
-                const monthTier=getTierForIncome(monthIncomeTotal,tiers);
-                const monthBudgetIncome=monthIncomeTotal*((monthTier.pcts.expenses||0)/100);
+                const monthBudgetIncome=getProgressiveAmount(monthIncomeTotal,tiers,"expenses");
                 const monthEmgRefill=txs.filter(t=>t.type==="income"&&t.isTransfer&&(t.desc||"").includes("إعاشة")&&t.date.startsWith(targetMonth)).reduce((s,t)=>s+t.amount,0);
                 const monthExpense=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(targetMonth)).reduce((s,t)=>s+t.amount,0);
                 const monthNet=monthBudgetIncome+monthEmgRefill-monthExpense;
@@ -3620,7 +3631,7 @@ export default function App(){
                 <div key={b.id} style={{...S.card,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,bktSel:b.id}))}>
                   <div style={{display:"flex",alignItems:"center",gap:12}}>
                     <div style={{width:48,height:48,borderRadius:14,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>{b.icon}</div>
-                    <div style={{flex:1}}><div style={{fontWeight:700,fontSize:16}}>{b.name}</div><div style={{fontSize:11,color:"#64748b"}}>{getCurrentTierPct(b.type)}% من الدخل (هاد الشهر){balance<0?" — 🔴 عجز":""}</div></div>
+                    <div style={{flex:1}}><div style={{fontWeight:700,fontSize:16}}>{b.name}</div><div style={{fontSize:11,color:"#64748b"}}>{getCurrentTierPct(b.type).toFixed(1)}% من الدخل (هاد الشهر){balance<0?" — 🔴 عجز":""}</div></div>
                     <span style={{fontSize:17,fontWeight:900,color:balance>=0?b.color:"#ef4444"}}>{balance<0?"-":""}{fmt(Math.abs(balance))}</span>
                     <span style={{color:"#64748b",fontSize:20}}>›</span>
                   </div>
@@ -3646,13 +3657,12 @@ export default function App(){
                 let applied=0,excess=0,retRaw=0;
                 if(monthInc>0){
                   const tiers=getActiveTiers(m.slice(0,4));
-                  const tier=getTierForIncome(monthInc,tiers);
-                  const raw=monthInc*((tier.pcts.emergency||0)/100);
+                  const raw=getProgressiveAmount(monthInc,tiers,"emergency");
                   const room=Math.max(emergencyTarget-emgBalance,0);
                   applied=Math.min(raw,room);
                   excess=raw-applied;
                   emgBalance+=applied;
-                  retRaw=monthInc*((tier.pcts.retirement||0)/100);
+                  retRaw=getProgressiveAmount(monthInc,tiers,"retirement");
                 }
                 if(type==="emergency"&&monthInc>0)rows.push({month:m,monthIncome:monthInc,contribution:applied});
                 if(type==="retirement"&&monthInc>0)rows.push({month:m,monthIncome:monthInc,contribution:retRaw+excess});
@@ -3662,8 +3672,7 @@ export default function App(){
             return Object.keys(byMonth).sort().reverse().map(m=>{
               const monthInc=byMonth[m];
               const tiers=getActiveTiers(m.slice(0,4));
-              const tier=getTierForIncome(monthInc,tiers);
-              return{month:m,monthIncome:monthInc,contribution:monthInc*((tier.pcts[type]||0)/100)};
+              return{month:m,monthIncome:monthInc,contribution:getProgressiveAmount(monthInc,tiers,type)};
             });
           };
           const b = buckets.find(x=>x.id===bktSel);
@@ -3682,7 +3691,7 @@ export default function App(){
                   <div style={{width:42,height:42,borderRadius:12,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{b.icon}</div>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:800,fontSize:15,color:"#1a1a1a"}}>{b.name}</div>
-                    <div style={{fontSize:11,color:"#64748b"}}>التوزيع: {getCurrentTierPct(b.type)}% من الدخل (حسب مستوى الدخل هاد الشهر)</div>
+                    <div style={{fontSize:11,color:"#64748b"}}>التوزيع: {getCurrentTierPct(b.type).toFixed(1)}% من الدخل (حسب مستوى الدخل هاد الشهر)</div>
                   </div>
                   <div style={{textAlign:"left"}}>
                     <div style={{fontSize:16,fontWeight:900,color:balance>=0?"#1a6b4a":"#ef4444"}}>{balance<0?"-":""}{fmt(Math.abs(balance))}</div>

@@ -2540,7 +2540,12 @@ export default function App(){
                       {incomeExisting?(
                         <div style={{background:"#e8f5ee",borderRadius:12,padding:12,textAlign:"center"}}>
                           <div style={{fontSize:11,color:"#64748b"}}>الهدف المثبت لهاد العام</div>
-                          <div style={{fontSize:24,fontWeight:900,color:"#1a6b4a"}}>{fmt(incomeExisting.amount)}</div>
+                          <div style={{fontSize:24,fontWeight:900,color:"#1a6b4a",marginBottom:8}}>{fmt(incomeExisting.amount)}</div>
+                          {selYear===nowYear.toString()&&<button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"7px",fontSize:11}} onClick={()=>{
+                            const nb={...budgetSettings,incomeGoalsByYear:(budgetSettings.incomeGoalsByYear||[]).filter(g=>g.year!==selYear)};
+                            setBudgetSettings(nb);_save('budgetSettings',nb);
+                            setErr(`✅ تم حذف هدف ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
+                          }}>🗑️ حذف هدف {selYear}</button>}
                         </div>
                       ):(
                         <>
@@ -2569,16 +2574,23 @@ export default function App(){
                       <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>📊 مستويات الدخل والنسب — {selYear}</div>
                       <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>هادو النسب الحقيقية اللي كتستعملها كل الحسابات لهاد العام</div>
                       {tiersExisting?(
-                        tiersExisting.tiers.map((t,i)=>(
-                          <div key={i} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
-                            <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:6}}>
-                              {i===0?`دخل أقل من ${fmt(t.max)}`:(t.max===Infinity||t.max===null||t.max>=999999999)?`دخل أكبر من ${fmt(tiersExisting.tiers[i-1].max)}`:`دخل بين ${fmt(tiersExisting.tiers[i-1].max)} و${fmt(t.max)}`}
+                        <>
+                          {tiersExisting.tiers.map((t,i)=>(
+                            <div key={i} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
+                              <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:6}}>
+                                {i===0?`دخل أقل من ${fmt(t.max)}`:(t.max===Infinity||t.max===null||t.max>=999999999)?`دخل أكبر من ${fmt(tiersExisting.tiers[i-1].max)}`:`دخل بين ${fmt(tiersExisting.tiers[i-1].max)} و${fmt(t.max)}`}
+                              </div>
+                              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                                {bKeys.map(k=><span key={k} style={{fontSize:11,color:"#475569"}}>{bLabels[k]}: <b>{t.pcts[k]||0}%</b></span>)}
+                              </div>
                             </div>
-                            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                              {bKeys.map(k=><span key={k} style={{fontSize:11,color:"#475569"}}>{bLabels[k]}: <b>{t.pcts[k]||0}%</b></span>)}
-                            </div>
-                          </div>
-                        ))
+                          ))}
+                          {selYear===nowYear.toString()&&<button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"9px",fontSize:12}} onClick={()=>{
+                            const nb={...budgetSettings,tiersByYear:(budgetSettings.tiersByYear||[]).filter(t=>t.year!==selYear)};
+                            setBudgetSettings(nb);_save('budgetSettings',nb);
+                            setErr(`✅ تم حذف مستويات ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
+                          }}>🗑️ حذف مستويات {selYear}</button>}
+                        </>
                       ):(
                         <div>
                           {[0,1,2,3,4].map(ti=>{

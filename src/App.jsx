@@ -195,32 +195,6 @@ export default function App(){
   const[widgetAccKey,setWidgetAccKey]=useState(()=>localStorage.getItem("mhf_widget_acc")||"");
   const[widgetIndicator,setWidgetIndicator]=useState(()=>localStorage.getItem("mhf_widget_ind")||"health");
   useEffect(()=>{
-    if(!loaded)return;
-    (async()=>{
-      try{
-        const {Preferences}=await import("@capacitor/preferences");
-        const acc=allAcc.find(a=>a.key===widgetAccKey);
-        const accLabel=acc?`${acc.bn} - ${acc.name}`:"اختر حساب";
-        const accBalance=acc?fmt(acc.balance||0):"—";
-        const wealthNowVal=totBal+totAst+totInv+totGiv-totOwd;
-        let indLabel="مؤشر الصحة",indValue="—";
-        if(widgetIndicator==="health"){
-          const h=getHealthScore();
-          indLabel="مؤشر الصحة المالية";indValue=`${h.total}/100 ${h.label.emoji}`;
-        } else if(widgetIndicator==="wealth"){
-          indLabel="صافي الثروة الكلية";indValue=fmt(wealthNowVal);
-        } else if(widgetIndicator==="budget"){
-          const bktBal=getBucketBalanceLive("expenses");
-          indLabel="الباقي فالميزانية";indValue=fmt(bktBal);
-        }
-        await Preferences.set({key:"widget_acc_label",value:accLabel});
-        await Preferences.set({key:"widget_acc_balance",value:accBalance});
-        await Preferences.set({key:"widget_ind_label",value:indLabel});
-        await Preferences.set({key:"widget_ind_value",value:indValue});
-      }catch(e){console.error("widget data write failed",e);}
-    })();
-  },[loaded,widgetAccKey,widgetIndicator,txs,budgetSettings,banks,cash,assets,investments,loans]);
-  useEffect(()=>{
     const onSaveError=()=>{setErr("⛔ فشل حفظ البيانات — تحقق من مساحة التخزين فهاتفك");setTimeout(()=>setErr(null),5000);};
     window.addEventListener("mhf-save-error",onSaveError);
     return ()=>window.removeEventListener("mhf-save-error",onSaveError);
@@ -645,6 +619,32 @@ export default function App(){
     const label=total>=90?{txt:"ممتاز",color:"#10b981",emoji:"🟢"}:total>=75?{txt:"جيد",color:"#3b82f6",emoji:"🔵"}:total>=50?{txt:"متوسط",color:"#f59e0b",emoji:"🟡"}:{txt:"يحتاج تحسين",color:"#ef4444",emoji:"🔴"};
     return{total,label,parts:{adherenceScore:Math.round(adherenceScore),catScore:Math.round(catScore),dailyScore:Math.round(dailyScore),emgScore:Math.round(emgScore)},negCount,emgDraws};
   };
+  useEffect(()=>{
+    if(!loaded)return;
+    (async()=>{
+      try{
+        const {Preferences}=await import("@capacitor/preferences");
+        const acc=allAcc.find(a=>a.key===widgetAccKey);
+        const accLabel=acc?`${acc.bn} - ${acc.name}`:"اختر حساب";
+        const accBalance=acc?fmt(acc.balance||0):"—";
+        const wealthNowVal=totBal+totAst+totInv+totGiv-totOwd;
+        let indLabel="مؤشر الصحة",indValue="—";
+        if(widgetIndicator==="health"){
+          const h=getHealthScore();
+          indLabel="مؤشر الصحة المالية";indValue=`${h.total}/100 ${h.label.emoji}`;
+        } else if(widgetIndicator==="wealth"){
+          indLabel="صافي الثروة الكلية";indValue=fmt(wealthNowVal);
+        } else if(widgetIndicator==="budget"){
+          const bktBal=getBucketBalanceLive("expenses");
+          indLabel="الباقي فالميزانية";indValue=fmt(bktBal);
+        }
+        await Preferences.set({key:"widget_acc_label",value:accLabel});
+        await Preferences.set({key:"widget_acc_balance",value:accBalance});
+        await Preferences.set({key:"widget_ind_label",value:indLabel});
+        await Preferences.set({key:"widget_ind_value",value:indValue});
+      }catch(e){console.error("widget data write failed",e);}
+    })();
+  },[loaded,widgetAccKey,widgetIndicator,txs,budgetSettings,banks,cash,assets,investments,loans]);
   const getRunwayMonths=()=>{
     const expBal=getBucketBalanceLive("expenses")||0;
     const rw=budgetSettings.runwayMonths||"3";

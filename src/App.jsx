@@ -3981,6 +3981,18 @@ export default function App(){
               const invBkt=bucketSnaps.find(b=>b.type==="investment");
               const retBkt=bucketSnaps.find(b=>b.type==="retirement");
               const periodTxs=txs.filter(t=>t.date>=range.from&&t.date<=range.to);
+              // الميزانية المخصصة لهاد الفترة بالضبط (شهر/سنة/بين تاريخين) — حساب تدريجي شهر بشهر
+              const periodIncomeByMonth={};
+              periodTxs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).forEach(t=>{
+                const m=t.date.slice(0,7);
+                periodIncomeByMonth[m]=(periodIncomeByMonth[m]||0)+t.amount;
+              });
+              const periodBudgetAllocated=Object.entries(periodIncomeByMonth).reduce((sum,[m,inc])=>{
+                const tiers=getActiveTiers(m.slice(0,4));
+                return sum+getProgressiveAmount(inc,tiers,"expenses");
+              },0);
+              const periodBudgetSpent=periodTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+              const periodBudgetRemaining=periodBudgetAllocated-periodBudgetSpent;
               const emgUsage=periodTxs.filter(t=>t.isTransfer&&(t.desc||"").includes("إعاشة"));
               const emgUsedTotal=emgUsage.filter(t=>t.type==="income"&&(t.desc||"").includes("للميزانية")).reduce((s,t)=>s+t.amount,0);
               const totInvProfit=investments.reduce((s,i)=>s+(i.profit||0),0);
@@ -4332,6 +4344,16 @@ export default function App(){
                   </div>
                   {topExpCatPeriod&&<div style={{marginTop:8,fontSize:11,color:"#64748b"}}>🔝 أهم تصنيف فالفترة: <b style={{color:"#1a1a1a"}}>{topExpCatPeriod.icon} {topExpCatPeriod.name}</b> — {fmt(topExpCatPeriod.amount)}</div>}
                 </div>}
+
+                <div style={S.card}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📅 الميزانية المخصصة لهاد الفترة بالضبط</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {[["مخصص للفترة",periodBudgetAllocated,"#3b82f6"],["مصروف الفترة",periodBudgetSpent,"#ef4444"],["المتبقي",periodBudgetRemaining,periodBudgetRemaining>=0?"#10b981":"#ef4444"],["نسبة الاستهلاك",periodBudgetAllocated>0?(periodBudgetSpent/periodBudgetAllocated*100).toFixed(0)+"%":"0%","#f59e0b"]].map(([l,v,c])=>(
+                      <div key={l} style={{flex:1,minWidth:80,background:"#f8fafc",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#64748b"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
+                    ))}
+                  </div>
+                  <div style={{marginTop:8,fontSize:10,color:"#94a3b8"}}>محسوبة تدريجيا من دخل هاد الفترة بس (ماشي تراكمي من البداية)</div>
+                </div>
 
                 {emgBkt&&<div style={S.card}>
                   <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🚨 صندوق الطوارئ</div>

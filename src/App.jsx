@@ -59,9 +59,11 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 
 const PAL=["#10b981","#6366f1","#f59e0b","#ef4444","#14b8a6","#f97316","#8b5cf6","#ec4899","#06b6d4","#84cc16"];
 const DEFAULT_TIERS=[
-  {max:4000,pcts:{expenses:80,emergency:15,assets:0,investment:0,retirement:5}},
-  {max:8000,pcts:{expenses:60,emergency:15,assets:10,investment:10,retirement:5}},
-  {max:Infinity,pcts:{expenses:50,emergency:15,assets:15,investment:10,retirement:10}},
+  {max:3000,pcts:{expenses:85,emergency:10,assets:0,investment:0,retirement:5}},
+  {max:6000,pcts:{expenses:70,emergency:15,assets:5,investment:5,retirement:5}},
+  {max:10000,pcts:{expenses:60,emergency:15,assets:10,investment:10,retirement:5}},
+  {max:20000,pcts:{expenses:50,emergency:15,assets:15,investment:10,retirement:10}},
+  {max:Infinity,pcts:{expenses:40,emergency:15,assets:20,investment:15,retirement:10}},
 ];
 const MONTH = new Date().toISOString().slice(0,7);
 const fmt=n=>(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -190,6 +192,34 @@ export default function App(){
   const[isAuth,setIsAuth]=useState(()=>sessionStorage.getItem("mhf_auth")==="1");
   const[bioEnabled,setBioEnabled]=useState(()=>localStorage.getItem("mhf_bio")==="1");
   const[autoLockMin,setAutoLockMin]=useState(()=>parseInt(localStorage.getItem("mhf_autolock")||"0"));
+  const[widgetAccKey,setWidgetAccKey]=useState(()=>localStorage.getItem("mhf_widget_acc")||"");
+  const[widgetIndicator,setWidgetIndicator]=useState(()=>localStorage.getItem("mhf_widget_ind")||"health");
+  useEffect(()=>{
+    if(!loaded)return;
+    (async()=>{
+      try{
+        const {Preferences}=await import("@capacitor/preferences");
+        const acc=allAcc.find(a=>a.key===widgetAccKey);
+        const accLabel=acc?`${acc.bn} - ${acc.name}`:"اختر حساب";
+        const accBalance=acc?fmt(acc.balance||0):"—";
+        const wealthNowVal=totBal+totAst+totInv+totGiv-totOwd;
+        let indLabel="مؤشر الصحة",indValue="—";
+        if(widgetIndicator==="health"){
+          const h=getHealthScore();
+          indLabel="مؤشر الصحة المالية";indValue=`${h.total}/100 ${h.label.emoji}`;
+        } else if(widgetIndicator==="wealth"){
+          indLabel="صافي الثروة الكلية";indValue=fmt(wealthNowVal);
+        } else if(widgetIndicator==="budget"){
+          const bktBal=getBucketBalanceLive("expenses");
+          indLabel="الباقي فالميزانية";indValue=fmt(bktBal);
+        }
+        await Preferences.set({key:"widget_acc_label",value:accLabel});
+        await Preferences.set({key:"widget_acc_balance",value:accBalance});
+        await Preferences.set({key:"widget_ind_label",value:indLabel});
+        await Preferences.set({key:"widget_ind_value",value:indValue});
+      }catch(e){console.error("widget data write failed",e);}
+    })();
+  },[loaded,widgetAccKey,widgetIndicator,txs,budgetSettings,banks,cash,assets,investments,loans]);
   useEffect(()=>{
     const onSaveError=()=>{setErr("⛔ فشل حفظ البيانات — تحقق من مساحة التخزين فهاتفك");setTimeout(()=>setErr(null),5000);};
     window.addEventListener("mhf-save-error",onSaveError);
@@ -295,6 +325,20 @@ export default function App(){
         });
         return {year:d.year,catPcts,subPcts};
       });
+      const migrateTiersByYear=(tierHistory,existing)=>{
+        if(existing&&existing.length>0)return existing; // نظام جديد ديجا موجود
+        const sorted=(tierHistory||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+        const byYear={};
+        sorted.forEach(h=>{byYear[h.date.slice(0,4)]=h.tiers;}); // آخر إدخال فكل سنة كيبقى (الترتيب تصاعدي)
+        return Object.keys(byYear).map(year=>({year,tiers:byYear[year]}));
+      };
+      const migrateIncomeGoalsByYear=(incomeGoals,existing)=>{
+        if(existing&&existing.length>0)return existing; // نظام جديد ديجا موجود
+        const sorted=(incomeGoals||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+        const byYear={};
+        sorted.forEach(g=>{byYear[g.date.slice(0,4)]=g.amount;});
+        return Object.keys(byYear).map(year=>({year,amount:byYear[year]}));
+      };
       const OLD2NEW_COLOR={"#ef4444":"#3b82f6","#f59e0b":"#f97316","#1a6b4a":"#8b5cf6"};
       const migrateColor=c=>OLD2NEW_COLOR[c]||c;
       const defaultBuckets=[
@@ -302,15 +346,17 @@ export default function App(){
       ];
       if(bs){
         const migratedCatDistYears=migrateCatDistYears(bs.catDistYears);
+        const migratedTiersByYear=migrateTiersByYear(bs.tierHistory,bs.tiersByYear);
+        const migratedIncomeGoalsByYear=migrateIncomeGoalsByYear(bs.incomeGoals,bs.incomeGoalsByYear);
         if(bs.buckets&&bs.buckets.length>0){
           // نظام جديد — حمل مباشرة (مع تحديث الألوان القديمة تلقائيا)
-          setBudgetSettings({...bs,catDistYears:migratedCatDistYears,buckets:bs.buckets.map(b=>({...b,color:migrateColor(b.color),accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))});
+          setBudgetSettings({...bs,catDistYears:migratedCatDistYears,tiersByYear:migratedTiersByYear,incomeGoalsByYear:migratedIncomeGoalsByYear,buckets:bs.buckets.map(b=>({...b,color:migrateColor(b.color),accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))});
         } else if(bs.allocations&&bs.allocations.length>0){
           // ترحيل من النظام القديم
-          setBudgetSettings({...bs,catDistYears:migratedCatDistYears,buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))});
+          setBudgetSettings({...bs,catDistYears:migratedCatDistYears,tiersByYear:migratedTiersByYear,incomeGoalsByYear:migratedIncomeGoalsByYear,buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))});
         } else {
           // ما فيهوش buckets ولا allocations — استعمل default
-          setBudgetSettings({...bs,catDistYears:migratedCatDistYears,buckets:defaultBuckets});
+          setBudgetSettings({...bs,catDistYears:migratedCatDistYears,tiersByYear:migratedTiersByYear,incomeGoalsByYear:migratedIncomeGoalsByYear,buckets:defaultBuckets});
         }
       } else {
         // أول مرة — استعمل default
@@ -386,9 +432,20 @@ export default function App(){
     cm();
   };
 
-  const getActiveTiers=()=>{
-    const hist=(budgetSettings.tierHistory||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-    return hist[0]?hist[0].tiers:DEFAULT_TIERS;
+  const getActiveTiers=(year)=>{
+    const y=year||new Date().getFullYear().toString();
+    const byYear=(budgetSettings.tiersByYear||[]).find(t=>t.year===y);
+    if(byYear)return byYear.tiers;
+    const earlier=(budgetSettings.tiersByYear||[]).filter(t=>parseInt(t.year)<parseInt(y)).sort((a,b)=>b.year.localeCompare(a.year));
+    if(earlier[0])return earlier[0].tiers;
+    return DEFAULT_TIERS;
+  };
+  const getIncomeGoalForYear=(year)=>{
+    const y=year||new Date().getFullYear().toString();
+    const byYear=(budgetSettings.incomeGoalsByYear||[]).find(g=>g.year===y);
+    if(byYear)return byYear.amount;
+    const earlier=(budgetSettings.incomeGoalsByYear||[]).filter(g=>parseInt(g.year)<parseInt(y)).sort((a,b)=>b.year.localeCompare(a.year));
+    return earlier[0]?earlier[0].amount:0;
   };
   const getTierForIncome=(amount,tiers)=>{
     const list=tiers||getActiveTiers();
@@ -396,7 +453,6 @@ export default function App(){
   };
   // يحسب مجموع "ميزانية السنة" مرة وحدة لكل سنة (بدل ما يتعاود لكل تصنيف/فرع بوحدو)
   const yearBudgetTotals=useMemo(()=>{
-    const tiers=getActiveTiers();
     const byYear={};
     txs.forEach(t=>{
       if(t.type!=="income"||t.isTransfer||t.isLoan||t.isInvest||t.isAsset)return;
@@ -407,13 +463,14 @@ export default function App(){
     });
     const totals={};
     Object.keys(byYear).forEach(year=>{
+      const tiers=getActiveTiers(year);
       totals[year]=Object.values(byYear[year]).reduce((sum,monthTotal)=>{
         const tier=getTierForIncome(monthTotal,tiers);
         return sum+monthTotal*((tier.pcts.expenses||0)/100);
       },0);
     });
     return totals;
-  },[txs,budgetSettings.tierHistory]);
+  },[txs,budgetSettings.tiersByYear]);
   const checkEmergencyTransferLimits=(amount)=>{
     const maxAmt=budgetSettings.emergencyMaxAmount;
     if(maxAmt&&amount>maxAmt)return `⛔ المبلغ (${fmt(amount)}) أكبر من الحد الأقصى للتحويل (${fmt(maxAmt)})`;
@@ -444,11 +501,10 @@ export default function App(){
     return tier.pcts[type]||0;
   };
   const computeBucketAllocated=(type)=>{
-    const tiers=getActiveTiers();
     const incomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
     const byMonth={};
     incomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+t.amount;});
-    const rawFor=key=>Object.values(byMonth).reduce((sum,monthTotal)=>{const tier=getTierForIncome(monthTotal,tiers);return sum+monthTotal*((tier.pcts[key]||0)/100);},0);
+    const rawFor=key=>Object.entries(byMonth).reduce((sum,[m,monthTotal])=>{const tiers=getActiveTiers(m.slice(0,4));const tier=getTierForIncome(monthTotal,tiers);return sum+monthTotal*((tier.pcts[key]||0)/100);},0);
     if(type==="expenses"){
       const emgRefill=txs.filter(t=>t.type==="income"&&t.isTransfer&&(t.desc||"").includes("إعاشة")).reduce((s,t)=>s+t.amount,0);
       return rawFor("expenses")+emgRefill;
@@ -466,6 +522,7 @@ export default function App(){
       emgBalance-=(withdrawByMonth[m]||0);
       const monthInc=byMonth[m]||0;
       if(monthInc>0){
+        const tiers=getActiveTiers(m.slice(0,4));
         const tier=getTierForIncome(monthInc,tiers);
         const rawContribution=monthInc*((tier.pcts.emergency||0)/100);
         const room=Math.max(emergencyTarget-emgBalance,0);
@@ -1662,14 +1719,11 @@ export default function App(){
 
                     {/* أهداف شهرية */}
           {(()=>{
-            const incomeGoalsArr=(budgetSettings.incomeGoals||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-            const pctHistoryArr=(budgetSettings.pctGoalHistory||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-            const activeIncomeG=incomeGoalsArr[0]||null;
-            const activePctG=pctHistoryArr[0]||null;
-            const bucketsArr=budgetSettings.buckets||[];
-            const curPcts=activePctG?activePctG.pcts:Object.fromEntries(bucketsArr.map(b=>[b.type,b.pct]));
-            if(!activeIncomeG)return null;
-            const incGoal=activeIncomeG.amount;
+            const curYearNow=new Date().getFullYear().toString();
+            const incGoal=getIncomeGoalForYear(curYearNow);
+            const curTiers=getActiveTiers(curYearNow);
+            const curPcts=curTiers.find(t=>incGoal<=t.max)?.pcts||curTiers[curTiers.length-1].pcts;
+            if(!incGoal)return null;
             const expGoal=incGoal*((curPcts.expenses||0)/100);
             const allMonths=[...new Set(txs.map(t=>t.date.slice(0,7)))];
             const filtP=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
@@ -2283,11 +2337,40 @@ export default function App(){
               <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>النسخ والتصدير</span>
               <ChevronLeft size={18} color="#64748b"/>
             </div>
+            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("widget")}>
+              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🔲</div>
+              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>ودجيت الشاشة الرئيسية</div><div style={{fontSize:12,color:"#64748b"}}>اختر الحساب والمؤشر اللي كيبانو</div></div>
+              <ChevronLeft size={18} color="#64748b"/>
+            </div>
           </div>
-          {dp&&["banks","cash","assets","expCat","incCat","cloud","profile","appearance","security","distribution","catDist"].includes(dp)&&(
+          {dp&&["banks","cash","assets","expCat","incCat","cloud","profile","appearance","security","distribution","catDist","widget"].includes(dp)&&(
             <div style={{position:isDesktop?"absolute":"fixed",inset:0,background:"#f5f5f0",zIndex:100,overflowY:"auto",padding:"20px 20px 90px"}}>
               <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');`}</style>
               <div dir="rtl" style={{fontFamily:"Tajawal",color:"#1a1a1a",display:"flex",flexDirection:"column",gap:14}}>
+
+                {dp==="widget"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>ودجيت الشاشة الرئيسية</span>
+                    <button onClick={()=>setDp(null)} style={{background:"#e8e8e4",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+                  </div>
+                  <div style={{fontSize:12,color:"#64748b",marginBottom:4}}>هاد الاختيارات كتتحكم فشنو كيبان فودجيت الشاشة الرئيسية ديال أندرويد (خاصك تزيدو من شاشة الهاتف الرئيسية بعد التثبيت)</div>
+                  <div style={S.card}>
+                    <div style={{fontWeight:700,fontSize:14,marginBottom:8}}>💳 الحساب</div>
+                    <select style={S.sel} value={widgetAccKey} onChange={e=>{setWidgetAccKey(e.target.value);localStorage.setItem("mhf_widget_acc",e.target.value);}}>
+                      <option value="">اختر حساب</option>
+                      {allAcc.map(a=><option key={a.key} value={a.key}>{a.bn} - {a.name}</option>)}
+                    </select>
+                  </div>
+                  <div style={S.card}>
+                    <div style={{fontWeight:700,fontSize:14,marginBottom:8}}>📊 المؤشر</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {[["health","مؤشر الصحة المالية (0-100)"],["wealth","صافي الثروة الكلية"],["budget","الباقي فالميزانية"]].map(([v,l])=>(
+                        <button key={v} onClick={()=>{setWidgetIndicator(v);localStorage.setItem("mhf_widget_ind",v);}}
+                          style={{...S.btn(widgetIndicator===v?"#1a6b4a":"#f1f5f9",false),padding:"10px",fontSize:13,color:widgetIndicator===v?"white":"#475569"}}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
+                </>}
 
                 {dp==="profile"&&<>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -2407,185 +2490,127 @@ export default function App(){
                   </div>
                 </>}
 
-                {dp==="distribution"&&<>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>الأهداف والتوزيع</span>
-                    <button onClick={()=>setDp(null)} style={{background:"#e8e8e4",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
-                  </div>
-          {/* ====== أهداف الدخل والتوزيع ====== */}
-          {(()=>{
-          const todayStr=new Date().toISOString().split("T")[0];
-          const incomeGoals=(budgetSettings.incomeGoals||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-          const pctHistory=(budgetSettings.pctGoalHistory||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-          const activeIncome=incomeGoals[0]||null;
-          const activePct=pctHistory[0]||null;
-          const bucketsDef=budgetSettings.buckets||[];
-          const currentPcts=activePct?activePct.pcts:Object.fromEntries(bucketsDef.map(b=>[b.type,b.pct]));
-          const daysSince=dateStr=>(new Date(todayStr)-new Date(dateStr))/86400000;
-          const canAddIncome = incomeGoals.length===0 || daysSince(incomeGoals[0].date)>=365;
-          const canAddPct = pctHistory.length===0 || daysSince(pctHistory[0].date)>=365;
-          const addDays=(dateStr,n)=>{const d=new Date(dateStr);d.setDate(d.getDate()+n);return d.toISOString().split("T")[0];};
-          const nextIncomeDate = incomeGoals.length? addDays(incomeGoals[0].date,365) : null;
-          const nextPctDate = pctHistory.length? addDays(pctHistory[0].date,365) : null;
+                {dp==="distribution"&&(()=>{
+                  const nowYear=new Date().getFullYear();
+                  const selYear=(ovExp.distYearSel||nowYear.toString());
+                  const yearOptions=[];
+                  for(let y=nowYear;y>=2017;y--)yearOptions.push(y.toString());
+                  const bKeys=["expenses","emergency","assets","investment","retirement"];
+                  const bLabels={expenses:"🛒 الميزانية",emergency:"🚨 الطوارئ",assets:"🏠 الممتلكات",investment:"📈 الاستثمار",retirement:"🏦 التقاعد"};
 
-          const now=new Date();
-          const last3=[0,1,2].map(i=>{const d=new Date(now.getFullYear(),now.getMonth()-i,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;});
-          const monthlyIncomes=last3.map(m=>txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(m)).reduce((s,t)=>s+t.amount,0));
-          const validMonths=monthlyIncomes.filter(v=>v>0);
-          const avg3=validMonths.length? validMonths.reduce((a,b)=>a+b,0)/validMonths.length : 0;
-          const minM=validMonths.length?Math.min(...validMonths):0;
-          const suggestions = avg3>0 ? [
-            {label:"محافظ",value:Math.round(minM)},
-            {label:"متوسط",value:Math.round(avg3)},
-            {label:"طموح",value:Math.round(avg3*1.15)},
-          ] : [];
+                  const incomeExisting=(budgetSettings.incomeGoalsByYear||[]).find(g=>g.year===selYear);
+                  const tiersExisting=(budgetSettings.tiersByYear||[]).find(t=>t.year===selYear);
 
-            return <div style={{...S.card,padding:0,overflow:"hidden"}}>
-              <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>🎯 أهداف الدخل والتوزيع</div>
-              <div style={{padding:14}}>
-            <div style={S.card}>
-              <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>💰 هدف الدخل الشهري</div>
-              {activeIncome ? (
-                <div style={{background:"#e8f5ee",borderRadius:12,padding:12,marginBottom:10,textAlign:"center"}}>
-                  <div style={{fontSize:11,color:"#64748b"}}>الهدف الحالي (منذ {activeIncome.date})</div>
-                  <div style={{fontSize:24,fontWeight:900,color:"#1a6b4a"}}>{fmt(activeIncome.amount)}</div>
-                </div>
-              ) : <div style={{textAlign:"center",color:"#64748b",fontSize:12,padding:10}}>ما حددتيش هدف بعد</div>}
+                  const now=new Date();
+                  const last3=[0,1,2].map(i=>{const d=new Date(now.getFullYear(),now.getMonth()-i,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;});
+                  const monthlyIncomes=last3.map(m=>txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(m)).reduce((s,t)=>s+t.amount,0));
+                  const validMonths=monthlyIncomes.filter(v=>v>0);
+                  const avg3=validMonths.length? validMonths.reduce((a,b)=>a+b,0)/validMonths.length : 0;
+                  const minM=validMonths.length?Math.min(...validMonths):0;
+                  const suggestions = avg3>0 ? [{label:"محافظ",value:Math.round(minM)},{label:"متوسط",value:Math.round(avg3)},{label:"طموح",value:Math.round(avg3*1.15)}] : [];
 
-              {incomeGoals.length>0 && <div style={{marginBottom:10}}>
-                <div style={{fontSize:11,color:"#64748b",fontWeight:700,marginBottom:6}}>السجل</div>
-                {incomeGoals.map((g,i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",fontSize:12,borderBottom:"1px solid #f1f5f9"}}>
-                    <span style={{color:"#64748b"}}>{g.date}</span>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontWeight:700}}>{fmt(g.amount)}</span>
-                      <button onClick={()=>{
-                        const nb={...budgetSettings,incomeGoals:(budgetSettings.incomeGoals||[]).filter(x=>!(x.date===g.date&&x.amount===g.amount))};
-                        setBudgetSettings(nb);_save('budgetSettings',nb);
-                        setErr("✅ تم حذف الإدخال — تقدر تزيد الصحيح دابا");setTimeout(()=>setErr(null),3000);
-                      }} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:11,fontFamily:"inherit"}}>حذف</button>
+                  return <>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>الأهداف والتوزيع</span>
+                      <button onClick={()=>setDp(null)} style={{background:"#e8e8e4",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
                     </div>
-                  </div>
-                ))}
-              </div>}
 
-              {!canAddIncome && <div style={{background:"#fef3c7",color:"#92400e",fontSize:11,fontWeight:700,padding:"8px 10px",borderRadius:8,marginBottom:8,textAlign:"center"}}>
-                ⚠️ خاص يمر عام كامل على آخر تحديث — تقدر تحدث بداية من {nextIncomeDate}
-              </div>}
-
-              {canAddIncome && <>
-                {suggestions.length>0 && <div style={{display:"flex",gap:6,marginBottom:8}}>
-                  {suggestions.map(s=>(
-                    <button key={s.label} onClick={()=>setOvExp(p=>({...p,newIncomeAmt:String(s.value)}))} style={{...S.btn("#f1f5f9",false),flex:1,padding:"9px 4px",fontSize:11,color:"#475569"}}>
-                      <div style={{fontWeight:800}}>{s.label}</div>
-                      <div style={{fontSize:10}}>{fmt(s.value)}</div>
-                    </button>
-                  ))}
-                </div>}
-                <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ الشهري" value={ovExp.newIncomeAmt||""} onChange={e=>setOvExp(p=>({...p,newIncomeAmt:e.target.value}))}/>
-                <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.newIncomeDate||todayStr} onChange={e=>setOvExp(p=>({...p,newIncomeDate:e.target.value}))}/>
-                <button style={S.btn("#1a6b4a")} onClick={()=>{
-                  const amt=parseFloat(ovExp.newIncomeAmt);
-                  const dt=ovExp.newIncomeDate||todayStr;
-                  if(!amt||amt<=0){showErr("⛔ أدخل مبلغ صحيح");setTimeout(()=>setErr(null),3000);return;}
-                  if(incomeGoals.length>0 && daysSince(incomeGoals[0].date)<365){showErr("⛔ خاص يمر عام كامل على آخر تحديث");setTimeout(()=>setErr(null),3000);return;}
-                  const nb={...budgetSettings,incomeGoals:[...(budgetSettings.incomeGoals||[]),{date:dt,amount:amt}]};
-                  setBudgetSettings(nb);_save('budgetSettings',nb);
-                  setOvExp(p=>({...p,newIncomeAmt:"",newIncomeDate:""}));
-                  setErr("✅ تم حفظ هدف الدخل");setTimeout(()=>setErr(null),3000);
-                }}>💾 حفظ هدف جديد</button>
-              </>}
-            </div>
-
-            {/* مستويات الدخل والنسب (النظام الحقيقي المستعمل فالحساب) */}
-            {(()=>{
-              const tierHist=(budgetSettings.tierHistory||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-              const activeTiers=tierHist[0]?tierHist[0].tiers:DEFAULT_TIERS;
-              const canAddTiers=tierHist.length===0||daysSince(tierHist[0].date)>=365;
-              const nextTierDate=tierHist.length?addDays(tierHist[0].date,365):null;
-              const bKeys=["expenses","emergency","assets","investment","retirement"];
-              const bLabels={expenses:"🛒 الميزانية",emergency:"🚨 الطوارئ",assets:"🏠 الممتلكات",investment:"📈 الاستثمار",retirement:"🏦 التقاعد"};
-              return <div style={S.card}>
-                <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>📊 مستويات الدخل والنسب</div>
-                <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>هادو النسب الحقيقية اللي كتستعملها كل الحسابات فالتطبيق (حسب مستوى دخلك الشهري)</div>
-                {activeTiers.map((t,i)=>(
-                  <div key={i} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
-                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:6}}>
-                      {i===0?`دخل أقل من ${fmt(t.max)}`:t.max===Infinity||t.max>=999999999?`دخل أكبر من ${fmt(activeTiers[i-1].max)}`:`دخل بين ${fmt(activeTiers[i-1].max)} و${fmt(t.max)}`}
+                    <div style={{...S.card,padding:"10px 12px"}}>
+                      <div style={{fontSize:11,color:"#64748b",marginBottom:6}}>السنة</div>
+                      <select style={S.sel} value={selYear} onChange={e=>setOvExp(p=>({...p,distYearSel:e.target.value}))}>
+                        {yearOptions.map(y=><option key={y} value={y}>{y}{y===nowYear.toString()?" (الحالية)":""}</option>)}
+                      </select>
                     </div>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                      {bKeys.map(k=><span key={k} style={{fontSize:11,color:"#475569"}}>{bLabels[k]}: <b>{t.pcts[k]||0}%</b></span>)}
-                    </div>
-                  </div>
-                ))}
 
-                {tierHist.length>0&&<div style={{marginBottom:10}}>
-                  <div style={{fontSize:11,color:"#64748b",fontWeight:700,marginBottom:6}}>السجل</div>
-                  {tierHist.map((h,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #f1f5f9"}}>
-                      <span style={{fontSize:11,color:"#64748b"}}>{h.date}</span>
-                      <button onClick={()=>{
-                        const remaining=(budgetSettings.tierHistory||[]).filter(x=>x.date!==h.date);
-                        const nb={...budgetSettings,tierHistory:remaining};
-                        setBudgetSettings(nb);_save('budgetSettings',nb);
-                        setErr("✅ تم حذف الإدخال");setTimeout(()=>setErr(null),3000);
-                      }} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:10,fontFamily:"inherit"}}>حذف</button>
-                    </div>
-                  ))}
-                </div>}
-
-                {!canAddTiers&&<div style={{background:"#fef3c7",color:"#92400e",fontSize:11,fontWeight:700,padding:"8px 10px",borderRadius:8,marginBottom:8,textAlign:"center"}}>
-                  ⚠️ خاص يمر عام كامل على آخر تحديث — تقدر تحدث بداية من {nextTierDate}
-                </div>}
-
-                {canAddTiers&&<div>
-                  {[0,1,2].map(ti=>{
-                    const tKey=n=>`newTier_${ti}_${n}`;
-                    const defaults=activeTiers[ti]||DEFAULT_TIERS[ti];
-                    const tot=bKeys.reduce((s,k)=>s+(parseInt(ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0))||0),0);
-                    return <div key={ti} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
-                      <div style={{fontSize:12,fontWeight:800,marginBottom:6}}>المستوى {ti+1}</div>
-                      {ti<2&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-                        <span style={{fontSize:11,color:"#64748b"}}>الحد الأقصى للدخل:</span>
-                        <input style={{...S.inp,width:90,padding:"6px 8px",fontSize:12}} type="number" value={ovExp[tKey("max")]!==undefined?ovExp[tKey("max")]:defaults.max} onChange={e=>setOvExp(p=>({...p,[tKey("max")]:e.target.value}))}/>
-                      </div>}
-                      {bKeys.map(k=>(
-                        <div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                          <div style={{flex:1,fontSize:12}}>{bLabels[k]}</div>
-                          <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100"
-                            value={ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0)} onChange={e=>setOvExp(p=>({...p,[tKey(k)]:e.target.value}))}/>
-                          <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                    {/* هدف الدخل الشهري لهاد السنة */}
+                    <div style={S.card}>
+                      <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>💰 هدف الدخل الشهري — {selYear}</div>
+                      {incomeExisting?(
+                        <div style={{background:"#e8f5ee",borderRadius:12,padding:12,textAlign:"center"}}>
+                          <div style={{fontSize:11,color:"#64748b"}}>الهدف المثبت لهاد العام</div>
+                          <div style={{fontSize:24,fontWeight:900,color:"#1a6b4a"}}>{fmt(incomeExisting.amount)}</div>
                         </div>
-                      ))}
-                      <div style={{textAlign:"center",fontSize:11,fontWeight:700,color:tot===100?"#10b981":"#ef4444"}}>المجموع: {tot}% {tot===100?"✅":"⚠️"}</div>
-                    </div>;
-                  })}
-                  <button style={S.btn("#6366f1")} onClick={()=>{
-                    const newTiers=[0,1,2].map(ti=>{
-                      const tKey=n=>`newTier_${ti}_${n}`;
-                      const defaults=activeTiers[ti]||DEFAULT_TIERS[ti];
-                      const pcts={};
-                      bKeys.forEach(k=>{pcts[k]=parseInt(ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0))||0;});
-                      const max=ti===2?Infinity:(parseFloat(ovExp[tKey("max")]!==undefined?ovExp[tKey("max")]:defaults.max)||defaults.max);
-                      return{max,pcts};
-                    });
-                    for(const t of newTiers){
-                      const tot=bKeys.reduce((s,k)=>s+(t.pcts[k]||0),0);
-                      if(tot!==100){showErr(`⛔ مجموع نسب كل مستوى خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
-                    }
-                    if(tierHist.length>0&&daysSince(tierHist[0].date)<365){showErr("⛔ خاص يمر عام كامل على آخر تحديث");setTimeout(()=>setErr(null),3000);return;}
-                    const nb={...budgetSettings,tierHistory:[...(budgetSettings.tierHistory||[]),{date:todayStr,tiers:newTiers}]};
-                    setBudgetSettings(nb);_save('budgetSettings',nb);
-                    setOvExp(p=>{const np={...p};[0,1,2].forEach(ti=>{["max",...bKeys].forEach(n=>delete np[`newTier_${ti}_${n}`]);});return np;});
-                    setErr("✅ تم حفظ المستويات الجديدة");setTimeout(()=>setErr(null),3000);
-                  }}>💾 حفظ المستويات الجديدة</button>
-                </div>}
-              </div>;
-            })()}
+                      ):(
+                        <>
+                          {selYear===nowYear.toString()&&suggestions.length>0&&<div style={{display:"flex",gap:6,marginBottom:8}}>
+                            {suggestions.map(s=>(
+                              <button key={s.label} onClick={()=>setOvExp(p=>({...p,newIncomeAmt:String(s.value)}))} style={{...S.btn("#f1f5f9",false),flex:1,padding:"9px 4px",fontSize:11,color:"#475569"}}>
+                                <div style={{fontWeight:800}}>{s.label}</div><div style={{fontSize:10}}>{fmt(s.value)}</div>
+                              </button>
+                            ))}
+                          </div>}
+                          <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ الشهري" value={ovExp.newIncomeAmt||""} onChange={e=>setOvExp(p=>({...p,newIncomeAmt:e.target.value}))}/>
+                          <button style={S.btn("#1a6b4a")} onClick={()=>{
+                            const amt=parseFloat(ovExp.newIncomeAmt);
+                            if(!amt||amt<=0){showErr("⛔ أدخل مبلغ صحيح");setTimeout(()=>setErr(null),3000);return;}
+                            const nb={...budgetSettings,incomeGoalsByYear:[...(budgetSettings.incomeGoalsByYear||[]),{year:selYear,amount:amt}]};
+                            setBudgetSettings(nb);_save('budgetSettings',nb);
+                            setOvExp(p=>({...p,newIncomeAmt:""}));
+                            setErr(`✅ تم حفظ هدف ${selYear}`);setTimeout(()=>setErr(null),3000);
+                          }}>💾 حفظ هدف {selYear}</button>
+                        </>
+                      )}
+                    </div>
 
-              </div>
-            </div>;
-          })()}
+                    {/* مستويات الدخل والنسب لهاد السنة */}
+                    <div style={S.card}>
+                      <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>📊 مستويات الدخل والنسب — {selYear}</div>
+                      <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>هادو النسب الحقيقية اللي كتستعملها كل الحسابات لهاد العام</div>
+                      {tiersExisting?(
+                        tiersExisting.tiers.map((t,i)=>(
+                          <div key={i} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
+                            <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:6}}>
+                              {i===0?`دخل أقل من ${fmt(t.max)}`:(t.max===Infinity||t.max===null||t.max>=999999999)?`دخل أكبر من ${fmt(tiersExisting.tiers[i-1].max)}`:`دخل بين ${fmt(tiersExisting.tiers[i-1].max)} و${fmt(t.max)}`}
+                            </div>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                              {bKeys.map(k=><span key={k} style={{fontSize:11,color:"#475569"}}>{bLabels[k]}: <b>{t.pcts[k]||0}%</b></span>)}
+                            </div>
+                          </div>
+                        ))
+                      ):(
+                        <div>
+                          {[0,1,2,3,4].map(ti=>{
+                            const tKey=n=>`newTierY_${selYear}_${ti}_${n}`;
+                            const defaults=DEFAULT_TIERS[ti];
+                            const tot=bKeys.reduce((s,k)=>s+(parseInt(ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0))||0),0);
+                            return <div key={ti} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
+                              <div style={{fontSize:12,fontWeight:800,marginBottom:6}}>المستوى {ti+1}</div>
+                              {ti<4&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                                <span style={{fontSize:11,color:"#64748b"}}>الحد الأقصى للدخل:</span>
+                                <input style={{...S.inp,width:90,padding:"6px 8px",fontSize:12}} type="number" value={ovExp[tKey("max")]!==undefined?ovExp[tKey("max")]:defaults.max} onChange={e=>setOvExp(p=>({...p,[tKey("max")]:e.target.value}))}/>
+                              </div>}
+                              {bKeys.map(k=>(
+                                <div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                                  <div style={{flex:1,fontSize:12}}>{bLabels[k]}</div>
+                                  <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100"
+                                    value={ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0)} onChange={e=>setOvExp(p=>({...p,[tKey(k)]:e.target.value}))}/>
+                                  <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                                </div>
+                              ))}
+                              <div style={{textAlign:"center",fontSize:11,fontWeight:700,color:tot===100?"#10b981":"#ef4444"}}>المجموع: {tot}% {tot===100?"✅":"⚠️"}</div>
+                            </div>;
+                          })}
+                          <button style={S.btn("#6366f1")} onClick={()=>{
+                            const newTiers=[0,1,2,3,4].map(ti=>{
+                              const tKey=n=>`newTierY_${selYear}_${ti}_${n}`;
+                              const defaults=DEFAULT_TIERS[ti];
+                              const pcts={};
+                              bKeys.forEach(k=>{pcts[k]=parseInt(ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0))||0;});
+                              const max=ti===4?Infinity:(parseFloat(ovExp[tKey("max")]!==undefined?ovExp[tKey("max")]:defaults.max)||defaults.max);
+                              return{max,pcts};
+                            });
+                            for(const t of newTiers){
+                              const tot=bKeys.reduce((s,k)=>s+(t.pcts[k]||0),0);
+                              if(tot!==100){showErr(`⛔ مجموع نسب كل مستوى خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
+                            }
+                            const nb={...budgetSettings,tiersByYear:[...(budgetSettings.tiersByYear||[]),{year:selYear,tiers:newTiers}]};
+                            setBudgetSettings(nb);_save('budgetSettings',nb);
+                            setOvExp(p=>{const np={...p};[0,1,2,3,4].forEach(ti=>{["max",...bKeys].forEach(n=>delete np[`newTierY_${selYear}_${ti}_${n}`]);});return np;});
+                            setErr(`✅ تم حفظ مستويات ${selYear}`);setTimeout(()=>setErr(null),3000);
+                          }}>💾 حفظ مستويات {selYear}</button>
+                        </div>
+                      )}
+                    </div>
 
           {/* ====== الأقسام الخمسة ====== */}
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
@@ -2692,7 +2717,8 @@ export default function App(){
             </div>
           </div>
 
-                </>}
+                  </>;
+                })()}
 
                 {dp==="catDist"&&(()=>{
                   const nowYear=new Date().getFullYear();
@@ -3230,12 +3256,12 @@ export default function App(){
 
         {page==="goals"&&(()=>{
           const todayStr=new Date().toISOString().split("T")[0];
-          const incomeGoals=(budgetSettings.incomeGoals||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-          const pctHistory=(budgetSettings.pctGoalHistory||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-          const activeIncome=incomeGoals[0]||null;
-          const activePct=pctHistory[0]||null;
+          const curYearForGoals=new Date().getFullYear().toString();
+          const incGoalAmt=getIncomeGoalForYear(curYearForGoals);
+          const activeIncome=incGoalAmt?{amount:incGoalAmt}:null;
+          const curTiersForGoals=getActiveTiers(curYearForGoals);
+          const currentPcts=(incGoalAmt?curTiersForGoals.find(t=>incGoalAmt<=t.max):null)?.pcts||curTiersForGoals[curTiersForGoals.length-1].pcts;
           const bucketsDef=budgetSettings.buckets||[];
-          const currentPcts=activePct?activePct.pcts:Object.fromEntries(bucketsDef.map(b=>[b.type,b.pct]));
 
           const goalsPeriod=ovExp.goalsPeriod||"month";
           const now=new Date();
@@ -3417,7 +3443,7 @@ export default function App(){
                 </div>
               ):(()=>{
                 const targetMonth=period.month||new Date().toISOString().slice(0,7);
-                const tiers=getActiveTiers();
+                const tiers=getActiveTiers(targetMonth.slice(0,4));
                 const monthIncomeTotal=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(targetMonth)).reduce((s,t)=>s+t.amount,0);
                 const monthTier=getTierForIncome(monthIncomeTotal,tiers);
                 const monthBudgetIncome=monthIncomeTotal*((monthTier.pcts.expenses||0)/100);
@@ -3604,7 +3630,6 @@ export default function App(){
           </>;
 
           const getBucketMonthlyEntries=(type)=>{
-            const tiers=getActiveTiers();
             const incomeTxs=txs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
             const byMonth={};
             incomeTxs.forEach(t=>{const m=t.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+t.amount;});
@@ -3620,6 +3645,7 @@ export default function App(){
                 const monthInc=byMonth[m]||0;
                 let applied=0,excess=0,retRaw=0;
                 if(monthInc>0){
+                  const tiers=getActiveTiers(m.slice(0,4));
                   const tier=getTierForIncome(monthInc,tiers);
                   const raw=monthInc*((tier.pcts.emergency||0)/100);
                   const room=Math.max(emergencyTarget-emgBalance,0);
@@ -3635,6 +3661,7 @@ export default function App(){
             }
             return Object.keys(byMonth).sort().reverse().map(m=>{
               const monthInc=byMonth[m];
+              const tiers=getActiveTiers(m.slice(0,4));
               const tier=getTierForIncome(monthInc,tiers);
               return{month:m,monthIncome:monthInc,contribution:monthInc*((tier.pcts[type]||0)/100)};
             });

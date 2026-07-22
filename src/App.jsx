@@ -3993,6 +3993,42 @@ export default function App(){
               },0);
               const periodBudgetSpent=periodTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
               const periodBudgetRemaining=periodBudgetAllocated-periodBudgetSpent;
+              // توزيع الميزانية المخصصة للفترة على التصنيفات (حسب توزيع كل سنة ملموسة)
+              const periodYears=[...new Set(Object.keys(periodIncomeByMonth).map(m=>m.slice(0,4)))];
+              const periodCatAllocated={};
+              periodYears.forEach(year=>{
+                const yearMonths=Object.keys(periodIncomeByMonth).filter(m=>m.startsWith(year));
+                const yearPeriodBudget=yearMonths.reduce((sum,m)=>{
+                  const tiersY=getActiveTiers(year);
+                  return sum+getProgressiveAmount(periodIncomeByMonth[m],tiersY,"expenses");
+                },0);
+                const dist=getCatDistYear(year);
+                if(dist){
+                  (cats.expense||[]).forEach(cat=>{
+                    const catEntry=(dist.catPcts||[]).find(c=>c.catId===cat.id);
+                    const catPct=catEntry?.pct||0;
+                    periodCatAllocated[cat.id]=(periodCatAllocated[cat.id]||0)+yearPeriodBudget*(catPct/100);
+                  });
+                }
+              });
+              const periodCatBreakdown=(cats.expense||[]).map(cat=>{
+                const allocated=periodCatAllocated[cat.id]||0;
+                const spent=periodTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.catId===cat.id).reduce((s,t)=>s+t.amount,0);
+                return{cat,allocated,spent};
+              }).filter(x=>x.allocated>0||x.spent>0).sort((a,b)=>b.allocated-a.allocated);
+              // المخصص للفترة لباقي الأقسام الأربعة (حساب تدريجي بسيط، بلا محاكاة السقف الخاصة بالطوارئ)
+              const getPeriodAllocatedFor=key=>Object.entries(periodIncomeByMonth).reduce((sum,[m,inc])=>{
+                const tiersY=getActiveTiers(m.slice(0,4));
+                return sum+getProgressiveAmount(inc,tiersY,key);
+              },0);
+              const periodEmergencyAllocated=getPeriodAllocatedFor("emergency");
+              const periodAssetsAllocated=getPeriodAllocatedFor("assets");
+              const periodInvestAllocated=getPeriodAllocatedFor("investment");
+              const periodRetirementAllocated=getPeriodAllocatedFor("retirement");
+              const periodEmergencySpent=periodTxs.filter(t=>t.isTransfer&&(t.desc||"").includes("إعاشة")&&t.type==="expense").reduce((s,t)=>s+t.amount,0);
+              const periodAssetsSpent=periodTxs.filter(t=>t.type==="expense"&&t.isAsset).reduce((s,t)=>s+t.amount,0);
+              const periodInvestSpent=periodTxs.filter(t=>t.type==="expense"&&t.isInvest).reduce((s,t)=>s+t.amount,0);
+              const periodRetirementSpent=periodTxs.filter(t=>t.type==="expense"&&t.isLoan&&(t.loanKind||"أعطيت")==="أعطيت").reduce((s,t)=>s+t.amount,0);
               const emgUsage=periodTxs.filter(t=>t.isTransfer&&(t.desc||"").includes("إعاشة"));
               const emgUsedTotal=emgUsage.filter(t=>t.type==="income"&&(t.desc||"").includes("للميزانية")).reduce((s,t)=>s+t.amount,0);
               const totInvProfit=investments.reduce((s,i)=>s+(i.profit||0),0);
@@ -4036,6 +4072,7 @@ export default function App(){
               const HERO_R=72,HERO_CIRC=2*Math.PI*HERO_R;
               const MINI_R=23,MINI_CIRC=2*Math.PI*MINI_R;
               const showDetails=!!ovExp.repDetails;
+              const showBuckets=!!ovExp.repBuckets;
               const showFilters=!!ovExp.repFilters;
               const expandedCat=ovExp.expandedCat;
               const catList=rfType==="income"?(cats.income||[]):rfType==="expense"?(cats.expense||[]):[...(cats.expense||[]),...(cats.income||[])];
@@ -4277,7 +4314,7 @@ export default function App(){
                 </div>
 
                 <div className="no-print" style={{...S.card,padding:"12px 14px",textAlign:"center",cursor:"pointer",marginTop:14}} onClick={()=>setOvExp(p=>({...p,repDetails:!p.repDetails}))}>
-                  <span style={{fontSize:13,fontWeight:700,color:"#475569"}}>📈 عرض الرسوم والتحليلات المتقدمة {showDetails?"▲":"▼"}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:"#475569"}}>📊 عرض التحليل المتقدم (رسوم بيانية) {showDetails?"▲":"▼"}</span>
                 </div>
 
                 {showDetails&&<>
@@ -4334,7 +4371,13 @@ export default function App(){
                     </ResponsiveContainer>
                   </div>
                 </div>}
+                </>}
 
+                <div className="no-print" style={{...S.card,padding:"12px 14px",textAlign:"center",cursor:"pointer",marginTop:14}} onClick={()=>setOvExp(p=>({...p,repBuckets:!p.repBuckets}))}>
+                  <span style={{fontSize:13,fontWeight:700,color:"#475569"}}>🧩 عرض تفاصيل الأقسام الخمسة {showBuckets?"▲":"▼"}</span>
+                </div>
+
+                {showBuckets&&<>
                 {expBkt2&&<div style={S.card}>
                   <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🛒 الميزانية</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -4353,6 +4396,30 @@ export default function App(){
                     ))}
                   </div>
                   <div style={{marginTop:8,fontSize:10,color:"#94a3b8"}}>محسوبة تدريجيا من دخل هاد الفترة بس (ماشي تراكمي من البداية)</div>
+                  {periodCatBreakdown.length>0&&<div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #f1f5f9"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#334155",marginBottom:6}}>🏷️ حسب التصنيف (لهاد الفترة)</div>
+                    {periodCatBreakdown.map(({cat,allocated,spent})=>{
+                      const remain=allocated-spent;
+                      return <div key={cat.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #f8fafc",fontSize:11}}>
+                        <span>{cat.icon} {cat.name}</span>
+                        <span style={{fontWeight:700,color:remain>=0?"#1a6b4a":"#ef4444"}}>{fmt(spent)} / {fmt(allocated)}</span>
+                      </div>;
+                    })}
+                  </div>}
+                </div>
+
+                <div style={S.card}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>📅 باقي الأقسام — مخصص لهاد الفترة</div>
+                  {[["🚨 الطوارئ",periodEmergencyAllocated,periodEmergencySpent],["🏠 الممتلكات",periodAssetsAllocated,periodAssetsSpent],["📈 الاستثمار",periodInvestAllocated,periodInvestSpent],["🏦 التقاعد",periodRetirementAllocated,periodRetirementSpent]].map(([label,alloc,spent])=>{
+                    const remain=alloc-spent;
+                    return <div key={label} style={{padding:"7px 0",borderBottom:"1px solid #f8fafc"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}>
+                        <span>{label}</span>
+                        <span style={{fontWeight:800,color:remain>=0?"#1a6b4a":"#ef4444"}}>{fmt(remain)}</span>
+                      </div>
+                      <div style={{fontSize:9,color:"#94a3b8"}}>مخصص: {fmt(alloc)} · صرف/استعمال: {fmt(spent)}</div>
+                    </div>;
+                  })}
                 </div>
 
                 {emgBkt&&<div style={S.card}>

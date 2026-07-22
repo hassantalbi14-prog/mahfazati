@@ -408,10 +408,12 @@ export default function App(){
 
   const getActiveTiers=(year)=>{
     const y=year||new Date().getFullYear().toString();
+    // إصلاح: JSON كيحول Infinity لـ null عند الحفظ — نرجعها Infinity هنا، مصدر واحد يغطي كل الكود
+    const sanitize=tiers=>(tiers||[]).map((t,i,arr)=>({...t,max:(t.max===null||t.max===undefined||i===arr.length-1)?Infinity:t.max}));
     const byYear=(budgetSettings.tiersByYear||[]).find(t=>t.year===y);
-    if(byYear)return byYear.tiers;
+    if(byYear)return sanitize(byYear.tiers);
     const earlier=(budgetSettings.tiersByYear||[]).filter(t=>parseInt(t.year)<parseInt(y)).sort((a,b)=>b.year.localeCompare(a.year));
-    if(earlier[0])return earlier[0].tiers;
+    if(earlier[0])return sanitize(earlier[0].tiers);
     return DEFAULT_TIERS;
   };
   const getIncomeGoalForYear=(year)=>{

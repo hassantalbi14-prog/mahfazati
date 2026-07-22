@@ -2816,6 +2816,11 @@ export default function App(){
                             </div>
                           </div>;
                         })}
+                        {selYear===nowYear.toString()&&<button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"9px",fontSize:12,marginTop:8}} onClick={()=>{
+                          const nb={...budgetSettings,catDistYears:(budgetSettings.catDistYears||[]).filter(d=>d.year!==selYear)};
+                          setBudgetSettings(nb);_save('budgetSettings',nb);
+                          setErr(`✅ تم حذف توزيع ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
+                        }}>🗑️ حذف توزيع {selYear}</button>}
                       </div>
                     ) : (
                       <div style={S.card}>

@@ -3320,31 +3320,31 @@ export default function App(){
 
         {page==="goals"&&(()=>{
           const todayStr=new Date().toISOString().split("T")[0];
-          const curYearForGoals=new Date().getFullYear().toString();
-          const incGoalAmt=getIncomeGoalForYear(curYearForGoals);
+          const realCurYear=new Date().getFullYear().toString();
+          const goalsYearSel=ovExp.goalsYearSel||realCurYear;
+          const incGoalAmt=getIncomeGoalForYear(goalsYearSel);
           const activeIncome=incGoalAmt?{amount:incGoalAmt}:null;
-          const curTiersForGoals=getActiveTiers(curYearForGoals);
-          const currentPcts=(incGoalAmt?curTiersForGoals.find(t=>incGoalAmt<=t.max):null)?.pcts||curTiersForGoals[curTiersForGoals.length-1].pcts;
+          const curTiersForGoals=getActiveTiers(goalsYearSel);
           const bucketsDef=budgetSettings.buckets||[];
 
           const goalsPeriod=ovExp.goalsPeriod||"month";
           const now=new Date();
           const curMonthStr=todayStr.slice(0,7);
-          const curYearStr=String(now.getFullYear());
           let periodTxs,monthsMult,periodLabel;
           if(goalsPeriod==="year"){
-            periodTxs=txs.filter(t=>t.date.startsWith(curYearStr));
-            monthsMult=now.getMonth()+1; // عدد الأشهر لي داز من هاد السنة (يناير=1)
-            periodLabel=curYearStr;
+            periodTxs=txs.filter(t=>t.date.startsWith(goalsYearSel));
+            monthsMult=goalsYearSel===realCurYear?now.getMonth()+1:12; // سنة فاتت بالكامل = 12 شهر، السنة الحالية = الشهور اللي فاتت
+            periodLabel=goalsYearSel;
           } else if(goalsPeriod==="all"){
             periodTxs=txs;
             const allMonthsSet=[...new Set(txs.map(t=>t.date.slice(0,7)))];
             monthsMult=Math.max(allMonthsSet.length,1);
             periodLabel="كل الفترة";
           } else {
-            periodTxs=txs.filter(t=>t.date.startsWith(curMonthStr));
+            const monthToUse=goalsYearSel===realCurYear?curMonthStr:`${goalsYearSel}-12`; // شهر حالي، أو آخر شهر فسنة قديمة
+            periodTxs=txs.filter(t=>t.date.startsWith(monthToUse));
             monthsMult=1;
-            periodLabel=new Date().toLocaleString("ar-MA",{month:"long",year:"numeric"});
+            periodLabel=goalsYearSel===realCurYear?new Date().toLocaleString("ar-MA",{month:"long",year:"numeric"}):`ديسمبر ${goalsYearSel}`;
           }
           const incomeReached=periodTxs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
           const expenseReached=periodTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
@@ -3355,19 +3355,31 @@ export default function App(){
 
           const incomeTargetMonthly=activeIncome?activeIncome.amount:0;
           const incomeTarget=incomeTargetMonthly*monthsMult;
+          const monthlyExpGoal=getProgressiveAmount(incomeTargetMonthly,curTiersForGoals,"expenses");
+          const monthlyEmgGoal=getProgressiveAmount(incomeTargetMonthly,curTiersForGoals,"emergency");
+          const monthlyAstGoal=getProgressiveAmount(incomeTargetMonthly,curTiersForGoals,"assets");
+          const monthlyInvGoal=getProgressiveAmount(incomeTargetMonthly,curTiersForGoals,"investment");
+          const monthlyRetGoal=getProgressiveAmount(incomeTargetMonthly,curTiersForGoals,"retirement");
           const cardsData=[
             {key:"income",icon:"💰",name:"الدخل",color:"#1a6b4a",target:incomeTarget,reached:incomeReached,isIncome:true},
-            {key:"expenses",icon:"🛒",name:"الميزانية",color:"#3b82f6",target:incomeTarget*((currentPcts.expenses||0)/100),reached:expenseReached},
-            {key:"emergency",icon:"🚨",name:"الطوارئ",color:"#f97316",target:incomeTarget*((currentPcts.emergency||0)/100),reached:emergencyReached},
-            {key:"assets",icon:"🏠",name:"الممتلكات",color:"#14b8a6",target:incomeTarget*((currentPcts.assets||0)/100),reached:assetsReached},
-            {key:"investment",icon:"📈",name:"الاستثمار",color:"#8b5cf6",target:incomeTarget*((currentPcts.investment||0)/100),reached:investReached},
-            {key:"retirement",icon:"🏦",name:"التقاعد",color:"#6366f1",target:incomeTarget*((currentPcts.retirement||0)/100),reached:retireReached},
+            {key:"expenses",icon:"🛒",name:"الميزانية",color:"#3b82f6",target:monthlyExpGoal*monthsMult,reached:expenseReached},
+            {key:"emergency",icon:"🚨",name:"الطوارئ",color:"#f97316",target:monthlyEmgGoal*monthsMult,reached:emergencyReached},
+            {key:"assets",icon:"🏠",name:"الممتلكات",color:"#14b8a6",target:monthlyAstGoal*monthsMult,reached:assetsReached},
+            {key:"investment",icon:"📈",name:"الاستثمار",color:"#8b5cf6",target:monthlyInvGoal*monthsMult,reached:investReached},
+            {key:"retirement",icon:"🏦",name:"التقاعد",color:"#6366f1",target:monthlyRetGoal*monthsMult,reached:retireReached},
           ];
 
           return <>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
               <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setPage("dashboard")}>← رجوع</button>
               <span style={{fontWeight:800,fontSize:17}}>🎯 الأهداف — {periodLabel}</span>
+            </div>
+
+            <div style={{...S.card,padding:"10px 12px"}}>
+              <div style={{fontSize:11,color:"#64748b",marginBottom:6}}>السنة</div>
+              <select style={S.sel} value={goalsYearSel} onChange={e=>setOvExp(p=>({...p,goalsYearSel:e.target.value}))}>
+                {(()=>{const opts=[];for(let y=parseInt(realCurYear);y>=2017;y--)opts.push(y.toString());return opts.map(y=><option key={y} value={y}>{y}{y===realCurYear?" (الحالية)":""}</option>);})()}
+              </select>
             </div>
 
             <div style={{...S.card,padding:"10px 12px"}}>

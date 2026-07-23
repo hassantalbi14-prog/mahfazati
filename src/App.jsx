@@ -1734,19 +1734,35 @@ export default function App(){
                     {/* أهداف شهرية */}
           {(()=>{
             const realCurYear=new Date().getFullYear();
-            const curYearNow=period.type==="year"?period.year:period.type==="month"?period.month.slice(0,4):realCurYear.toString();
-            const incGoal=getIncomeGoalForYear(curYearNow);
-            const curTiers=getActiveTiers(curYearNow);
-            if(!incGoal)return null;
-            const expGoal=getProgressiveAmount(incGoal,curTiers,"expenses");
             const allMonths=[...new Set(txs.map(t=>t.date.slice(0,7)))];
+            let incGoalAdj,expGoalAdj;
+            if(period.type==="all"){
+              // "الكل" — كل سنة بهدفها ونسبها الخاصة، ماشي رقم سنة وحدة معمم على التاريخ كامل
+              const yearsPresent=[...new Set(allMonths.map(m=>m.slice(0,4)))];
+              incGoalAdj=0;expGoalAdj=0;
+              yearsPresent.forEach(y=>{
+                const yGoal=getIncomeGoalForYear(y);
+                if(!yGoal)return;
+                const yTiers=getActiveTiers(y);
+                const monthsInYear=allMonths.filter(m=>m.startsWith(y)).length;
+                incGoalAdj+=yGoal*monthsInYear;
+                expGoalAdj+=getProgressiveAmount(yGoal,yTiers,"expenses")*monthsInYear;
+              });
+              if(incGoalAdj<=0)return null;
+            } else {
+              const curYearNow=period.type==="year"?period.year:period.month.slice(0,4);
+              const incGoal=getIncomeGoalForYear(curYearNow);
+              if(!incGoal)return null;
+              const curTiers=getActiveTiers(curYearNow);
+              const expGoal=getProgressiveAmount(incGoal,curTiers,"expenses");
+              const curMonthNum=new Date().getMonth()+1; // الشهر الحالي 1-12
+              const goalMult=period.type==="year"?(parseInt(period.year)<realCurYear?12:curMonthNum):1;
+              incGoalAdj=incGoal*goalMult;
+              expGoalAdj=expGoal*goalMult;
+            }
             const filtP=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
-            const curMonthNum=new Date().getMonth()+1; // الشهر الحالي 1-12
-            const goalMult=period.type==="year"?(parseInt(period.year)<realCurYear?12:curMonthNum):period.type==="all"?Math.max(allMonths.length,1):1;
             const pInc=filtP.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
             const pExp=filtP.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
-            const incGoalAdj=incGoal*goalMult;
-            const expGoalAdj=expGoal*goalMult;
             const incPctRaw=incGoalAdj>0?(pInc/incGoalAdj)*100:0;
             const expPctRaw=expGoalAdj>0?(pExp/expGoalAdj)*100:0;
             const incPct=Math.min(incPctRaw,100);

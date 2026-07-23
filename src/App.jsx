@@ -1736,9 +1736,8 @@ export default function App(){
             const curYearNow=new Date().getFullYear().toString();
             const incGoal=getIncomeGoalForYear(curYearNow);
             const curTiers=getActiveTiers(curYearNow);
-            const curPcts=curTiers.find(t=>incGoal<=t.max)?.pcts||curTiers[curTiers.length-1].pcts;
             if(!incGoal)return null;
-            const expGoal=incGoal*((curPcts.expenses||0)/100);
+            const expGoal=getProgressiveAmount(incGoal,curTiers,"expenses");
             const allMonths=[...new Set(txs.map(t=>t.date.slice(0,7)))];
             const filtP=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
             const curMonthNum=new Date().getMonth()+1; // الشهر الحالي 1-12

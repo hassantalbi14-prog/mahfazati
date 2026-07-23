@@ -1733,7 +1733,8 @@ export default function App(){
 
                     {/* أهداف شهرية */}
           {(()=>{
-            const curYearNow=new Date().getFullYear().toString();
+            const realCurYear=new Date().getFullYear();
+            const curYearNow=period.type==="year"?period.year:period.type==="month"?period.month.slice(0,4):realCurYear.toString();
             const incGoal=getIncomeGoalForYear(curYearNow);
             const curTiers=getActiveTiers(curYearNow);
             if(!incGoal)return null;
@@ -1741,7 +1742,6 @@ export default function App(){
             const allMonths=[...new Set(txs.map(t=>t.date.slice(0,7)))];
             const filtP=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
             const curMonthNum=new Date().getMonth()+1; // الشهر الحالي 1-12
-            const realCurYear=new Date().getFullYear();
             const goalMult=period.type==="year"?(parseInt(period.year)<realCurYear?12:curMonthNum):period.type==="all"?Math.max(allMonths.length,1):1;
             const pInc=filtP.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
             const pExp=filtP.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);

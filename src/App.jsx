@@ -2543,11 +2543,22 @@ export default function App(){
                         <div style={{background:"#e8f5ee",borderRadius:12,padding:12,textAlign:"center"}}>
                           <div style={{fontSize:11,color:"#64748b"}}>الهدف المثبت لهاد العام</div>
                           <div style={{fontSize:24,fontWeight:900,color:"#1a6b4a",marginBottom:8}}>{fmt(incomeExisting.amount)}</div>
-                          {selYear===nowYear.toString()&&<button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"7px",fontSize:11}} onClick={()=>{
-                            const nb={...budgetSettings,incomeGoalsByYear:(budgetSettings.incomeGoalsByYear||[]).filter(g=>g.year!==selYear)};
-                            setBudgetSettings(nb);_save('budgetSettings',nb);
-                            setErr(`✅ تم حذف هدف ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
-                          }}>🗑️ حذف هدف {selYear}</button>}
+                          {ovExp[`confirmDelGoal_${selYear}`]?(
+                            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                              {selYear!==nowYear.toString()&&<div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>⚠️ حذف سنة قديمة قد يأثر على الترحيل للسنين الجايين</div>}
+                              <div style={{display:"flex",gap:6}}>
+                                <button style={{...S.btn("#e8e8e4",false),color:"#475569",flex:1,padding:"7px",fontSize:11}} onClick={()=>setOvExp(p=>({...p,[`confirmDelGoal_${selYear}`]:false}))}>إلغاء</button>
+                                <button style={{...S.btn("#ef4444"),flex:1,padding:"7px",fontSize:11}} onClick={()=>{
+                                  const nb={...budgetSettings,incomeGoalsByYear:(budgetSettings.incomeGoalsByYear||[]).filter(g=>g.year!==selYear)};
+                                  setBudgetSettings(nb);_save('budgetSettings',nb);
+                                  setOvExp(p=>({...p,[`confirmDelGoal_${selYear}`]:false}));
+                                  setErr(`✅ تم حذف هدف ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
+                                }}>تأكيد الحذف</button>
+                              </div>
+                            </div>
+                          ):(
+                            <button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"7px",fontSize:11}} onClick={()=>setOvExp(p=>({...p,[`confirmDelGoal_${selYear}`]:true}))}>🗑️ حذف هدف {selYear}</button>
+                          )}
                         </div>
                       ):(
                         <>
@@ -2587,11 +2598,22 @@ export default function App(){
                               </div>
                             </div>
                           ))}
-                          {selYear===nowYear.toString()&&<button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"9px",fontSize:12}} onClick={()=>{
-                            const nb={...budgetSettings,tiersByYear:(budgetSettings.tiersByYear||[]).filter(t=>t.year!==selYear)};
-                            setBudgetSettings(nb);_save('budgetSettings',nb);
-                            setErr(`✅ تم حذف مستويات ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
-                          }}>🗑️ حذف مستويات {selYear}</button>}
+                          {ovExp[`confirmDelTiers_${selYear}`]?(
+                            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                              {selYear!==nowYear.toString()&&<div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>⚠️ حذف سنة قديمة قد يأثر على حسابات السنين الجايين</div>}
+                              <div style={{display:"flex",gap:6}}>
+                                <button style={{...S.btn("#e8e8e4",false),color:"#475569",flex:1,padding:"9px",fontSize:12}} onClick={()=>setOvExp(p=>({...p,[`confirmDelTiers_${selYear}`]:false}))}>إلغاء</button>
+                                <button style={{...S.btn("#ef4444"),flex:1,padding:"9px",fontSize:12}} onClick={()=>{
+                                  const nb={...budgetSettings,tiersByYear:(budgetSettings.tiersByYear||[]).filter(t=>t.year!==selYear)};
+                                  setBudgetSettings(nb);_save('budgetSettings',nb);
+                                  setOvExp(p=>({...p,[`confirmDelTiers_${selYear}`]:false}));
+                                  setErr(`✅ تم حذف مستويات ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
+                                }}>تأكيد الحذف</button>
+                              </div>
+                            </div>
+                          ):(
+                            <button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"9px",fontSize:12}} onClick={()=>setOvExp(p=>({...p,[`confirmDelTiers_${selYear}`]:true}))}>🗑️ حذف مستويات {selYear}</button>
+                          )}
                         </>
                       ):(
                         <div>
@@ -2816,11 +2838,22 @@ export default function App(){
                             </div>
                           </div>;
                         })}
-                        {selYear===nowYear.toString()&&<button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"9px",fontSize:12,marginTop:8}} onClick={()=>{
-                          const nb={...budgetSettings,catDistYears:(budgetSettings.catDistYears||[]).filter(d=>d.year!==selYear)};
-                          setBudgetSettings(nb);_save('budgetSettings',nb);
-                          setErr(`✅ تم حذف توزيع ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
-                        }}>🗑️ حذف توزيع {selYear}</button>}
+                        {ovExp[`confirmDelCatDist_${selYear}`]?(
+                          <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+                            {selYear!==nowYear.toString()&&<div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>⚠️ حذف سنة قديمة قد يأثر على الترحيل والتحويلات المرتبطة بيها</div>}
+                            <div style={{display:"flex",gap:6}}>
+                              <button style={{...S.btn("#e8e8e4",false),color:"#475569",flex:1,padding:"9px",fontSize:12}} onClick={()=>setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:false}))}>إلغاء</button>
+                              <button style={{...S.btn("#ef4444"),flex:1,padding:"9px",fontSize:12}} onClick={()=>{
+                                const nb={...budgetSettings,catDistYears:(budgetSettings.catDistYears||[]).filter(d=>d.year!==selYear)};
+                                setBudgetSettings(nb);_save('budgetSettings',nb);
+                                setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:false}));
+                                setErr(`✅ تم حذف توزيع ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
+                              }}>تأكيد الحذف</button>
+                            </div>
+                          </div>
+                        ):(
+                          <button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"9px",fontSize:12,marginTop:8}} onClick={()=>setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:true}))}>🗑️ حذف توزيع {selYear}</button>
+                        )}
                       </div>
                     ) : (
                       <div style={S.card}>

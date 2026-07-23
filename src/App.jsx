@@ -1742,7 +1742,8 @@ export default function App(){
             const allMonths=[...new Set(txs.map(t=>t.date.slice(0,7)))];
             const filtP=filterByPeriod(txs.filter(t=>!t.isTransfer&&t.pm!=="تحويل"));
             const curMonthNum=new Date().getMonth()+1; // الشهر الحالي 1-12
-            const goalMult=period.type==="year"?curMonthNum:period.type==="all"?Math.max(allMonths.length,1):1;
+            const realCurYear=new Date().getFullYear();
+            const goalMult=period.type==="year"?(parseInt(period.year)<realCurYear?12:curMonthNum):period.type==="all"?Math.max(allMonths.length,1):1;
             const pInc=filtP.filter(t=>t.type==="income"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
             const pExp=filtP.filter(t=>t.type==="expense"&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0);
             const incGoalAdj=incGoal*goalMult;
@@ -4010,11 +4011,15 @@ export default function App(){
                   return sum+getProgressiveAmount(periodIncomeByMonth[m],tiersY,"expenses");
                 },0);
                 const dist=getCatDistYear(year);
+                const transfersYear=budgetSettings.catTransfers||[];
                 if(dist){
                   (cats.expense||[]).forEach(cat=>{
                     const catEntry=(dist.catPcts||[]).find(c=>c.catId===cat.id);
                     const catPct=catEntry?.pct||0;
-                    periodCatAllocated[cat.id]=(periodCatAllocated[cat.id]||0)+yearPeriodBudget*(catPct/100);
+                    // صافي التحويلات اليدوية لهاد التصنيف (كل فروعو) لهاد السنة — نفس منطق الإعدادات بالضبط
+                    const transfersIn=transfersYear.filter(tr=>tr.year===year&&tr.toCatId===cat.id).reduce((s,tr)=>s+tr.amount,0);
+                    const transfersOut=transfersYear.filter(tr=>tr.year===year&&tr.fromCatId===cat.id).reduce((s,tr)=>s+tr.amount,0);
+                    periodCatAllocated[cat.id]=(periodCatAllocated[cat.id]||0)+yearPeriodBudget*(catPct/100)+transfersIn-transfersOut;
                   });
                 }
               });

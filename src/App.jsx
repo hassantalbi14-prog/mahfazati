@@ -216,6 +216,13 @@ export default function App(){
     return ()=>document.removeEventListener("visibilitychange",onHide);
   },[autoLockMin]);
   const[bioTried,setBioTried]=useState(false);
+  const[secGate,setSecGate]=useState(null); // {pinInput,verified,countdown}
+  const secPin=localStorage.getItem("mhf_sec_pin")||"";
+  useEffect(()=>{
+    if(!secGate?.verified||secGate.countdown<=0)return;
+    const timer=setTimeout(()=>setSecGate(p=>p?{...p,countdown:p.countdown-1}:p),1000);
+    return()=>clearTimeout(timer);
+  },[secGate?.verified,secGate?.countdown]);
   const[darkMode,setDarkMode]=useState(()=>localStorage.getItem("mhf_dark")==="1");
   setDarkFlag(darkMode);
   const[profileName,setProfileName]=useState(()=>localStorage.getItem("mhf_pname")||"");
@@ -377,7 +384,10 @@ export default function App(){
   const cm=()=>{setModal(null);setForm({});};
   const F=(k,v)=>setForm(f=>({...f,[k]:v}));
   const showErr=m=>{setErr(m);setTimeout(()=>setErr(null),3500);};
-  const ask=(t,id,lbl,ex=null)=>setCd({t,id,lbl,ex});
+  const ask=(t,id,lbl,ex=null)=>{
+    if(secPin){setSecGate({pending:{t,id,lbl,ex},pinInput:"",verified:false,countdown:0,err:false});return;}
+    setCd({t,id,lbl,ex});
+  };
   const rImg=(file,cb)=>{const r=new FileReader();r.onload=e=>cb(e.target.result);r.readAsDataURL(file);};
 
   const updBal=(ref,amt,type,dir)=>{
@@ -2486,6 +2496,27 @@ export default function App(){
             </div>
           </div>
           <div style={S.card}>
+            <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>🔒 حماية العمليات الحساسة</div>
+            <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>رقم سري إضافي + تأخير 5 ثواني قبل تنفيذ: حذف معاملة/تصنيف/فرع/حساب</div>
+            {secPin?(
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#e8f5ee",borderRadius:10,padding:10}}>
+                <span style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>✅ الحماية مفعّلة</span>
+                <button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"7px 14px",fontSize:12}} onClick={()=>{localStorage.removeItem("mhf_sec_pin");setErr("✅ تم إلغاء الحماية");setTimeout(()=>setErr(null),3000);setOvExp(p=>({...p,secPinRefresh:Date.now()}));}}>إلغاء</button>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <input type="password" inputMode="numeric" style={S.inp} placeholder="رقم سري جديد (4 أرقام فما فوق)" value={ovExp.newSecPin||""} onChange={e=>setOvExp(p=>({...p,newSecPin:e.target.value}))}/>
+                <button style={S.btn("#6366f1")} onClick={()=>{
+                  const v=ovExp.newSecPin;
+                  if(!v||v.length<4){showErr("⛔ خاص يكون 4 أرقام فما فوق");return;}
+                  localStorage.setItem("mhf_sec_pin",v);
+                  setOvExp(p=>({...p,newSecPin:"",secPinRefresh:Date.now()}));
+                  setErr("✅ تفعلت الحماية");setTimeout(()=>setErr(null),3000);
+                }}>تفعيل الحماية</button>
+              </div>
+            )}
+          </div>
+          <div style={S.card}>
             <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>🔒 القفل التلقائي</div>
             <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>يقفل التطبيق وحدو إلا خليتيه فالخلفية مدة طويلة</div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -3054,7 +3085,10 @@ export default function App(){
                   <button style={{...S.btn("#10b981"),padding:"13px"}} onClick={expData}>📤 تحميل نسخة احتياطية</button>
                   <button style={{...S.btn("#0ea5e9"),padding:"13px"}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button>
                   <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={restoreFromDrive}>⬇️ استرجاع من Google Drive</button>
-                  <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>fRef.current.click()}>📥 استيراد من ملف</button>
+                  <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>{
+                    if(secPin){setSecGate({pending:{custom:()=>fRef.current.click(),lbl:"استيراد/استرجاع بيانات"},pinInput:"",verified:false,countdown:0,err:false});return;}
+                    fRef.current.click();
+                  }}>📥 استيراد من ملف</button>
                   <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={exportExcel}>📊 تصدير Excel (المعاملات)</button>
                   <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={()=>excelRef.current.click()}>📥 استيراد Excel</button>
                   <button style={{...S.btn("#dc2626"),padding:"13px"}} onClick={exportReportPDF}>📄 تصدير تقرير PDF</button>
@@ -4983,6 +5017,52 @@ export default function App(){
             </div>}
 
 
+          </div>
+        </div>
+      )}
+
+      {secGate&&(
+        <div className="mwp" onClick={()=>setSecGate(null)}>
+          <div className="mbx" style={{padding:28}} onClick={e=>e.stopPropagation()}>
+            <div style={{textAlign:"center",marginBottom:20}}>
+              <div style={{fontSize:40,marginBottom:12}}>🔒</div>
+              <div style={{fontWeight:800,fontSize:16,marginBottom:8}}>عملية حساسة — تأكيد إضافي</div>
+              <div style={{fontSize:14,color:"#475569"}}>هاد الفعل ({secGate.pending.lbl}) كيحتاج الرقم السري الخاص</div>
+            </div>
+            {!secGate.verified?(
+              <>
+                <input type="password" inputMode="numeric" style={{...S.num,marginBottom:12}} placeholder="الرقم السري" value={secGate.pinInput}
+                  onChange={e=>setSecGate(p=>({...p,pinInput:e.target.value,err:false}))}/>
+                {secGate.err&&<div style={{color:"#ef4444",fontSize:12,textAlign:"center",marginBottom:10}}>⛔ رقم سري غلط</div>}
+                <div style={{display:"flex",gap:10}}>
+                  <button style={{...S.btn("#e8e8e4"),border:"1px solid #334155",color:"#475569"}} onClick={()=>setSecGate(null)}>إلغاء</button>
+                  <button style={S.btn("#6366f1")} onClick={()=>{
+                    if(secGate.pinInput===secPin)setSecGate(p=>({...p,verified:true,countdown:5}));
+                    else setSecGate(p=>({...p,err:true,pinInput:""}));
+                  }}>تأكيد الرقم</button>
+                </div>
+              </>
+            ):(
+              <>
+                <div style={{textAlign:"center",marginBottom:16}}>
+                  {secGate.countdown>0?(
+                    <div style={{fontSize:36,fontWeight:900,color:"#f59e0b"}}>{secGate.countdown}</div>
+                  ):(
+                    <div style={{fontSize:14,color:"#10b981",fontWeight:700}}>✅ تقدر تكمل دابا</div>
+                  )}
+                  <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{secGate.countdown>0?"فترة تأكيد إجبارية قبل التنفيذ...":"دوس تأكيد التنفيذ باش تكمل"}</div>
+                </div>
+                <div style={{display:"flex",gap:10}}>
+                  <button style={{...S.btn("#e8e8e4"),border:"1px solid #334155",color:"#475569"}} onClick={()=>setSecGate(null)}>إلغاء</button>
+                  <button disabled={secGate.countdown>0} style={{...S.btn(secGate.countdown>0?"#e2e8f0":"#ef4444"),opacity:secGate.countdown>0?0.6:1,cursor:secGate.countdown>0?"not-allowed":"pointer"}} onClick={()=>{
+                    if(secGate.countdown>0)return;
+                    if(secGate.pending.custom)secGate.pending.custom();
+                    else setCd(secGate.pending);
+                    setSecGate(null);
+                  }}>تأكيد التنفيذ</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -125,7 +125,30 @@ body{background:linear-gradient(135deg,#f0f4ff 0%,#e8f5f0 50%,#f0f4ff 100%);min-
 `;
 
 // v3.9
-export default function App(){
+class ErrorBoundary extends React.Component{
+  constructor(props){super(props);this.state={error:null,info:null};}
+  static getDerivedStateFromError(error){return{error};}
+  componentDidCatch(error,info){this.setState({error,info});console.error("App crashed:",error,info);}
+  render(){
+    if(this.state.error){
+      const errText=`${this.state.error?.message||this.state.error}\n\n${this.state.error?.stack||""}`;
+      return (
+        <div dir="rtl" style={{fontFamily:"'Tajawal',sans-serif",minHeight:"100vh",background:"#fef2f2",padding:20,display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{fontSize:40,textAlign:"center"}}>⚠️</div>
+          <div style={{fontSize:18,fontWeight:800,color:"#991b1b",textAlign:"center"}}>وقع خطأ فالتطبيق</div>
+          <div style={{fontSize:12,color:"#7f1d1d",textAlign:"center"}}>صيفط صورة هاد الشاشة (كاملة) للمساعدة فالإصلاح</div>
+          <div style={{background:"white",border:"1px solid #ef4444",borderRadius:12,padding:12,fontSize:11,color:"#1a1a1a",whiteSpace:"pre-wrap",wordBreak:"break-word",maxHeight:400,overflowY:"auto",fontFamily:"monospace",direction:"ltr",textAlign:"left"}}>
+            {errText}
+          </div>
+          <button onClick={()=>{navigator.clipboard?.writeText(errText);}} style={{background:"#6366f1",color:"white",border:"none",borderRadius:12,padding:"12px",fontFamily:"Tajawal",fontSize:14,fontWeight:700,cursor:"pointer"}}>📋 نسخ نص الخطأ</button>
+          <button onClick={()=>window.location.reload()} style={{background:"#10b981",color:"white",border:"none",borderRadius:12,padding:"12px",fontFamily:"Tajawal",fontSize:14,fontWeight:700,cursor:"pointer"}}>🔄 إعادة تحميل التطبيق</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+function AppInner(){
   const[page,setPage]=useState("dashboard");
   const[drw,setDrw]=useState(false);
   const[period,setPeriod]=useState({type:"month",month:new Date().toISOString().slice(0,7),year:new Date().getFullYear().toString()});
@@ -5135,4 +5158,8 @@ export default function App(){
     </div>
     </div>
   );
+}
+
+export default function App(){
+  return <ErrorBoundary><AppInner/></ErrorBoundary>;
 }

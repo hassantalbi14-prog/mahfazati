@@ -384,6 +384,46 @@ export default function App(){
   const cm=()=>{setModal(null);setForm({});};
   const F=(k,v)=>setForm(f=>({...f,[k]:v}));
   const showErr=m=>{setErr(m);setTimeout(()=>setErr(null),3500);};
+  // دوال ترحيل قابلة لإعادة الاستعمال (عند التحميل الأول وعند الاستيراد/الاسترجاع من Drive)
+  const migrateCatDistYearsData=(catDistYears)=>(catDistYears||[]).map(d=>{
+    if(d.catPcts)return d;
+    if(!d.items)return d;
+    const catTotals={};const catSubs={};
+    d.items.forEach(it=>{
+      catTotals[it.catId]=(catTotals[it.catId]||0)+it.pct;
+      if(it.subId){if(!catSubs[it.catId])catSubs[it.catId]=[];catSubs[it.catId].push({subId:it.subId,pct:it.pct});}
+    });
+    const catPcts=Object.keys(catTotals).map(catId=>({catId:parseInt(catId),pct:catTotals[catId]}));
+    const subPcts={};
+    Object.keys(catSubs).forEach(catId=>{
+      const total=catTotals[catId]||1;
+      subPcts[catId]=catSubs[catId].map(s=>({subId:s.subId,pct:total>0?(s.pct/total*100):0}));
+    });
+    return {year:d.year,catPcts,subPcts};
+  });
+  const migrateTiersByYearData=(tierHistory,existing)=>{
+    if(existing&&existing.length>0)return existing;
+    const sorted=(tierHistory||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+    const byYear={};
+    sorted.forEach(h=>{byYear[h.date.slice(0,4)]=h.tiers;});
+    return Object.keys(byYear).map(year=>({year,tiers:byYear[year]}));
+  };
+  const migrateIncomeGoalsByYearData=(incomeGoals,existing)=>{
+    if(existing&&existing.length>0)return existing;
+    const sorted=(incomeGoals||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+    const byYear={};
+    sorted.forEach(g=>{byYear[g.date.slice(0,4)]=g.amount;});
+    return Object.keys(byYear).map(year=>({year,amount:byYear[year]}));
+  };
+  const migrateBudgetSettingsData=bs=>{
+    if(!bs)return bs;
+    return {
+      ...bs,
+      catDistYears:migrateCatDistYearsData(bs.catDistYears),
+      tiersByYear:migrateTiersByYearData(bs.tierHistory,bs.tiersByYear),
+      incomeGoalsByYear:migrateIncomeGoalsByYearData(bs.incomeGoals,bs.incomeGoalsByYear),
+    };
+  };
   const ask=(t,id,lbl,ex=null)=>{
     if(secPin){setSecGate({pending:{t,id,lbl,ex},pinInput:"",verified:false,countdown:0,err:false});return;}
     setCd({t,id,lbl,ex});
@@ -1030,6 +1070,7 @@ export default function App(){
       } else {
         newBS=bs;
       }
+      newBS=migrateBudgetSettingsData(newBS); // ترحيل أي صيغة قديمة (tierHistory/incomeGoals/items) للنظام الجديد
       setBudgetSettings(newBS);_save('budgetSettings',newBS);
     }
     if(d.investments){setInvestments(d.investments);_save('investments',d.investments);}

@@ -293,6 +293,7 @@ function AppInner(){
 
   useEffect(()=>{
     const loadAll=async()=>{
+     try{
       const b=await _load('banks'); if(b)setBanks(b);
       const c=await _load('cash'); if(c)setCash(c);
       const a=await _load('assets'); if(a)setAssets(a);
@@ -366,6 +367,10 @@ function AppInner(){
         // أول مرة — استعمل default
         setBudgetSettings({buckets:defaultBuckets});
       }
+     }catch(loadErr){
+      console.error("loadAll crashed:",loadErr);
+      window.__mhfLoadError=(loadErr?.message||String(loadErr))+"\n"+(loadErr?.stack||"");
+     }
       setLoaded(true);
     };
     loadAll();
@@ -1552,6 +1557,18 @@ function AppInner(){
     <div dir="rtl" style={isDesktop?{position:"fixed",inset:0,overflow:"hidden",background:"#e8ece9"}:undefined}>
     {isDesktop&&<DesktopSidebar/>}
     <div dir="rtl" className={darkMode?"dark":""} style={{fontFamily:"'Tajawal',sans-serif",background:darkMode?"#0f172a":"#f5f5f0",minHeight:isDesktop?undefined:"100vh",height:isDesktop?undefined:"auto",color:darkMode?"#e2e8f0":"#1a1a1a",display:"flex",flexDirection:"column",position:isDesktop?"absolute":"relative",overflow:isDesktop?"hidden":"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,...(isDesktop?{top:0,bottom:0,left:0,right:230,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
+      {typeof window!=="undefined"&&window.__mhfLoadError&&(
+        <div style={{position:"fixed",inset:0,zIndex:99999,background:"#fef2f2",padding:20,overflowY:"auto",display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{fontSize:40,textAlign:"center"}}>⚠️</div>
+          <div style={{fontSize:16,fontWeight:800,color:"#991b1b",textAlign:"center"}}>وقع خطأ أثناء تحميل البيانات</div>
+          <div style={{fontSize:12,color:"#7f1d1d",textAlign:"center"}}>صيفط صورة هاد الشاشة كاملة</div>
+          <div style={{background:"white",border:"1px solid #ef4444",borderRadius:12,padding:12,fontSize:11,whiteSpace:"pre-wrap",wordBreak:"break-word",maxHeight:400,overflowY:"auto",fontFamily:"monospace",direction:"ltr",textAlign:"left"}}>
+            {window.__mhfLoadError}
+          </div>
+          <button onClick={()=>{navigator.clipboard?.writeText(window.__mhfLoadError);}} style={{background:"#6366f1",color:"white",border:"none",borderRadius:12,padding:"12px",fontFamily:"Tajawal",fontSize:14,fontWeight:700}}>📋 نسخ نص الخطأ</button>
+          <button onClick={()=>{window.__mhfLoadError=null;window.location.reload();}} style={{background:"#10b981",color:"white",border:"none",borderRadius:12,padding:"12px",fontFamily:"Tajawal",fontSize:14,fontWeight:700}}>🔄 تجاهل وإعادة تحميل</button>
+        </div>
+      )}
       <style>{CSS}</style>
       <input ref={fRef} type="file" accept=".json" style={{display:"none"}} onChange={impData}/>
       <input ref={iRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("ci",b));e.target.value="";}}/>

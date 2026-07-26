@@ -215,6 +215,13 @@ function AppInner(){
   const[isAuth,setIsAuth]=useState(()=>sessionStorage.getItem("mhf_auth")==="1");
   const[bioEnabled,setBioEnabled]=useState(()=>localStorage.getItem("mhf_bio")==="1");
   const[autoLockMin,setAutoLockMin]=useState(()=>parseInt(localStorage.getItem("mhf_autolock")||"0"));
+  const[backupReminderOn,setBackupReminderOn]=useState(()=>localStorage.getItem("mhf_backup_reminder")==="1");
+  const[backupReminderTime,setBackupReminderTime]=useState(()=>localStorage.getItem("mhf_backup_reminder_time")||"20:00");
+  useEffect(()=>{
+    if(!loaded||!backupReminderOn)return;
+    const[h,m]=backupReminderTime.split(":").map(Number);
+    scheduleBackupReminder(h,m);
+  },[loaded]);
   const[widgetAccKey,setWidgetAccKey]=useState(()=>localStorage.getItem("mhf_widget_acc")||"");
   const[widgetIndicator,setWidgetIndicator]=useState(()=>localStorage.getItem("mhf_widget_ind")||"health");
   useEffect(()=>{
@@ -773,6 +780,32 @@ function AppInner(){
       }]});
     }catch(e){console.error("notify failed",e);}
   };
+  const BACKUP_REMINDER_ID=778899001;
+  const scheduleBackupReminder=async(hour,minute)=>{
+    try{
+      const {LocalNotifications}=await import("@capacitor/local-notifications");
+      const perm=await LocalNotifications.checkPermissions();
+      if(perm.display!=="granted"){
+        const req=await LocalNotifications.requestPermissions();
+        if(req.display!=="granted"){showErr("⛔ خاصك تسمح بالإشعارات باش يخدم التذكير");return false;}
+      }
+      await LocalNotifications.cancel({notifications:[{id:BACKUP_REMINDER_ID}]});
+      await LocalNotifications.schedule({notifications:[{
+        id:BACKUP_REMINDER_ID,
+        title:"💾 تذكير: دير نسخة احتياطية اليوم",
+        body:"حفظ نسخة محلية + Drive باش تكون بياناتك محمية إلى وقع أي مشكل فالهاتف",
+        schedule:{on:{hour,minute},repeats:true,allowWhileIdle:true},
+        smallIcon:"ic_stat_icon_config_sample",
+      }]});
+      return true;
+    }catch(e){console.error("backup reminder schedule failed",e);return false;}
+  };
+  const cancelBackupReminder=async()=>{
+    try{
+      const {LocalNotifications}=await import("@capacitor/local-notifications");
+      await LocalNotifications.cancel({notifications:[{id:BACKUP_REMINDER_ID}]});
+    }catch(e){console.error("cancel backup reminder failed",e);}
+  };
   const addSplitTx=()=>{
     const parts=(form.splitParts||[]).filter(p=>p.catId&&parseFloat(p.amount)>0);
     if(parts.length<2){showErr("⛔ زيد على الأقل جزئين بمبلغ وتصنيف صحيح");return;}
@@ -1093,33 +1126,35 @@ function AppInner(){
       setBkMsg("⛔ فشل الحفظ فـ Drive — "+(e.message||"خطأ غير معروف"));setTimeout(()=>setBkMsg(null),5000);
     }
   };
-  const applyImportedData=(d)=>{
-    if(d.banks){setBanks(d.banks);_save('banks',d.banks);}
-    if(d.cash){setCash(d.cash);_save('cash',d.cash);}
-    if(d.assets&&d.assets.length>0){setAssets(d.assets);_save('assets',d.assets);}
-    if(d.loans&&d.loans.length>0){setLoans(d.loans);_save('loans',d.loans);}
+  const applyImportedData=async(d)=>{
+    // نحضرو كل البيانات أولا، ونكتبهم دفعة وحدة (كتابة واحدة آمنة) — لحماية من تزامن الحفظ اللي كان كيمسح أجزاء
+    const newBanks=d.banks||banks;
+    const newCash=d.cash||cash;
+    const newAssets=(d.assets&&d.assets.length>0)?d.assets:assets;
+    const newLoans=(d.loans&&d.loans.length>0)?d.loans:loans;
+    let newBS=budgetSettings;
     if(d.budgetSettings){
       const bs=d.budgetSettings;
-      let newBS;
       if(bs.buckets&&bs.buckets.length>0){
         newBS={...bs,buckets:bs.buckets.map(b=>({...b,accountKeys:Array.isArray(b.accountKeys)?b.accountKeys:[]}))};
       } else if(bs.allocations&&bs.allocations.length>0){
-        newBS={buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))};
+        newBS={...bs,buckets:bs.allocations.map(a=>({...a,accountKeys:Array.isArray(a.accountKeys)?a.accountKeys:[]}))};
       } else {
         newBS=bs;
       }
       newBS=migrateBudgetSettingsData(newBS); // ترحيل أي صيغة قديمة (tierHistory/incomeGoals/items) للنظام الجديد
-      setBudgetSettings(newBS);_save('budgetSettings',newBS);
     }
-    if(d.investments){setInvestments(d.investments);_save('investments',d.investments);}
-    if(d.cats){
-      const newCats={expense:d.cats.expense||[],income:d.cats.income||[]};
-      setCats(newCats);_save('cats',newCats);
-    }
-    if(d.txs&&d.txs.length>0){
-      const sortedTxs=[...d.txs].sort((a,b)=>b.date.localeCompare(a.date));
-      setTxs(sortedTxs);_save('txs',sortedTxs);
-    }
+    const newInvestments=d.investments||investments;
+    const newCats=d.cats?{expense:d.cats.expense||[],income:d.cats.income||[]}:cats;
+    const newTxs=(d.txs&&d.txs.length>0)?[...d.txs].sort((a,b)=>b.date.localeCompare(a.date)):txs;
+
+    // كتابة واحدة آمنة لكل شيء دفعة وحدة (بلا تزامن، بلا خطر فقدان أي جزء)
+    const fullData={banks:newBanks,cash:newCash,assets:newAssets,loans:newLoans,budgetSettings:newBS,investments:newInvestments,cats:newCats,txs:newTxs};
+    await _writeFullFile(fullData);
+
+    // تحديث الحالة فالواجهة بعد الكتابة الناجحة
+    setBanks(newBanks);setCash(newCash);setAssets(newAssets);setLoans(newLoans);
+    setBudgetSettings(newBS);setInvestments(newInvestments);setCats(newCats);setTxs(newTxs);
   };
   const restoreFromDrive=async()=>{
     try{
@@ -1144,7 +1179,7 @@ function AppInner(){
       });
       if(!fileRes.ok)throw new Error("رمز "+fileRes.status);
       const d=await fileRes.json();
-      applyImportedData(d);
+      await applyImportedData(d);
       setBkMsg(`✅ تم الاسترجاع من Drive — ${d.txs?.length||0} معاملة`);setTimeout(()=>setBkMsg(null),4000);
     }catch(e){
       console.error(e);
@@ -1315,12 +1350,12 @@ function AppInner(){
     // حفظ نسخة احتياطية قبل الاستيراد
     autoBackup("before-import");
     const r=new FileReader();
-    r.onload=ev=>{
+    r.onload=async(ev)=>{
       try{
         const d=JSON.parse(ev.target.result);
-        applyImportedData(d);
+        await applyImportedData(d);
         setBkMsg(`تم الاستيراد ✅ — ${d.txs?.length||0} معاملة`);
-      }catch(err){setBkMsg("خطأ في الملف ❌");}
+      }catch(err){console.error(err);setBkMsg("خطأ في الملف ❌");}
       setTimeout(()=>setBkMsg(null),4000);
     };
     r.readAsText(file);e.target.value="";
@@ -3183,6 +3218,32 @@ function AppInner(){
                   <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={exportExcel}>📊 تصدير Excel (المعاملات)</button>
                   <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={()=>excelRef.current.click()}>📥 استيراد Excel</button>
                   <button style={{...S.btn("#dc2626"),padding:"13px"}} onClick={exportReportPDF}>📄 تصدير تقرير PDF</button>
+                  <div style={S.card}>
+                    <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>🔔 تذكير يومي بالنسخ الاحتياطي</div>
+                    <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>إشعار يومي يفكرك تدير نسخة (محلية + Drive) — باش تقدر ترجع بياناتك بسهولة إلى وقع مشكل فالهاتف</div>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:backupReminderOn?10:0}}>
+                      <span style={{fontSize:13,fontWeight:700}}>{backupReminderOn?"✅ مفعّل":"معطل"}</span>
+                      <button style={{...S.btn(backupReminderOn?"#ef4444":"#10b981",false),padding:"8px 16px",fontSize:12}} onClick={async()=>{
+                        if(backupReminderOn){
+                          await cancelBackupReminder();
+                          setBackupReminderOn(false);localStorage.setItem("mhf_backup_reminder","0");
+                          setErr("✅ تم إلغاء التذكير");setTimeout(()=>setErr(null),3000);
+                        } else {
+                          const[h,m]=backupReminderTime.split(":").map(Number);
+                          const ok=await scheduleBackupReminder(h,m);
+                          if(ok){setBackupReminderOn(true);localStorage.setItem("mhf_backup_reminder","1");setErr("✅ تفعل التذكير اليومي");setTimeout(()=>setErr(null),3000);}
+                        }
+                      }}>{backupReminderOn?"إلغاء":"تفعيل"}</button>
+                    </div>
+                    {backupReminderOn&&<div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:12,color:"#64748b"}}>وقت التذكير:</span>
+                      <input type="time" style={{...S.inp,padding:"7px"}} value={backupReminderTime} onChange={async(e)=>{
+                        const v=e.target.value;setBackupReminderTime(v);localStorage.setItem("mhf_backup_reminder_time",v);
+                        const[h,m]=v.split(":").map(Number);
+                        await scheduleBackupReminder(h,m);
+                      }}/>
+                    </div>}
+                  </div>
                   <input ref={excelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importExcel}/>
                   <div style={{background:"#1a1d27",borderRadius:14,padding:16,border:"1px solid #ef444433"}}>
                     <div style={{fontWeight:700,color:"#ef4444",marginBottom:8,fontSize:15}}>🗑️ إعادة ضبط كامل</div>

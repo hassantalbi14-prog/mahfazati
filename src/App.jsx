@@ -483,10 +483,13 @@ function AppInner(){
     const y=year||new Date().getFullYear().toString();
     // إصلاح: JSON كيحول Infinity لـ null عند الحفظ — نرجعها Infinity هنا، مصدر واحد يغطي كل الكود
     const sanitize=tiers=>(tiers||[]).map((t,i,arr)=>({...t,max:(t.max===null||t.max===undefined||i===arr.length-1)?Infinity:t.max}));
-    const byYear=(budgetSettings.tiersByYear||[]).find(t=>t.year===y);
+    const all=budgetSettings.tiersByYear||[];
+    const byYear=all.find(t=>t.year===y);
     if(byYear)return sanitize(byYear.tiers);
-    const earlier=(budgetSettings.tiersByYear||[]).filter(t=>parseInt(t.year)<parseInt(y)).sort((a,b)=>b.year.localeCompare(a.year));
+    const earlier=all.filter(t=>parseInt(t.year)<parseInt(y)).sort((a,b)=>b.year.localeCompare(a.year));
     if(earlier[0])return sanitize(earlier[0].tiers);
+    // ماكاينش سنة أقدم — إلا كان عندنا سجل وحيد (بحال نظام قديم مرحّل)، نستعملوه كأقرب تقريب بدل الافتراضي العام
+    if(all.length>0)return sanitize(all.sort((a,b)=>a.year.localeCompare(b.year))[0].tiers);
     return DEFAULT_TIERS;
   };
   const getIncomeGoalForYear=(year)=>{
@@ -635,6 +638,7 @@ function AppInner(){
     const subPct=subEntry?subEntry.pct:0;
     return catPct*(subPct/100);
   };
+  const catBalanceCache=useMemo(()=>new Map(),[txs,budgetSettings]);
   const getCatCarryover=(catId,subId,year)=>{
     const prevYear=(parseInt(year)-1).toString();
     if(parseInt(prevYear)<2017)return 0;
@@ -642,6 +646,8 @@ function AppInner(){
     return getCatBalance(catId,subId,prevYear);
   };
   const getCatBalance=(catId,subId,year)=>{
+    const cacheKey=`${catId}_${subId||""}_${year}`;
+    if(catBalanceCache.has(cacheKey))return catBalanceCache.get(cacheKey);
     const pct=getCatEffectivePct(catId,subId,year);
     const yearBudgetTotal=yearBudgetTotals[year]||0;
     const catBudget=yearBudgetTotal*(pct/100);
@@ -650,7 +656,9 @@ function AppInner(){
     const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
     const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
     const carryover=getCatCarryover(catId,subId,year);
-    return carryover+catBudget-spent+transfersIn-transfersOut;
+    const result=carryover+catBudget-spent+transfersIn-transfersOut;
+    catBalanceCache.set(cacheKey,result);
+    return result;
   };
   const getCatDetail=(catId,subId,year)=>{
     const pct=getCatEffectivePct(catId,subId,year);

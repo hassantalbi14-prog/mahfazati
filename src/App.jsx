@@ -217,11 +217,6 @@ function AppInner(){
   const[autoLockMin,setAutoLockMin]=useState(()=>parseInt(localStorage.getItem("mhf_autolock")||"0"));
   const[backupReminderOn,setBackupReminderOn]=useState(()=>localStorage.getItem("mhf_backup_reminder")==="1");
   const[backupReminderTime,setBackupReminderTime]=useState(()=>localStorage.getItem("mhf_backup_reminder_time")||"20:00");
-  useEffect(()=>{
-    if(!loaded||!backupReminderOn)return;
-    const[h,m]=backupReminderTime.split(":").map(Number);
-    scheduleBackupReminder(h,m);
-  },[loaded]);
   const[widgetAccKey,setWidgetAccKey]=useState(()=>localStorage.getItem("mhf_widget_acc")||"");
   const[widgetIndicator,setWidgetIndicator]=useState(()=>localStorage.getItem("mhf_widget_ind")||"health");
   useEffect(()=>{
@@ -806,6 +801,11 @@ function AppInner(){
       await LocalNotifications.cancel({notifications:[{id:BACKUP_REMINDER_ID}]});
     }catch(e){console.error("cancel backup reminder failed",e);}
   };
+  useEffect(()=>{
+    if(!loaded||!backupReminderOn)return;
+    const[h,m]=backupReminderTime.split(":").map(Number);
+    scheduleBackupReminder(h,m);
+  },[loaded]);
   const addSplitTx=()=>{
     const parts=(form.splitParts||[]).filter(p=>p.catId&&parseFloat(p.amount)>0);
     if(parts.length<2){showErr("⛔ زيد على الأقل جزئين بمبلغ وتصنيف صحيح");return;}

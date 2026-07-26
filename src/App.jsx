@@ -415,8 +415,10 @@ function AppInner(){
   const F=(k,v)=>setForm(f=>({...f,[k]:v}));
   const showErr=m=>{setErr(m);setTimeout(()=>setErr(null),3500);};
   // دوال ترحيل قابلة لإعادة الاستعمال (عند التحميل الأول وعند الاستيراد/الاسترجاع من Drive)
-  const migrateCatDistYearsData=(catDistYears)=>(catDistYears||[]).map(d=>{
-    if(d.catPcts)return d;
+  const migrateCatDistYearsData=(catDistYears)=>(catDistYears||[])
+    .filter(d=>d&&typeof d==="object"&&d.year&&!isNaN(parseInt(d.year))) // حماية: نحيدو أي إدخال بسنة غير صحيحة (بلا ما نكسر الباقي)
+    .map(d=>{
+    if(d.catPcts)return {...d,catPcts:Array.isArray(d.catPcts)?d.catPcts:[],subPcts:(d.subPcts&&typeof d.subPcts==="object")?d.subPcts:{}};
     if(!d.items)return d;
     const catTotals={};const catSubs={};
     d.items.forEach(it=>{
@@ -637,10 +639,11 @@ function AppInner(){
   const getCatEffectivePct=(catId,subId,year)=>{
     const dist=getCatDistYear(year);
     if(!dist)return 0;
-    const catEntry=(dist.catPcts||[]).find(c=>c.catId===catId);
+    const catEntry=(Array.isArray(dist.catPcts)?dist.catPcts:[]).find(c=>c.catId===catId);
     const catPct=catEntry?catEntry.pct:0;
     if(subId==null)return catPct;
-    const subList=(dist.subPcts||{})[catId]||[];
+    const rawSubList=(dist.subPcts||{})[catId];
+    const subList=Array.isArray(rawSubList)?rawSubList:[];
     const subEntry=subList.find(s=>s.subId===subId);
     const subPct=subEntry?subEntry.pct:0;
     return catPct*(subPct/100);
@@ -2942,6 +2945,7 @@ function AppInner(){
                 })()}
 
                 {dp==="catDist"&&(()=>{
+                 try{
                   const nowYear=new Date().getFullYear();
                   const selYear=(ovExp.catDistYearSel||nowYear.toString());
                   const yearOptions=[];
@@ -3113,6 +3117,25 @@ function AppInner(){
                       </div>
                     </>}
                   </>;
+                 }catch(pageErr){
+                  console.error("catDist page crashed:",pageErr);
+                  return <div style={S.col}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>توزيع الميزانية على التصنيفات</span>
+                      <button onClick={()=>setDp(null)} style={{background:"#e8e8e4",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+                    </div>
+                    <div style={{background:"#fee2e2",border:"1px solid #ef4444",borderRadius:12,padding:14}}>
+                      <div style={{fontWeight:800,color:"#991b1b",marginBottom:8}}>⚠️ وقع خطأ فبيانات التوزيع لهاد السنة</div>
+                      <div style={{fontSize:11,color:"#7f1d1d",fontFamily:"monospace",direction:"ltr",textAlign:"left",whiteSpace:"pre-wrap",marginBottom:10}}>{pageErr?.message||String(pageErr)}</div>
+                      <button style={{...S.btn("#ef4444"),padding:"11px"}} onClick={()=>{
+                        const yr=(ovExp.catDistYearSel||new Date().getFullYear().toString());
+                        const nb={...budgetSettings,catDistYears:(budgetSettings.catDistYears||[]).filter(d=>d.year!==yr)};
+                        setBudgetSettings(nb);_save('budgetSettings',nb);
+                        setErr(`✅ تم حذف توزيع ${yr} المعطوب — عاود دخلو من جديد`);setTimeout(()=>setErr(null),4000);
+                      }}>🗑️ حذف توزيع هاد السنة المعطوب وإعادة الإدخال</button>
+                    </div>
+                  </div>;
+                 }
                 })()}
 
 

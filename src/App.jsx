@@ -645,8 +645,10 @@ function AppInner(){
   };
   const catBalanceCache=useMemo(()=>new Map(),[txs,budgetSettings]);
   const getCatCarryover=(catId,subId,year)=>{
-    const prevYear=(parseInt(year)-1).toString();
-    if(parseInt(prevYear)<2017)return 0;
+    const yNum=parseInt(year);
+    if(!year||isNaN(yNum))return 0; // حماية: سنة غير صحيحة = وقف فورا (يمنع حلقة لا نهائية)
+    const prevYear=(yNum-1).toString();
+    if(isNaN(parseInt(prevYear))||parseInt(prevYear)<2017)return 0;
     if(!getCatDistYear(prevYear))return 0; // ماكاينش توزيع للعام السابق = بلا ترحيل
     return getCatBalance(catId,subId,prevYear);
   };

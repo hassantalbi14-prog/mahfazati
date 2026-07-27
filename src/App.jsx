@@ -304,12 +304,17 @@ function AppInner(){
       const ct=await _load('cats'); if(ct)setCats(ct);
       const tx=await _load('txs'); if(tx){
         const migrated=tx.map(t=>{
-          if(t.isLoan&&!t.loanKind){
-            const d=t.desc||"";
+          let nt=t;
+          if(nt.isLoan&&!nt.loanKind){
+            const d=nt.desc||"";
             const kind=(d.startsWith("تسديد")||/من\s/.test(d))?"أخذت":"أعطيت";
-            return{...t,loanKind:kind};
+            nt={...nt,loanKind:kind};
           }
-          return t;
+          // حماية: أي معاملة بلا تاريخ صحيح (بسبب نسخة احتياطية قديمة/معطوبة) كتطيح صفحات كثيرة كتستعمل t.date.startsWith/slice
+          if(typeof nt.date!=="string"||!/^\d{4}-\d{2}-\d{2}/.test(nt.date)){
+            nt={...nt,date:new Date().toISOString().split("T")[0]};
+          }
+          return nt;
         });
         setTxs(migrated);
       }
@@ -334,17 +339,29 @@ function AppInner(){
       });
       const migrateTiersByYear=(tierHistory,existing)=>{
         if(existing&&existing.length>0)return existing; // نظام جديد ديجا موجود
-        const sorted=(tierHistory||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
-        const byYear={};
-        sorted.forEach(h=>{byYear[h.date.slice(0,4)]=h.tiers;}); // آخر إدخال فكل سنة كيبقى (الترتيب تصاعدي)
-        return Object.keys(byYear).map(year=>({year,tiers:byYear[year]}));
+        try{
+          const valid=(tierHistory||[]).filter(h=>h&&typeof h.date==="string"&&h.date.length>=4);
+          const sorted=valid.slice().sort((a,b)=>a.date.localeCompare(b.date));
+          const byYear={};
+          sorted.forEach(h=>{byYear[h.date.slice(0,4)]=h.tiers;}); // آخر إدخال فكل سنة كيبقى (الترتيب تصاعدي)
+          return Object.keys(byYear).map(year=>({year,tiers:byYear[year]}));
+        }catch(e){
+          console.error("migrateTiersByYear crashed, skipping corrupted entries:",e);
+          return [];
+        }
       };
       const migrateIncomeGoalsByYear=(incomeGoals,existing)=>{
         if(existing&&existing.length>0)return existing; // نظام جديد ديجا موجود
-        const sorted=(incomeGoals||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
-        const byYear={};
-        sorted.forEach(g=>{byYear[g.date.slice(0,4)]=g.amount;});
-        return Object.keys(byYear).map(year=>({year,amount:byYear[year]}));
+        try{
+          const valid=(incomeGoals||[]).filter(g=>g&&typeof g.date==="string"&&g.date.length>=4);
+          const sorted=valid.slice().sort((a,b)=>a.date.localeCompare(b.date));
+          const byYear={};
+          sorted.forEach(g=>{byYear[g.date.slice(0,4)]=g.amount;});
+          return Object.keys(byYear).map(year=>({year,amount:byYear[year]}));
+        }catch(e){
+          console.error("migrateIncomeGoalsByYear crashed, skipping corrupted entries:",e);
+          return [];
+        }
       };
       const OLD2NEW_COLOR={"#ef4444":"#3b82f6","#f59e0b":"#f97316","#1a6b4a":"#8b5cf6"};
       const migrateColor=c=>OLD2NEW_COLOR[c]||c;

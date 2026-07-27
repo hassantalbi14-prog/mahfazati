@@ -192,7 +192,7 @@ function AppInner(){
     return allAcc.filter(ac=>(a.accountKeys||[]).includes(ac.key)).reduce((s,ac)=>s+(ac.balance||0),0);
   };
   const filterByPeriod=(txList)=>{if(period.type==="month")return txList.filter(t=>t.date.startsWith(period.month));if(period.type==="year")return txList.filter(t=>t.date.startsWith(period.year));return txList;};
-  const[fontScale,setFontScale]=useState(()=>parseFloat(localStorage.getItem("mhf_fontScale"))||1.1);
+  const[fontScale,setFontScale]=useState(()=>{const raw=parseFloat(localStorage.getItem("mhf_fontScale"))||1.1;return Math.min(1.6,Math.max(0.9,raw));});
   useEffect(()=>{localStorage.setItem("mhf_fontScale",fontScale);},[fontScale]);
   const[hideBalance,setHideBalance]=useState(false);
   const[showActions,setShowActions]=useState(false);

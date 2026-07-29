@@ -3169,6 +3169,36 @@ function AppInner(){
                           setErr("✅ تم التحويل");setTimeout(()=>setErr(null),3000);
                         }}>تحويل</button>
                       </div>
+
+                      {(()=>{
+                        const orphans=(budgetSettings.catTransfers||[]).map((tr,idx)=>({tr,idx})).filter(({tr})=>{
+                          const fCatObj=expCats.find(c=>c.id===tr.fromCatId);
+                          const tCatObj=expCats.find(c=>c.id===tr.toCatId);
+                          const fBad=!tr.fromSubId&&fCatObj?.subs?.length>0;
+                          const tBad=!tr.toSubId&&tCatObj?.subs?.length>0;
+                          return fBad||tBad;
+                        });
+                        if(orphans.length===0)return null;
+                        return <div style={{background:"#fef3c7",border:"1px solid #f59e0b",borderRadius:12,padding:12}}>
+                          <div style={{fontSize:12,fontWeight:800,color:"#92400e",marginBottom:8}}>⚠️ لقينا {orphans.length} تحويل(ات) معطوبة (موجهة لتصنيف بلا فرع محدد رغم أنو عندو فروع) — هادو السبب فالأرقام الغريبة</div>
+                          {orphans.map(({tr,idx})=>{
+                            const fCatObj=expCats.find(c=>c.id===tr.fromCatId);
+                            const tCatObj=expCats.find(c=>c.id===tr.toCatId);
+                            return <div key={idx} style={{background:"#fff",borderRadius:10,padding:10,marginBottom:6,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                              <div style={{fontSize:11,flex:1}}>
+                                <div style={{fontWeight:700,color:"#1a1a1a"}}>{fCatObj?.name||"؟"}{!tr.fromSubId&&fCatObj?.subs?.length>0?" ⚠️":""} ← {tCatObj?.name||"؟"}{!tr.toSubId&&tCatObj?.subs?.length>0?" ⚠️":""}</div>
+                                <div style={{color:"#64748b",marginTop:2}}>{fmt(tr.amount)} · {tr.year} · {tr.date||""}</div>
+                              </div>
+                              <button style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer",whiteSpace:"nowrap"}} onClick={()=>{
+                                const updated=(budgetSettings.catTransfers||[]).filter((_,i)=>i!==idx);
+                                const nb={...budgetSettings,catTransfers:updated};
+                                setBudgetSettings(nb);_save('budgetSettings',nb);
+                                setErr("✅ تم حذف التحويل المعطوب");setTimeout(()=>setErr(null),3000);
+                              }}>🗑️ حذف</button>
+                            </div>;
+                          })}
+                        </div>;
+                      })()}
                     </>}
                   </>;
                  }catch(pageErr){

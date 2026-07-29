@@ -3150,6 +3150,7 @@ function AppInner(){
                           {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`}>{it.label} — باقي {fmt(b)}</option>;})}
                         </select>
                         <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ" value={ovExp.trAmt||""} onChange={e=>setOvExp(p=>({...p,trAmt:e.target.value}))}/>
+                        <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.trDate||new Date().toISOString().split("T")[0]} onChange={e=>setOvExp(p=>({...p,trDate:e.target.value}))}/>
                         <button style={S.btn("#6366f1")} onClick={()=>{
                           const amt=parseFloat(ovExp.trAmt);
                           if(!ovExp.trFrom||!ovExp.trTo||!amt||amt<=0){showErr("⛔ عمر كل الخانات");setTimeout(()=>setErr(null),3000);return;}
@@ -3158,52 +3159,12 @@ function AppInner(){
                           const[tCat,tSub]=ovExp.trTo.split("_");
                           const fromBal=getCatBalance(parseInt(fCat),fSub?parseInt(fSub):null,selYear);
                           if(amt>fromBal){showErr(`⛔ الرصيد غير كافي — المتاح: ${fmt(fromBal)}`);setTimeout(()=>setErr(null),3500);return;}
-                          const nb={...budgetSettings,catTransfers:[...(budgetSettings.catTransfers||[]),{year:selYear,fromCatId:parseInt(fCat),fromSubId:fSub?parseInt(fSub):null,toCatId:parseInt(tCat),toSubId:tSub?parseInt(tSub):null,amount:amt,date:new Date().toISOString().split("T")[0]}]};
+                          const nb={...budgetSettings,catTransfers:[...(budgetSettings.catTransfers||[]),{year:selYear,fromCatId:parseInt(fCat),fromSubId:fSub?parseInt(fSub):null,toCatId:parseInt(tCat),toSubId:tSub?parseInt(tSub):null,amount:amt,date:ovExp.trDate||new Date().toISOString().split("T")[0]}]};
                           setBudgetSettings(nb);_save('budgetSettings',nb);
-                          setOvExp(p=>({...p,trFrom:"",trTo:"",trAmt:""}));
+                          setOvExp(p=>({...p,trFrom:"",trTo:"",trAmt:"",trDate:""}));
                           setErr("✅ تم التحويل");setTimeout(()=>setErr(null),3000);
                         }}>تحويل</button>
                       </div>
-
-                      {/* لائحة التحويلات الموجودة لهاد السنة — تقدر تنقلها لسنة جاية ولا تحذفها */}
-                      {(()=>{
-                        const yearTransfers=(budgetSettings.catTransfers||[]).map((tr,idx)=>({tr,idx})).filter(({tr})=>tr.year===selYear);
-                        if(yearTransfers.length===0)return null;
-                        const labelFor=(catId,subId)=>{const it=flatItems.find(f=>f.catId===catId&&(subId?f.subId===subId:!f.subId));return it?it.label:"؟";};
-                        return <div style={S.col}>
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",margin:"4px 2px"}}>
-                            <div style={{fontSize:12,fontWeight:800,color:"#334155"}}>📋 تحويلات {selYear} المسجلة ({yearTransfers.length})</div>
-                            {!ovExp[`confirmDelAllTr_${selYear}`]?(
-                              <button style={{background:"#fee2e2",color:"#ef4444",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`confirmDelAllTr_${selYear}`]:true}))}>🗑️ حذف الكل</button>
-                            ):(
-                              <div style={{display:"flex",gap:6}}>
-                                <button style={{background:"#e8e8e4",color:"#1a1a1a",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`confirmDelAllTr_${selYear}`]:false}))}>إلغاء</button>
-                                <button style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer"}} onClick={()=>{
-                                  const updated=(budgetSettings.catTransfers||[]).filter(tr=>tr.year!==selYear);
-                                  const nb={...budgetSettings,catTransfers:updated};
-                                  setBudgetSettings(nb);_save('budgetSettings',nb);
-                                  setOvExp(p=>({...p,[`confirmDelAllTr_${selYear}`]:false}));
-                                  setErr(`✅ تم حذف كل تحويلات ${selYear}`);setTimeout(()=>setErr(null),3000);
-                                }}>تأكيد الحذف؟</button>
-                              </div>
-                            )}
-                          </div>
-                          {yearTransfers.map(({tr,idx})=>(
-                            <div key={idx} style={{...S.card,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:12}}>
-                              <div style={{flex:1,fontSize:12}}>
-                                <div style={{fontWeight:700,color:"#1a1a1a"}}>{labelFor(tr.fromCatId,tr.fromSubId)} ← {labelFor(tr.toCatId,tr.toSubId)}</div>
-                                <div style={{color:"#64748b",marginTop:2}}>{fmt(tr.amount)} · {tr.date||""}</div>
-                              </div>
-                              <button style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer"}} onClick={()=>{
-                                const updated=(budgetSettings.catTransfers||[]).filter((_,i)=>i!==idx);
-                                const nb={...budgetSettings,catTransfers:updated};
-                                setBudgetSettings(nb);_save('budgetSettings',nb);
-                                setErr("✅ تم حذف التحويل");setTimeout(()=>setErr(null),3000);
-                              }}>🗑️</button>
-                            </div>
-                          ))}
-                        </div>;
-                      })()}
                     </>}
                   </>;
                  }catch(pageErr){

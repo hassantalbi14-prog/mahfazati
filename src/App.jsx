@@ -3067,15 +3067,12 @@ function AppInner(){
                         {ovExp[`confirmDelCatDist_${selYear}`]?(
                           <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
                             {selYear!==nowYear.toString()&&<div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>⚠️ حذف سنة قديمة قد يأثر على الترحيل والتحويلات المرتبطة بيها</div>}
-                            <input style={{...S.inp,fontSize:12}} type="password" placeholder="كلمة السر للتأكيد" value={ovExp[`delCatDistPw_${selYear}`]||""} onChange={e=>setOvExp(p=>({...p,[`delCatDistPw_${selYear}`]:e.target.value,[`delCatDistPwErr_${selYear}`]:false}))}/>
-                            {ovExp[`delCatDistPwErr_${selYear}`]&&<div style={{color:"#ef4444",fontSize:11}}>❌ كلمة السر غلط</div>}
                             <div style={{display:"flex",gap:6}}>
-                              <button style={{...S.btn("#e8e8e4",false),color:"#475569",flex:1,padding:"9px",fontSize:12}} onClick={()=>setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:false,[`delCatDistPw_${selYear}`]:""}))}>إلغاء</button>
+                              <button style={{...S.btn("#e8e8e4",false),color:"#475569",flex:1,padding:"9px",fontSize:12}} onClick={()=>setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:false}))}>إلغاء</button>
                               <button style={{...S.btn("#ef4444"),flex:1,padding:"9px",fontSize:12}} onClick={()=>{
-                                if((ovExp[`delCatDistPw_${selYear}`]||"")!==appPassword){setOvExp(p=>({...p,[`delCatDistPwErr_${selYear}`]:true}));return;}
                                 const nb={...budgetSettings,catDistYears:(budgetSettings.catDistYears||[]).filter(d=>d.year!==selYear)};
                                 setBudgetSettings(nb);_save('budgetSettings',nb);
-                                setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:false,[`delCatDistPw_${selYear}`]:""}));
+                                setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:false}));
                                 setErr(`✅ تم حذف توزيع ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
                               }}>تأكيد الحذف</button>
                             </div>
@@ -3144,30 +3141,14 @@ function AppInner(){
                     {dist && <>
                       <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"6px 2px"}}>🔄 تحويل بين التصنيفات ({selYear})</div>
                       <div style={S.card}>
-                        {(()=>{
-                          const renderPicker=(fieldKey,placeholder)=>{
-                            const openKey=`${fieldKey}Open`;
-                            const value=ovExp[fieldKey]||"";
-                            const selectedItem=flatItems.find(it=>`${it.catId}_${it.subId||""}`===value);
-                            return <div style={{position:"relative",marginBottom:8}}>
-                              <div style={{...S.sel,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[openKey]:!p[openKey]}))}>
-                                <span style={{color:selectedItem?"#1a1a1a":"#94a3b8",fontSize:13}}>{selectedItem?selectedItem.label:placeholder}</span>
-                                <span style={{color:"#94a3b8",fontSize:11}}>{ovExp[openKey]?"▲":"▼"}</span>
-                              </div>
-                              {ovExp[openKey]&&<div style={{position:"absolute",top:"105%",right:0,left:0,zIndex:30,background:"#fff",borderRadius:12,boxShadow:"0 10px 28px rgba(0,0,0,.18)",maxHeight:260,overflowY:"auto",padding:6}}>
-                                {flatItems.map(it=>{
-                                  if(it.isParent)return <div key={draftKey(it)} style={{padding:"7px 10px",fontSize:11,fontWeight:800,color:"#94a3b8",background:"#f8fafc",borderRadius:6}}>{it.icon} {it.label}</div>;
-                                  const b=getCatBalance(it.catId,it.subId,selYear);
-                                  return <div key={draftKey(it)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 10px",borderRadius:8,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[fieldKey]:`${it.catId}_${it.subId||""}`,[openKey]:false}))}>
-                                    <span style={{fontSize:13,color:"#1a1a1a"}}>{it.label}</span>
-                                    <span style={{fontSize:12,fontWeight:800,color:b<0?"#ef4444":"#10b981"}}>{b<0?"-":""}{fmt(Math.abs(b))}</span>
-                                  </div>;
-                                })}
-                              </div>}
-                            </div>;
-                          };
-                          return <>{renderPicker("trFrom","من (تصنيف/فرع)")}{renderPicker("trTo","إلى (تصنيف/فرع)")}</>;
-                        })()}
+                        <select style={{...S.sel,marginBottom:8}} value={ovExp.trFrom||""} onChange={e=>setOvExp(p=>({...p,trFrom:e.target.value}))}>
+                          <option value="">من (تصنيف/فرع)</option>
+                          {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`} disabled={!!it.isParent}>{it.isParent?`── ${it.label} ──`:it.label+` — باقي ${fmt(b)}`}</option>;})}
+                        </select>
+                        <select style={{...S.sel,marginBottom:8}} value={ovExp.trTo||""} onChange={e=>setOvExp(p=>({...p,trTo:e.target.value}))}>
+                          <option value="">إلى (تصنيف/فرع)</option>
+                          {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`} disabled={!!it.isParent}>{it.isParent?`── ${it.label} ──`:it.label+` — باقي ${fmt(b)}`}</option>;})}
+                        </select>
                         <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ" value={ovExp.trAmt||""} onChange={e=>setOvExp(p=>({...p,trAmt:e.target.value}))}/>
                         <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.trDate||new Date().toISOString().split("T")[0]} onChange={e=>setOvExp(p=>({...p,trDate:e.target.value}))}/>
                         <button style={S.btn("#6366f1")} onClick={()=>{
@@ -3188,33 +3169,6 @@ function AppInner(){
                           setErr("✅ تم التحويل");setTimeout(()=>setErr(null),3000);
                         }}>تحويل</button>
                       </div>
-
-                      {(()=>{
-                        const yearTransfers=(budgetSettings.catTransfers||[]).map((tr,idx)=>({tr,idx})).filter(({tr})=>tr.year===selYear);
-                        if(yearTransfers.length===0)return null;
-                        const labelFor=(catId,subId)=>{const it=flatItems.find(f=>f.catId===catId&&(subId?f.subId===subId:!f.subId));return it?it.label:"؟";};
-                        return <div style={S.col}>
-                          <button style={{background:"#eeedfc",color:"#6366f1",border:"none",borderRadius:10,padding:"10px",fontSize:12.5,fontWeight:800,fontFamily:"Tajawal",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}} onClick={()=>setOvExp(p=>({...p,trListOpen:!p.trListOpen}))}>
-                            📋 {ovExp.trListOpen?"إخفاء":"عرض"} تحويلات {selYear} ({yearTransfers.length})
-                          </button>
-                          {ovExp.trListOpen&&yearTransfers.map(({tr,idx})=>(
-                            <div key={idx} style={{...S.card,display:"flex",alignItems:"center",gap:10,padding:12}}>
-                              <div style={{width:36,height:36,borderRadius:10,background:"#eeedfc",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🔄</div>
-                              <div style={{flex:1,fontSize:12}}>
-                                <div style={{fontWeight:700,color:"#1a1a1a"}}>{labelFor(tr.fromCatId,tr.fromSubId)} ← {labelFor(tr.toCatId,tr.toSubId)}</div>
-                                <div style={{color:"#8a8578",marginTop:2}}>{tr.date||""}</div>
-                              </div>
-                              <span style={{fontWeight:800,color:"#10b981",fontSize:14}}>{fmt(tr.amount)}</span>
-                              <button style={{background:"#fee2e2",color:"#ef4444",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer"}} onClick={()=>{
-                                const updated=(budgetSettings.catTransfers||[]).filter((_,i)=>i!==idx);
-                                const nb={...budgetSettings,catTransfers:updated};
-                                setBudgetSettings(nb);_save('budgetSettings',nb);
-                                setErr("✅ تم حذف التحويل");setTimeout(()=>setErr(null),3000);
-                              }}>🗑️</button>
-                            </div>
-                          ))}
-                        </div>;
-                      })()}
 
                       {(()=>{
                         const orphans=(budgetSettings.catTransfers||[]).map((tr,idx)=>({tr,idx})).filter(({tr})=>{
@@ -3532,7 +3486,11 @@ function AppInner(){
                 creditTxs.map(t=>(
                   <div key={t.id} style={S.card}>
                     <div style={{...S.row,marginBottom:10}}>
-                      <div><div style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{t.desc}</div><div style={{fontSize:11,color:"#64748b"}}>{t.date}</div></div>
+                      <div>
+                        <div style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{t.desc}</div>
+                        <div style={{fontSize:11,color:"#64748b"}}>{t.date}</div>
+                        {(()=>{const cat=expCats.find(c=>c.id===t.catId);const sub=cat?.subs?.find(s=>s.id===t.subId);return cat?<div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{cat.icon} {cat.name}{sub?` — ${sub.name}`:""}</div>:null;})()}
+                      </div>
                       <div style={{fontSize:17,fontWeight:900,color:"#f59e0b"}}>{fmt(t.amount)}</div>
                     </div>
                     {ovExp[`pay_${t.id}`]?
@@ -3668,11 +3626,16 @@ function AppInner(){
           </div>
           <div style={S.card}>
             {typeFiltered.length===0&&<div style={{textAlign:"center",color:"#64748b",padding:20,fontSize:13}}>ما كاينش معاملات</div>}
-            {typeFiltered.map(t=>{const{cn,sn,ic,hi}=tl(t);const ac=al(t.ref);const isOpen=openTxId===t.id;const txType=getTxType(t);
+            {(()=>{let lastMonth=null;return typeFiltered.map(t=>{const{cn,sn,ic,hi}=tl(t);const ac=al(t.ref);const isOpen=openTxId===t.id;const txType=getTxType(t);
               const typeIcon={income:"💰",expense:"💸",transfer:"🔄",credit:"💳",loan:"🤝",asset:"🏠",invest:"📈"}[txType];
               const isPositive=t.type==="income";
+              const monthKey=t.date?.slice(0,7);
+              const showMonthHeader=monthKey&&monthKey!==lastMonth;
+              if(showMonthHeader)lastMonth=monthKey;
+              const monthLabel=showMonthHeader?new Date(monthKey+"-01").toLocaleDateString("ar",{month:"long",year:"numeric"}):null;
               return(
               <div key={t.id}>
+                {showMonthHeader&&<div style={{fontSize:11,fontWeight:800,color:"#5c8a72",background:"#f0f7f2",borderRadius:8,padding:"6px 10px",margin:"10px 0 6px"}}>{monthLabel}</div>}
                 {/* سطر مضغوط: ايقونة - تاريخ - الفئة - المبلغ */}
                 <div className="tx" style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10}} onClick={()=>setOpenTxId(isOpen?null:t.id)}>
                   <div style={{width:36,height:36,borderRadius:10,background:isPositive?"#10b98122":"#ef444422",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}><Ico src={hi?ic:null} fb={ic||typeIcon}/></div>
@@ -3697,7 +3660,7 @@ function AppInner(){
                   </div>
                 </div>}
               </div>
-            );})}
+            );});})()}
           </div>
           </>);
         })()}
@@ -4999,6 +4962,21 @@ function AppInner(){
                 {cats[modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense")].map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}
               </select>
               {(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx")F("subId",e.target.value);else setEi(p=>({...p,subId:e.target.value}));}}><option value="">⚠️ الفرع (إجباري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
+              {(()=>{
+                const type=modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense");
+                if(type!=="expense")return null;
+                const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);
+                if(!cid)return null;
+                const cat=gc("expense",cid);
+                if(!cat)return null;
+                const rawSub=modal==="addTx"?form.subId:ei?.subId;
+                if(cat.subs?.length>0&&!rawSub)return null;
+                const sid=rawSub?parseInt(rawSub):null;
+                const yr=new Date().getFullYear().toString();
+                if(!getCatDistYear(yr))return null;
+                const bal=getCatBalance(cid,sid,yr);
+                return <div style={{fontSize:12,fontWeight:700,color:bal<0?"#ef4444":"#1a6b4a",background:bal<0?"#fee2e2":"#e5f5ee",borderRadius:10,padding:"9px 12px",textAlign:"center"}}>💰 الرصيد المتاح فهاد التصنيف: {bal<0?"-":""}{fmt(Math.abs(bal))}</div>;
+              })()}
               {modal==="addTx"&&(form.pm||"نقدي")!=="كريدي"&&(form.txType||"expense")!=="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"
                 accList={form.txType==="invest"?getBucketAccs("investment"):form.txType==="retire"?getBucketAccs("retirement"):form.txType==="emergency"?getBucketAccs("emergency"):form.txType==="assets_buy"?getBucketAccs("assets"):getBucketAccs("expenses")}/>}
               {modal==="addTx"&&(form.txType||"expense")==="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981"/>}

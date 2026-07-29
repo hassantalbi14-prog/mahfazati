@@ -3489,7 +3489,7 @@ function AppInner(){
                       <div>
                         <div style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{t.desc}</div>
                         <div style={{fontSize:11,color:"#64748b"}}>{t.date}</div>
-                        {(()=>{const cat=expCats.find(c=>c.id===t.catId);const sub=cat?.subs?.find(s=>s.id===t.subId);return cat?<div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{cat.icon} {cat.name}{sub?` — ${sub.name}`:""}</div>:null;})()}
+                        {(()=>{const cat=(cats.expense||[]).find(c=>c.id===t.catId);const sub=cat?.subs?.find(s=>s.id===t.subId);return cat?<div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{cat.icon} {cat.name}{sub?` — ${sub.name}`:""}</div>:null;})()}
                       </div>
                       <div style={{fontSize:17,fontWeight:900,color:"#f59e0b"}}>{fmt(t.amount)}</div>
                     </div>

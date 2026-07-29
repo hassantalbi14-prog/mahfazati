@@ -3143,11 +3143,11 @@ function AppInner(){
                       <div style={S.card}>
                         <select style={{...S.sel,marginBottom:8}} value={ovExp.trFrom||""} onChange={e=>setOvExp(p=>({...p,trFrom:e.target.value}))}>
                           <option value="">من (تصنيف/فرع)</option>
-                          {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`}>{it.label} — باقي {fmt(b)}</option>;})}
+                          {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`} disabled={!!it.isParent}>{it.isParent?`── ${it.label} ──`:it.label+` — باقي ${fmt(b)}`}</option>;})}
                         </select>
                         <select style={{...S.sel,marginBottom:8}} value={ovExp.trTo||""} onChange={e=>setOvExp(p=>({...p,trTo:e.target.value}))}>
                           <option value="">إلى (تصنيف/فرع)</option>
-                          {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`}>{it.label} — باقي {fmt(b)}</option>;})}
+                          {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`} disabled={!!it.isParent}>{it.isParent?`── ${it.label} ──`:it.label+` — باقي ${fmt(b)}`}</option>;})}
                         </select>
                         <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ" value={ovExp.trAmt||""} onChange={e=>setOvExp(p=>({...p,trAmt:e.target.value}))}/>
                         <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.trDate||new Date().toISOString().split("T")[0]} onChange={e=>setOvExp(p=>({...p,trDate:e.target.value}))}/>
@@ -3157,6 +3157,10 @@ function AppInner(){
                           if(ovExp.trFrom===ovExp.trTo){showErr("⛔ اختر تصنيفين مختلفين");setTimeout(()=>setErr(null),3000);return;}
                           const[fCat,fSub]=ovExp.trFrom.split("_");
                           const[tCat,tSub]=ovExp.trTo.split("_");
+                          const fCatObj=expCats.find(c=>c.id===parseInt(fCat));
+                          const tCatObj=expCats.find(c=>c.id===parseInt(tCat));
+                          if(!fSub&&fCatObj?.subs?.length>0){showErr("⛔ هاد التصنيف عندو فروع — اختر فرع محدد");setTimeout(()=>setErr(null),3500);return;}
+                          if(!tSub&&tCatObj?.subs?.length>0){showErr("⛔ هاد التصنيف عندو فروع — اختر فرع محدد");setTimeout(()=>setErr(null),3500);return;}
                           const fromBal=getCatBalance(parseInt(fCat),fSub?parseInt(fSub):null,selYear);
                           if(amt>fromBal){showErr(`⛔ الرصيد غير كافي — المتاح: ${fmt(fromBal)}`);setTimeout(()=>setErr(null),3500);return;}
                           const nb={...budgetSettings,catTransfers:[...(budgetSettings.catTransfers||[]),{year:selYear,fromCatId:parseInt(fCat),fromSubId:fSub?parseInt(fSub):null,toCatId:parseInt(tCat),toSubId:tSub?parseInt(tSub):null,amount:amt,date:ovExp.trDate||new Date().toISOString().split("T")[0]}]};

@@ -3024,24 +3024,44 @@ function AppInner(){
                           <div style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>✅ توزيع {selYear} مثبت</div>
                           <div style={{fontSize:11,color:"#64748b",marginTop:2}}>ثابت طول العام — التعديل غير التحويل اليدوي بين التصنيفات</div>
                         </div>
-                        {flatItems.map((it,i)=>{
-                          const cat=expCats.find(c=>c.id===it.catId);
-                          const sub=cat?.subs?.find(s=>s.id===it.subId);
-                          const d=getCatDetail(it.catId,it.subId,selYear);
+                        {expCats.map((cat,ci)=>{
+                          const hasSubs=cat.subs&&cat.subs.length>0;
+                          const d=getCatDetail(cat.id,null,selYear);
                           const barColor=d.balance<0?"#ef4444":d.usedPct>=80?"#f59e0b":"#1a6b4a";
-                          return <div key={i} style={{padding:"9px 0",borderBottom:"1px solid #f1f5f9"}}>
-                            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}>
-                              <span>{cat?.icon} {cat?.name}{sub?` — ${sub.name}`:""}</span>
-                              <span style={{fontWeight:800,color:d.balance>=0?"#1a6b4a":"#ef4444"}}>{d.balance<0?"-":""}{fmt(Math.abs(d.balance))}</span>
+                          const expanded=!!ovExp[`catDistExpand_${cat.id}`];
+                          return <div key={cat.id}>
+                            <div style={{padding:"9px 0",borderBottom:(hasSubs&&expanded)?"none":"1px solid #f1f5f9",cursor:hasSubs?"pointer":"default"}} onClick={()=>{if(hasSubs)setOvExp(p=>({...p,[`catDistExpand_${cat.id}`]:!expanded}));}}>
+                              <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}>
+                                <span>{cat.icon} {cat.name}{hasSubs?<span style={{color:"#94a3b8",fontSize:11}}> {expanded?"▲":"▼"}</span>:""}</span>
+                                <span style={{fontWeight:800,color:d.balance>=0?"#1a6b4a":"#ef4444"}}>{d.balance<0?"-":""}{fmt(Math.abs(d.balance))}</span>
+                              </div>
+                              <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>مثبت: {d.pct.toFixed(1)}% · فعليا دابا: {d.effectivePct.toFixed(1)}% من الميزانية</div>
+                              <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
+                                <div style={{height:"100%",width:Math.min(d.usedPct,100)+"%",background:barColor,borderRadius:3}}/>
+                              </div>
+                              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
+                                <span>مخصص: {fmt(d.totalAvail)} · صرف: {fmt(d.spent)}</span>
+                                <span>{d.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-d.usedPct,0).toFixed(0)}%`}</span>
+                              </div>
                             </div>
-                            <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>مثبت: {d.pct.toFixed(1)}% · فعليا دابا: {d.effectivePct.toFixed(1)}% من الميزانية</div>
-                            <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
-                              <div style={{height:"100%",width:Math.min(d.usedPct,100)+"%",background:barColor,borderRadius:3}}/>
-                            </div>
-                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
-                              <span>مخصص: {fmt(d.totalAvail)} · صرف: {fmt(d.spent)}</span>
-                              <span>{d.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-d.usedPct,0).toFixed(0)}%`}</span>
-                            </div>
+                            {hasSubs&&expanded&&cat.subs.map((sub,si)=>{
+                              const sd=getCatDetail(cat.id,sub.id,selYear);
+                              const sBarColor=sd.balance<0?"#ef4444":sd.usedPct>=80?"#f59e0b":"#1a6b4a";
+                              return <div key={sub.id} style={{padding:"9px 0 9px 14px",borderBottom:si<cat.subs.length-1?"1px solid #f1f5f9":"1px solid #f1f5f9",background:"#fafaf7"}}>
+                                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}>
+                                  <span>↳ {sub.name}</span>
+                                  <span style={{fontWeight:800,color:sd.balance>=0?"#1a6b4a":"#ef4444"}}>{sd.balance<0?"-":""}{fmt(Math.abs(sd.balance))}</span>
+                                </div>
+                                <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>مثبت: {sd.pct.toFixed(1)}% · فعليا دابا: {sd.effectivePct.toFixed(1)}% من الميزانية</div>
+                                <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
+                                  <div style={{height:"100%",width:Math.min(sd.usedPct,100)+"%",background:sBarColor,borderRadius:3}}/>
+                                </div>
+                                <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
+                                  <span>مخصص: {fmt(sd.totalAvail)} · صرف: {fmt(sd.spent)}</span>
+                                  <span>{sd.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-sd.usedPct,0).toFixed(0)}%`}</span>
+                                </div>
+                              </div>;
+                            })}
                           </div>;
                         })}
                         {ovExp[`confirmDelCatDist_${selYear}`]?(
@@ -3151,7 +3171,23 @@ function AppInner(){
                         if(yearTransfers.length===0)return null;
                         const labelFor=(catId,subId)=>{const it=flatItems.find(f=>f.catId===catId&&(subId?f.subId===subId:!f.subId));return it?it.label:"؟";};
                         return <div style={S.col}>
-                          <div style={{fontSize:12,fontWeight:800,color:"#334155",margin:"4px 2px"}}>📋 تحويلات {selYear} المسجلة</div>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",margin:"4px 2px"}}>
+                            <div style={{fontSize:12,fontWeight:800,color:"#334155"}}>📋 تحويلات {selYear} المسجلة ({yearTransfers.length})</div>
+                            {!ovExp[`confirmDelAllTr_${selYear}`]?(
+                              <button style={{background:"#fee2e2",color:"#ef4444",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`confirmDelAllTr_${selYear}`]:true}))}>🗑️ حذف الكل</button>
+                            ):(
+                              <div style={{display:"flex",gap:6}}>
+                                <button style={{background:"#e8e8e4",color:"#1a1a1a",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`confirmDelAllTr_${selYear}`]:false}))}>إلغاء</button>
+                                <button style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer"}} onClick={()=>{
+                                  const updated=(budgetSettings.catTransfers||[]).filter(tr=>tr.year!==selYear);
+                                  const nb={...budgetSettings,catTransfers:updated};
+                                  setBudgetSettings(nb);_save('budgetSettings',nb);
+                                  setOvExp(p=>({...p,[`confirmDelAllTr_${selYear}`]:false}));
+                                  setErr(`✅ تم حذف كل تحويلات ${selYear}`);setTimeout(()=>setErr(null),3000);
+                                }}>تأكيد الحذف؟</button>
+                              </div>
+                            )}
+                          </div>
                           {yearTransfers.map(({tr,idx})=>(
                             <div key={idx} style={{...S.card,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:12}}>
                               <div style={{flex:1,fontSize:12}}>

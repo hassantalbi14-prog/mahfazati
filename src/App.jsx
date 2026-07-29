@@ -2983,6 +2983,7 @@ function AppInner(){
                   const flatItems=[]; // {catId,subId,label,icon} — للعرض والتحويل فقط
                   expCats.forEach(c=>{
                     if(c.subs&&c.subs.length>0){
+                      flatItems.push({catId:c.id,subId:null,label:c.name,icon:c.icon,isParent:true});
                       c.subs.forEach(s=>flatItems.push({catId:c.id,subId:s.id,label:`${c.name} — ${s.name}`,icon:c.icon}));
                     } else {
                       flatItems.push({catId:c.id,subId:null,label:c.name,icon:c.icon});
@@ -3157,14 +3158,6 @@ function AppInner(){
                                 <div style={{fontWeight:700,color:"#1a1a1a"}}>{labelFor(tr.fromCatId,tr.fromSubId)} ← {labelFor(tr.toCatId,tr.toSubId)}</div>
                                 <div style={{color:"#64748b",marginTop:2}}>{fmt(tr.amount)} · {tr.date||""}</div>
                               </div>
-                              <button style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer",whiteSpace:"nowrap"}} onClick={()=>{
-                                const nextYear=(parseInt(tr.year)+1).toString();
-                                const updated=[...(budgetSettings.catTransfers||[])];
-                                updated[idx]={...tr,year:nextYear};
-                                const nb={...budgetSettings,catTransfers:updated};
-                                setBudgetSettings(nb);_save('budgetSettings',nb);
-                                setErr(`✅ تم نقل التحويل لسنة ${nextYear}`);setTimeout(()=>setErr(null),3000);
-                              }}>➡️ نقل لـ{parseInt(tr.year)+1}</button>
                               <button style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer"}} onClick={()=>{
                                 const updated=(budgetSettings.catTransfers||[]).filter((_,i)=>i!==idx);
                                 const nb={...budgetSettings,catTransfers:updated};
@@ -3291,37 +3284,48 @@ function AppInner(){
                     <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
                   </div>
                   {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
-                  <button style={{...S.btn("#10b981"),padding:"13px"}} onClick={()=>{
-                    if(secPin){setSecGate({pending:{custom:expData,lbl:"تحميل نسخة احتياطية"},pinInput:"",verified:false,countdown:0,err:false});return;}
-                    expData();
-                  }}>📤 تحميل نسخة احتياطية</button>
-                  <button style={{...S.btn("#0ea5e9"),padding:"13px"}} onClick={()=>{
-                    if(secPin){setSecGate({pending:{custom:openDriveAfterExport,lbl:"حفظ في Google Drive"},pinInput:"",verified:false,countdown:0,err:false});return;}
-                    openDriveAfterExport();
-                  }}>☁️ حفظ في Google Drive</button>
-                  <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>{
-                    if(secPin){setSecGate({pending:{custom:restoreFromDrive,lbl:"استرجاع من Google Drive"},pinInput:"",verified:false,countdown:0,err:false});return;}
-                    restoreFromDrive();
-                  }}>⬇️ استرجاع من Google Drive</button>
-                  <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>{
-                    if(secPin){setSecGate({pending:{custom:()=>fRef.current.click(),lbl:"استيراد/استرجاع بيانات"},pinInput:"",verified:false,countdown:0,err:false});return;}
-                    fRef.current.click();
-                  }}>📥 استيراد من ملف</button>
-                  <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={()=>{
-                    if(secPin){setSecGate({pending:{custom:exportExcel,lbl:"تصدير Excel (المعاملات)"},pinInput:"",verified:false,countdown:0,err:false});return;}
-                    exportExcel();
-                  }}>📊 تصدير Excel (المعاملات)</button>
-                  <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={()=>{
-                    if(secPin){setSecGate({pending:{custom:()=>excelRef.current.click(),lbl:"استيراد Excel"},pinInput:"",verified:false,countdown:0,err:false});return;}
-                    excelRef.current.click();
-                  }}>📥 استيراد Excel</button>
-                  <button style={{...S.btn("#dc2626"),padding:"13px"}} onClick={()=>{
-                    if(secPin){setSecGate({pending:{custom:exportReportPDF,lbl:"تصدير تقرير PDF"},pinInput:"",verified:false,countdown:0,err:false});return;}
-                    exportReportPDF();
-                  }}>📄 تصدير تقرير PDF</button>
+
+                  <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"4px 4px 10px",display:"flex",alignItems:"center",gap:6}}>الحفظ والاسترجاع<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
+                  <div style={{...S.card,padding:0,overflow:"hidden"}}>
+                    {[
+                      {icon:"📤",bg:"#e5f5ee",label:"تحميل نسخة احتياطية",fn:expData,lbl:"تحميل نسخة احتياطية"},
+                      {icon:"☁️",bg:"#e6f2fb",label:"حفظ في Google Drive",fn:openDriveAfterExport,lbl:"حفظ في Google Drive"},
+                      {icon:"⬇️",bg:"#eeedfc",label:"استرجاع من Google Drive",fn:restoreFromDrive,lbl:"استرجاع من Google Drive"},
+                      {icon:"📥",bg:"#eeedfc",label:"استيراد من ملف",fn:()=>fRef.current.click(),lbl:"استيراد/استرجاع بيانات"},
+                    ].map((it,i,arr)=>(
+                      <div key={it.label} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #f0efe9":"none"}} onClick={()=>{
+                        if(secPin){setSecGate({pending:{custom:it.fn,lbl:it.lbl},pinInput:"",verified:false,countdown:0,err:false});return;}
+                        it.fn();
+                      }}>
+                        <div style={{width:40,height:40,borderRadius:12,background:it.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{it.icon}</div>
+                        <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>{it.label}</span>
+                        <ChevronLeft size={14} color="#c8c4b6"/>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>تصدير البيانات<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
+                  <div style={{...S.card,padding:0,overflow:"hidden"}}>
+                    {[
+                      {icon:"📊",bg:"#e5f5ee",label:"تصدير Excel (المعاملات)",fn:exportExcel,lbl:"تصدير Excel (المعاملات)"},
+                      {icon:"📥",bg:"#e5f5ee",label:"استيراد Excel",fn:()=>excelRef.current.click(),lbl:"استيراد Excel"},
+                      {icon:"📄",bg:"#fdeaea",label:"تصدير تقرير PDF",fn:exportReportPDF,lbl:"تصدير تقرير PDF"},
+                    ].map((it,i,arr)=>(
+                      <div key={it.label} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #f0efe9":"none"}} onClick={()=>{
+                        if(secPin){setSecGate({pending:{custom:it.fn,lbl:it.lbl},pinInput:"",verified:false,countdown:0,err:false});return;}
+                        it.fn();
+                      }}>
+                        <div style={{width:40,height:40,borderRadius:12,background:it.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{it.icon}</div>
+                        <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>{it.label}</span>
+                        <ChevronLeft size={14} color="#c8c4b6"/>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>التذكير اليومي<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
                   <div style={S.card}>
-                    <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>🔔 تذكير يومي بالنسخ الاحتياطي</div>
-                    <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>إشعار يومي يفكرك تدير نسخة (محلية + Drive) — باش تقدر ترجع بياناتك بسهولة إلى وقع مشكل فالهاتف</div>
+                    <div style={{fontWeight:800,fontSize:14.5,marginBottom:2,color:"#1a1a1a"}}>🔔 تذكير يومي بالنسخ الاحتياطي</div>
+                    <div style={{fontSize:11,color:"#8a8578",marginBottom:10}}>إشعار يومي يفكرك تدير نسخة (محلية + Drive) — باش تقدر ترجع بياناتك بسهولة إلى وقع مشكل فالهاتف</div>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:backupReminderOn?10:0}}>
                       <span style={{fontSize:13,fontWeight:700}}>{backupReminderOn?"✅ مفعّل":"معطل"}</span>
                       <button style={{...S.btn(backupReminderOn?"#ef4444":"#10b981",false),padding:"8px 16px",fontSize:12}} onClick={async()=>{
@@ -3346,9 +3350,9 @@ function AppInner(){
                     </div>}
                   </div>
                   <input ref={excelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importExcel}/>
-                  <div style={{background:"#1a1d27",borderRadius:14,padding:16,border:"1px solid #ef444433"}}>
-                    <div style={{fontWeight:700,color:"#ef4444",marginBottom:8,fontSize:15}}>🗑️ إعادة ضبط كامل</div>
-                    <div style={{fontSize:12,color:"#475569",marginBottom:12}}>كتمسح كل البيانات بما فيها البنوك والتصنيفات</div>
+                  <div style={{background:"#fdeaea",border:"1.5px dashed #f0b8b8",borderRadius:14,padding:16,marginTop:8}}>
+                    <div style={{fontWeight:800,color:"#c0392b",marginBottom:8,fontSize:14.5}}>🗑️ إعادة ضبط كامل</div>
+                    <div style={{fontSize:12,color:"#8a5a52",marginBottom:12}}>كتمسح كل البيانات بما فيها البنوك والتصنيفات</div>
                     <input style={{...S.inp,marginBottom:8}} type="password" placeholder="كلمة السر للتأكيد" value={resetCode} onChange={e=>{setResetCode(e.target.value);setResetErr(false);}}/>
                     {resetErr&&<div style={{color:"#ef4444",fontSize:12,marginBottom:6}}>❌ كلمة السر غلط</div>}
                     <button style={S.btn("#ef4444")} onClick={()=>{if(resetCode!==appPassword){setResetErr(true);return;}resetData();setResetCode("");}}>تأكيد إعادة الضبط</button>

@@ -452,17 +452,29 @@ function AppInner(){
   });
   const migrateTiersByYearData=(tierHistory,existing)=>{
     if(existing&&existing.length>0)return existing;
-    const sorted=(tierHistory||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
-    const byYear={};
-    sorted.forEach(h=>{byYear[h.date.slice(0,4)]=h.tiers;});
-    return Object.keys(byYear).map(year=>({year,tiers:byYear[year]}));
+    try{
+      const valid=(tierHistory||[]).filter(h=>h&&typeof h.date==="string"&&h.date.length>=4);
+      const sorted=valid.slice().sort((a,b)=>a.date.localeCompare(b.date));
+      const byYear={};
+      sorted.forEach(h=>{byYear[h.date.slice(0,4)]=h.tiers;});
+      return Object.keys(byYear).map(year=>({year,tiers:byYear[year]}));
+    }catch(e){
+      console.error("migrateTiersByYearData crashed, skipping corrupted entries:",e);
+      return [];
+    }
   };
   const migrateIncomeGoalsByYearData=(incomeGoals,existing)=>{
     if(existing&&existing.length>0)return existing;
-    const sorted=(incomeGoals||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
-    const byYear={};
-    sorted.forEach(g=>{byYear[g.date.slice(0,4)]=g.amount;});
-    return Object.keys(byYear).map(year=>({year,amount:byYear[year]}));
+    try{
+      const valid=(incomeGoals||[]).filter(g=>g&&typeof g.date==="string"&&g.date.length>=4);
+      const sorted=valid.slice().sort((a,b)=>a.date.localeCompare(b.date));
+      const byYear={};
+      sorted.forEach(g=>{byYear[g.date.slice(0,4)]=g.amount;});
+      return Object.keys(byYear).map(year=>({year,amount:byYear[year]}));
+    }catch(e){
+      console.error("migrateIncomeGoalsByYearData crashed, skipping corrupted entries:",e);
+      return [];
+    }
   };
   const migrateBudgetSettingsData=bs=>{
     if(!bs)return bs;
@@ -1166,7 +1178,7 @@ function AppInner(){
     }
     const newInvestments=d.investments||investments;
     const newCats=d.cats?{expense:d.cats.expense||[],income:d.cats.income||[]}:cats;
-    const newTxs=(d.txs&&d.txs.length>0)?[...d.txs].sort((a,b)=>b.date.localeCompare(a.date)):txs;
+    const newTxs=(d.txs&&d.txs.length>0)?d.txs.map(t=>(typeof t.date==="string"&&/^\d{4}-\d{2}-\d{2}/.test(t.date))?t:{...t,date:new Date().toISOString().split("T")[0]}).sort((a,b)=>b.date.localeCompare(a.date)):txs;
 
     // كتابة واحدة آمنة لكل شيء دفعة وحدة (بلا تزامن، بلا خطر فقدان أي جزء)
     const fullData={banks:newBanks,cash:newCash,assets:newAssets,loans:newLoans,budgetSettings:newBS,investments:newInvestments,cats:newCats,txs:newTxs};
@@ -2465,68 +2477,67 @@ function AppInner(){
             <button onClick={()=>setPage("dashboard")} style={{background:"#e8e8e4",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:13}}>← رجوع</button>
           </div>
 
-          <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("profile")}>
-              {profilePhoto?<img src={profilePhoto} style={{width:44,height:44,borderRadius:"50%",objectFit:"cover",marginLeft:14,flexShrink:0}}/>:
-                <div style={{width:44,height:44,borderRadius:"50%",background:"#e8f5ee",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,fontWeight:900,color:"#1a6b4a",marginLeft:14,flexShrink:0}}>{profileName?profileName[0]:"👤"}</div>}
-              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{profileName||"الملف الشخصي"}</div><div style={{fontSize:11,color:"#64748b"}}>الاسم والصورة</div></div>
-              <ChevronLeft size={18} color="#64748b"/>
-            </div>
+          <div style={{background:"linear-gradient(135deg,#0d3b2e,#1a6b4a)",borderRadius:20,padding:18,display:"flex",alignItems:"center",gap:14,cursor:"pointer",marginBottom:6}} onClick={()=>setDp("profile")}>
+            {profilePhoto?<img src={profilePhoto} style={{width:52,height:52,borderRadius:"50%",objectFit:"cover",flexShrink:0}}/>:
+              <div style={{width:52,height:52,borderRadius:"50%",background:"rgba(255,255,255,.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:900,color:"#fff",flexShrink:0}}>{profileName?profileName[0]:"👤"}</div>}
+            <span style={{flex:1,fontSize:16,fontWeight:800,color:"#fff"}}>{profileName||"الملف الشخصي"}</span>
+            <ChevronLeft size={18} color="rgba(255,255,255,.6)"/>
           </div>
 
-          <div style={{fontSize:11,color:"#94a3b8",fontWeight:700,margin:"4px 4px 6px"}}>المظهر والأمان</div>
+          <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>المظهر والأمان<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
             {[
-              {id:"appearance",icon:"🎨",label:"المظهر",desc:"حجم الخط، الوضع الليلي"},
-              {id:"security",icon:"🔐",label:"الأمان والحساب",desc:"البصمة، القفل التلقائي، كلمة السر، جهة الاسترجاع"},
+              {id:"appearance",icon:"🎨",label:"المظهر",bg:"#eef0ea",fg:"#5c584c"},
+              {id:"security",icon:"🔐",label:"الأمان والحساب",bg:"#eeedfc",fg:"#6366f1"},
             ].map((item,i,arr)=>(
-              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #e2e8f0":"none"}} onClick={()=>setDp(item.id)}>
-                <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
-                <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</div><div style={{fontSize:12,color:"#64748b"}}>{item.desc}</div></div>
-                <ChevronLeft size={18} color="#64748b"/>
+              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #f0efe9":"none"}} onClick={()=>setDp(item.id)}>
+                <div style={{width:40,height:40,borderRadius:12,background:item.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{item.icon}</div>
+                <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>{item.label}</span>
+                <ChevronLeft size={14} color="#c8c4b6"/>
               </div>
             ))}
           </div>
 
-          <div style={{fontSize:11,color:"#94a3b8",fontWeight:700,margin:"4px 4px 6px"}}>الأموال والأهداف</div>
+          <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>الأموال والأهداف<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            {[{id:"banks",icon:"🏦",label:"البنوك"},{id:"cash",icon:"💵",label:"الكاش"},{id:"assets",icon:"🏠",label:"الممتلكات"}].map((item,i,arr)=>(
-              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>setDp(item.id)}>
-                <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
-                <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</span>
-                <ChevronLeft size={18} color="#64748b"/>
+            {[{id:"banks",icon:"🏦",label:"البنوك",bg:"#e5f5ee",fg:"#10b981"},{id:"cash",icon:"💵",label:"الكاش",bg:"#fdf3d9",fg:"#c98a0a"},{id:"assets",icon:"🏠",label:"الممتلكات",bg:"#e5f5ee",fg:"#10b981"}].map((item,i,arr)=>(
+              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:"1px solid #f0efe9"}} onClick={()=>setDp(item.id)}>
+                <div style={{width:40,height:40,borderRadius:12,background:item.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{item.icon}</div>
+                <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>{item.label}</span>
+                <ChevronLeft size={14} color="#c8c4b6"/>
               </div>
             ))}
-            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("distribution")}>
-              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🎯</div>
-              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>الأهداف والتوزيع</div><div style={{fontSize:12,color:"#64748b"}}>هدف الدخل، نسب الأقسام، ربط الحسابات</div></div>
-              <ChevronLeft size={18} color="#64748b"/>
+            <div style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:"1px solid #f0efe9"}} onClick={()=>setDp("distribution")}>
+              <div style={{width:40,height:40,borderRadius:12,background:"#fdeaea",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>🎯</div>
+              <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>الأهداف والتوزيع</span>
+              <ChevronLeft size={14} color="#c8c4b6"/>
             </div>
-            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("catDist")}>
-              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>📊</div>
-              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>توزيع الميزانية على التصنيفات</div><div style={{fontSize:12,color:"#64748b"}}>نسب سنوية لكل تصنيف وفرع</div></div>
-              <ChevronLeft size={18} color="#64748b"/>
+            <div style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer"}} onClick={()=>setDp("catDist")}>
+              <div style={{width:40,height:40,borderRadius:12,background:"#fdeaea",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>📊</div>
+              <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>توزيع الميزانية على التصنيفات</span>
+              <ChevronLeft size={14} color="#c8c4b6"/>
             </div>
           </div>
 
-          <div style={{fontSize:11,color:"#94a3b8",fontWeight:700,margin:"4px 4px 6px"}}>التصنيفات والبيانات</div>
+          <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>التصنيفات والبيانات<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
           <div style={{...S.card,padding:0,overflow:"hidden"}}>
-            {[{id:"expCat",icon:"🔴",label:"تصنيفات النفقات",count:`${cats.expense.length} تصنيف`},{id:"incCat",icon:"🟢",label:"تصنيفات الدخل",count:`${cats.income.length} تصنيف`}].map((item,i,arr)=>(
-              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>setDp(item.id)}>
-                <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>{item.icon}</div>
-                <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{item.label}</div><div style={{fontSize:12,color:"#64748b"}}>{item.count}</div></div>
-                <ChevronLeft size={18} color="#64748b"/>
+            {[{id:"expCat",icon:"🔴",label:"تصنيفات النفقات",bg:"#fdeaea",count:`${cats.expense.length} تصنيف`},{id:"incCat",icon:"🟢",label:"تصنيفات الدخل",bg:"#e5f5ee",count:`${cats.income.length} تصنيف`}].map((item,i,arr)=>(
+              <div key={item.id} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:"1px solid #f0efe9"}} onClick={()=>setDp(item.id)}>
+                <div style={{width:40,height:40,borderRadius:12,background:item.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{item.icon}</div>
+                <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>{item.label}</span>
+                <span style={{fontSize:10.5,fontWeight:800,color:"#5c8a72",background:"#e5f5ee",padding:"3px 9px",borderRadius:20,marginLeft:2}}>{item.count}</span>
+                <ChevronLeft size={14} color="#c8c4b6"/>
               </div>
             ))}
-            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("cloud")}>
-              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>☁️</div>
-              <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>النسخ والتصدير</span>
-              <ChevronLeft size={18} color="#64748b"/>
+            <div style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:"1px solid #f0efe9"}} onClick={()=>setDp("cloud")}>
+              <div style={{width:40,height:40,borderRadius:12,background:"#e6f2fb",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>☁️</div>
+              <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>النسخ والتصدير</span>
+              <ChevronLeft size={14} color="#c8c4b6"/>
             </div>
-            <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer"}} onClick={()=>setDp("widget")}>
-              <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🔲</div>
-              <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>ودجيت الشاشة الرئيسية</div><div style={{fontSize:12,color:"#64748b"}}>اختر الحساب والمؤشر اللي كيبانو</div></div>
-              <ChevronLeft size={18} color="#64748b"/>
+            <div style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer"}} onClick={()=>setDp("widget")}>
+              <div style={{width:40,height:40,borderRadius:12,background:"#eef0ea",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>🔲</div>
+              <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>ودجيت الشاشة الرئيسية</span>
+              <ChevronLeft size={14} color="#c8c4b6"/>
             </div>
           </div>
           {dp&&["banks","cash","assets","expCat","incCat","cloud","profile","appearance","security","distribution","catDist","widget"].includes(dp)&&(
@@ -3132,6 +3143,38 @@ function AppInner(){
                           setErr("✅ تم التحويل");setTimeout(()=>setErr(null),3000);
                         }}>تحويل</button>
                       </div>
+
+                      {/* لائحة التحويلات الموجودة لهاد السنة — تقدر تنقلها لسنة جاية ولا تحذفها */}
+                      {(()=>{
+                        const yearTransfers=(budgetSettings.catTransfers||[]).map((tr,idx)=>({tr,idx})).filter(({tr})=>tr.year===selYear);
+                        if(yearTransfers.length===0)return null;
+                        const labelFor=(catId,subId)=>{const it=flatItems.find(f=>f.catId===catId&&(subId?f.subId===subId:!f.subId));return it?it.label:"؟";};
+                        return <div style={S.col}>
+                          <div style={{fontSize:12,fontWeight:800,color:"#334155",margin:"4px 2px"}}>📋 تحويلات {selYear} المسجلة</div>
+                          {yearTransfers.map(({tr,idx})=>(
+                            <div key={idx} style={{...S.card,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:12}}>
+                              <div style={{flex:1,fontSize:12}}>
+                                <div style={{fontWeight:700,color:"#1a1a1a"}}>{labelFor(tr.fromCatId,tr.fromSubId)} ← {labelFor(tr.toCatId,tr.toSubId)}</div>
+                                <div style={{color:"#64748b",marginTop:2}}>{fmt(tr.amount)} · {tr.date||""}</div>
+                              </div>
+                              <button style={{background:"#6366f1",color:"#fff",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer",whiteSpace:"nowrap"}} onClick={()=>{
+                                const nextYear=(parseInt(tr.year)+1).toString();
+                                const updated=[...(budgetSettings.catTransfers||[])];
+                                updated[idx]={...tr,year:nextYear};
+                                const nb={...budgetSettings,catTransfers:updated};
+                                setBudgetSettings(nb);_save('budgetSettings',nb);
+                                setErr(`✅ تم نقل التحويل لسنة ${nextYear}`);setTimeout(()=>setErr(null),3000);
+                              }}>➡️ نقل لـ{parseInt(tr.year)+1}</button>
+                              <button style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:8,padding:"7px 10px",fontSize:11,fontWeight:700,fontFamily:"Tajawal",cursor:"pointer"}} onClick={()=>{
+                                const updated=(budgetSettings.catTransfers||[]).filter((_,i)=>i!==idx);
+                                const nb={...budgetSettings,catTransfers:updated};
+                                setBudgetSettings(nb);_save('budgetSettings',nb);
+                                setErr("✅ تم حذف التحويل");setTimeout(()=>setErr(null),3000);
+                              }}>🗑️</button>
+                            </div>
+                          ))}
+                        </div>;
+                      })()}
                     </>}
                   </>;
                  }catch(pageErr){
@@ -3248,16 +3291,34 @@ function AppInner(){
                     <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
                   </div>
                   {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
-                  <button style={{...S.btn("#10b981"),padding:"13px"}} onClick={expData}>📤 تحميل نسخة احتياطية</button>
-                  <button style={{...S.btn("#0ea5e9"),padding:"13px"}} onClick={openDriveAfterExport}>☁️ حفظ في Google Drive</button>
-                  <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={restoreFromDrive}>⬇️ استرجاع من Google Drive</button>
+                  <button style={{...S.btn("#10b981"),padding:"13px"}} onClick={()=>{
+                    if(secPin){setSecGate({pending:{custom:expData,lbl:"تحميل نسخة احتياطية"},pinInput:"",verified:false,countdown:0,err:false});return;}
+                    expData();
+                  }}>📤 تحميل نسخة احتياطية</button>
+                  <button style={{...S.btn("#0ea5e9"),padding:"13px"}} onClick={()=>{
+                    if(secPin){setSecGate({pending:{custom:openDriveAfterExport,lbl:"حفظ في Google Drive"},pinInput:"",verified:false,countdown:0,err:false});return;}
+                    openDriveAfterExport();
+                  }}>☁️ حفظ في Google Drive</button>
+                  <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>{
+                    if(secPin){setSecGate({pending:{custom:restoreFromDrive,lbl:"استرجاع من Google Drive"},pinInput:"",verified:false,countdown:0,err:false});return;}
+                    restoreFromDrive();
+                  }}>⬇️ استرجاع من Google Drive</button>
                   <button style={{...S.btn("#6366f1"),padding:"13px"}} onClick={()=>{
                     if(secPin){setSecGate({pending:{custom:()=>fRef.current.click(),lbl:"استيراد/استرجاع بيانات"},pinInput:"",verified:false,countdown:0,err:false});return;}
                     fRef.current.click();
                   }}>📥 استيراد من ملف</button>
-                  <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={exportExcel}>📊 تصدير Excel (المعاملات)</button>
-                  <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={()=>excelRef.current.click()}>📥 استيراد Excel</button>
-                  <button style={{...S.btn("#dc2626"),padding:"13px"}} onClick={exportReportPDF}>📄 تصدير تقرير PDF</button>
+                  <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={()=>{
+                    if(secPin){setSecGate({pending:{custom:exportExcel,lbl:"تصدير Excel (المعاملات)"},pinInput:"",verified:false,countdown:0,err:false});return;}
+                    exportExcel();
+                  }}>📊 تصدير Excel (المعاملات)</button>
+                  <button style={{...S.btn("#16a34a"),padding:"13px"}} onClick={()=>{
+                    if(secPin){setSecGate({pending:{custom:()=>excelRef.current.click(),lbl:"استيراد Excel"},pinInput:"",verified:false,countdown:0,err:false});return;}
+                    excelRef.current.click();
+                  }}>📥 استيراد Excel</button>
+                  <button style={{...S.btn("#dc2626"),padding:"13px"}} onClick={()=>{
+                    if(secPin){setSecGate({pending:{custom:exportReportPDF,lbl:"تصدير تقرير PDF"},pinInput:"",verified:false,countdown:0,err:false});return;}
+                    exportReportPDF();
+                  }}>📄 تصدير تقرير PDF</button>
                   <div style={S.card}>
                     <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>🔔 تذكير يومي بالنسخ الاحتياطي</div>
                     <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>إشعار يومي يفكرك تدير نسخة (محلية + Drive) — باش تقدر ترجع بياناتك بسهولة إلى وقع مشكل فالهاتف</div>

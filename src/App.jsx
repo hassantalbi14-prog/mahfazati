@@ -694,8 +694,8 @@ function AppInner(){
     const catBudget=yearBudgetTotal*(pct/100);
     const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)).reduce((s,t)=>s+t.amount,0);
     const transfers=budgetSettings.catTransfers||[];
-    const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
-    const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
+    const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(subId==null||(tr.toSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
+    const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(subId==null||(tr.fromSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
     const carryover=getCatCarryover(catId,subId,year);
     const result=carryover+catBudget-spent+transfersIn-transfersOut;
     catBalanceCache.set(cacheKey,result);
@@ -707,8 +707,8 @@ function AppInner(){
     const allocated=yearBudgetTotal*(pct/100);
     const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)).reduce((s,t)=>s+t.amount,0);
     const transfers=budgetSettings.catTransfers||[];
-    const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
-    const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===(subId||null)).reduce((s,tr)=>s+tr.amount,0);
+    const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(subId==null||(tr.toSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
+    const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(subId==null||(tr.fromSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
     const carryover=getCatCarryover(catId,subId,year);
     const totalAvail=carryover+allocated+transfersIn-transfersOut;
     const balance=totalAvail-spent;

@@ -4561,142 +4561,187 @@ function AppInner(){
                   </div>}
                 </div>}
 
+                <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"18px 4px 10px",display:"flex",alignItems:"center",gap:6}}>نظرة عامة<div style={{flex:1,height:1,background:"#e2e8f0"}}/></div>
                 <div style={{...S.card,textAlign:"center",padding:"22px 20px"}}>
-                  <div style={{fontSize:13,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>مؤشر الصحة المالية</div>
-                  <div style={{width:170,height:170,margin:"0 auto",position:"relative"}}>
-                    <svg width="170" height="170" style={{transform:"rotate(-90deg)"}}>
-                      <circle cx="85" cy="85" r={HERO_R} fill="none" stroke="#f1f5f9" strokeWidth="14"/>
-                      <circle cx="85" cy="85" r={HERO_R} fill="none" stroke={healthColor} strokeWidth="14"
+                  <div style={{width:150,height:150,margin:"0 auto",position:"relative"}}>
+                    <svg width="150" height="150" style={{transform:"rotate(-90deg)"}}>
+                      <circle cx="75" cy="75" r={HERO_R} fill="none" stroke="#f1f5f9" strokeWidth="14"/>
+                      <circle cx="75" cy="75" r={HERO_R} fill="none" stroke={healthColor} strokeWidth="14"
                         strokeDasharray={HERO_CIRC} strokeDashoffset={gaugeOffset(healthPct,HERO_CIRC)} strokeLinecap="round" style={{transition:"stroke-dashoffset .6s"}}/>
                     </svg>
                     <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
-                      <div style={{fontSize:34,fontWeight:900,color:healthColor}}>{savingsRate.toFixed(0)}%</div>
+                      <div style={{fontSize:30,fontWeight:900,color:healthColor}}>{savingsRate.toFixed(0)}%</div>
                       <div style={{fontSize:10,color:"#94a3b8",fontWeight:700,marginTop:2}}>{healthLabel}</div>
                     </div>
                   </div>
                   <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:14,paddingTop:14,borderTop:"1px solid #f1f5f9"}}>
                     <div><div style={{fontSize:15,fontWeight:900,color:"#10b981"}}>{fmt(totalIncome)}</div><div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>دخل</div></div>
                     <div><div style={{fontSize:15,fontWeight:900,color:"#ef4444"}}>{fmt(totalExpense)}</div><div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>مصروف</div></div>
-                    <div><div style={{fontSize:15,fontWeight:900,color:netBalance>=0?"#3b82f6":"#ef4444"}}>{fmt(netBalance)}</div><div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>صافي</div></div>
+                    <div><div style={{fontSize:15,fontWeight:900,color:netBalance>=0?"#1a6b4a":"#ef4444"}}>{fmt(netBalance)}</div><div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>صافي</div></div>
                   </div>
                   <div style={{marginTop:12,fontSize:11,color:"#94a3b8"}}>💎 الثروة الكلية: <span style={{fontWeight:900,color:"#1a1a1a"}}>{fmt(wealthNow)}</span></div>
-                </div>
 
-                {(()=>{
-                  const realFlow=t=>!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset;
-                  const flowTxsAll=txs.filter(t=>(t.type==="income"||t.type==="expense")&&realFlow(t));
-                  const byMonthNet={};
-                  flowTxsAll.forEach(t=>{const m=t.date.slice(0,7);byMonthNet[m]=(byMonthNet[m]||0)+(t.type==="income"?t.amount:-t.amount);});
-                  const months=Object.keys(byMonthNet).sort();
-                  if(months.length<2)return null;
-                  let run=0;const points=months.map(m=>{run+=byMonthNet[m];return{m,v:run};});
-                  const vals=points.map(p=>p.v);
-                  const minV=Math.min(...vals,0),maxV=Math.max(...vals,0);
-                  const range=maxV-minV||1;
-                  const W=320,H=110,PAD=10;
-                  const stepX=points.length>1?(W-PAD*2)/(points.length-1):0;
-                  const toY=v=>H-PAD-((v-minV)/range)*(H-PAD*2);
-                  const pathD=points.map((p,i)=>`${i===0?"M":"L"} ${PAD+i*stepX} ${toY(p.v)}`).join(" ");
-                  const last=points[points.length-1];
-                  return <div style={S.card}>
-                    <div style={{fontSize:13,fontWeight:800,color:"#1a1a1a",marginBottom:2}}>📈 نمو صافي التدفق النقدي</div>
-                    <div style={{fontSize:10,color:"#94a3b8",marginBottom:10}}>مجموع الدخل ناقص المصروف تراكميا عبر الزمن (بلا الممتلكات والاستثمارات)</div>
-                    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-                      <line x1="0" y1={toY(0)} x2={W} y2={toY(0)} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 3"/>
-                      <path d={pathD} fill="none" stroke={last.v>=0?"#10b981":"#ef4444"} strokeWidth="2.5"/>
-                    </svg>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8",marginTop:4}}>
-                      <span>{months[0]}</span><span>{months[months.length-1]}</span>
-                    </div>
-                  </div>;
-                })()}
-
-                <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"4px 2px 8px"}}>الأقسام الخمسة</div>
-                <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,marginBottom:6}}>
-                  {bucketSnaps.map(b=>{
-                    const base=b.type==="expenses"?b.spent:b.balance;
-                    const gp=b.allocated>0?Math.min(base/b.allocated*100,100):0;
-                    return(
-                      <div key={b.id} style={{flex:"0 0 auto",width:104,background:"white",borderRadius:18,padding:"12px 8px",textAlign:"center",boxShadow:"0 3px 10px rgba(15,23,42,.06)"}}>
-                        <div style={{width:56,height:56,margin:"0 auto 6px",position:"relative"}}>
-                          <svg width="56" height="56" style={{transform:"rotate(-90deg)"}}>
-                            <circle cx="28" cy="28" r={MINI_R} fill="none" stroke="#f1f5f9" strokeWidth="7"/>
-                            <circle cx="28" cy="28" r={MINI_R} fill="none" stroke={b.color} strokeWidth="7" strokeDasharray={MINI_CIRC} strokeDashoffset={gaugeOffset(gp,MINI_CIRC)} strokeLinecap="round"/>
-                          </svg>
-                          <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:19}}>{b.icon}</div>
+                  <div style={{display:"flex",gap:10,overflowX:"auto",paddingTop:14,marginTop:14,borderTop:"1px solid #f1f5f9"}}>
+                    {bucketSnaps.map(b=>{
+                      const base=b.type==="expenses"?b.spent:b.balance;
+                      const gp=b.allocated>0?Math.min(base/b.allocated*100,100):0;
+                      return(
+                        <div key={b.id} style={{flex:"0 0 auto",width:76,textAlign:"center"}}>
+                          <div style={{width:46,height:46,margin:"0 auto 5px",position:"relative"}}>
+                            <svg width="46" height="46" style={{transform:"rotate(-90deg)"}}>
+                              <circle cx="23" cy="23" r={MINI_R} fill="none" stroke="#f1f5f9" strokeWidth="6"/>
+                              <circle cx="23" cy="23" r={MINI_R} fill="none" stroke={b.color} strokeWidth="6" strokeDasharray={MINI_CIRC} strokeDashoffset={gaugeOffset(gp,MINI_CIRC)} strokeLinecap="round"/>
+                            </svg>
+                            <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:16}}>{b.icon}</div>
+                          </div>
+                          <div style={{fontSize:10,fontWeight:800,color:"#1a1a1a"}}>{b.name}</div>
+                          <div style={{fontSize:9.5,fontWeight:700,color:b.color,marginTop:1}}>{fmt(b.balance)}</div>
                         </div>
-                        <div style={{fontSize:11,fontWeight:800,color:"#1a1a1a"}}>{b.name}</div>
-                        <div style={{fontSize:11,fontWeight:700,color:b.color,marginTop:2}}>{fmt(b.balance)}</div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
 
-                {momCompare&&<>
-                  <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"10px 2px 8px"}}>📊 مقارنة بالشهر لي فات</div>
-                  <div style={{...S.card,display:"flex",gap:10}}>
+                  {momCompare&&<div style={{display:"flex",gap:10,paddingTop:14,marginTop:14,borderTop:"1px solid #f1f5f9"}}>
                     <div style={{flex:1,textAlign:"center"}}>
-                      <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>💰 الدخل</div>
-                      <div style={{fontSize:16,fontWeight:900,color:"#10b981"}}>{fmt(momCompare.curInc)}</div>
-                      {momCompare.incChange!==null&&<div style={{fontSize:11,fontWeight:700,color:momCompare.incChange>=0?"#10b981":"#ef4444",marginTop:2}}>{momCompare.incChange>=0?"▲":"▼"} {Math.abs(momCompare.incChange).toFixed(0)}%</div>}
+                      <div style={{fontSize:10.5,color:"#94a3b8",marginBottom:3}}>💰 دخل مقابل الشهر لي فات</div>
+                      <div style={{fontSize:15,fontWeight:900,color:"#10b981"}}>{fmt(momCompare.curInc)}</div>
+                      {momCompare.incChange!==null&&<div style={{fontSize:10.5,fontWeight:700,color:momCompare.incChange>=0?"#10b981":"#ef4444",marginTop:2}}>{momCompare.incChange>=0?"▲":"▼"} {Math.abs(momCompare.incChange).toFixed(0)}%</div>}
                     </div>
                     <div style={{width:1,background:"#f1f5f9"}}/>
                     <div style={{flex:1,textAlign:"center"}}>
-                      <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>💸 المصروف</div>
-                      <div style={{fontSize:16,fontWeight:900,color:"#ef4444"}}>{fmt(momCompare.curExp)}</div>
-                      {momCompare.expChange!==null&&<div style={{fontSize:11,fontWeight:700,color:momCompare.expChange<=0?"#10b981":"#ef4444",marginTop:2}}>{momCompare.expChange>=0?"▲":"▼"} {Math.abs(momCompare.expChange).toFixed(0)}%</div>}
+                      <div style={{fontSize:10.5,color:"#94a3b8",marginBottom:3}}>💸 مصروف مقابل الشهر لي فات</div>
+                      <div style={{fontSize:15,fontWeight:900,color:"#ef4444"}}>{fmt(momCompare.curExp)}</div>
+                      {momCompare.expChange!==null&&<div style={{fontSize:10.5,fontWeight:700,color:momCompare.expChange<=0?"#10b981":"#ef4444",marginTop:2}}>{momCompare.expChange>=0?"▲":"▼"} {Math.abs(momCompare.expChange).toFixed(0)}%</div>}
+                    </div>
+                  </div>}
+                </div>
+
+                <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"18px 4px 10px",display:"flex",alignItems:"center",gap:6}}>تطور الرصيد<div style={{flex:1,height:1,background:"#e2e8f0"}}/></div>
+                {balanceEvoData.length>0&&<div style={S.card}>
+                  <div style={{fontSize:13,fontWeight:800,color:"#1a1a1a",marginBottom:2}}>📈 نمو صافي التدفق النقدي</div>
+                  <div style={{fontSize:10,color:"#94a3b8",marginBottom:10}}>مجموع الدخل ناقص المصروف تراكميا (بلا الممتلكات والاستثمارات)</div>
+                  <div style={{height:180}}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={balanceEvoData}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
+                        <XAxis dataKey="label" fontSize={10}/>
+                        <YAxis fontSize={10}/>
+                        <Tooltip formatter={v=>fmt(v)}/>
+                        <Line type="monotone" dataKey="الرصيد" stroke="#1a6b4a" strokeWidth={2.5} dot={false}/>
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>}
+
+                <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"18px 4px 10px",display:"flex",alignItems:"center",gap:6}}>المداخل والمصاريف<div style={{flex:1,height:1,background:"#e2e8f0"}}/></div>
+                <div style={{display:"flex",gap:10}}>
+                  <div style={{...S.card,flex:1,textAlign:"center",padding:"12px"}}>
+                    <div style={{fontSize:11.5,fontWeight:800,color:"#ef4444",marginBottom:4}}>💸 المصاريف</div>
+                    {expCatBreak.length===0?<div style={{fontSize:11,color:"#94a3b8",padding:20}}>لا بيانات</div>:
+                    <div style={{height:150}} className="no-print">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={expCatBreak} dataKey="amount" nameKey="name" cx="50%" cy="50%" innerRadius={38} outerRadius={62}>
+                            {expCatBreak.map((c,i)=><Cell key={i} fill={c.color} style={{cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,repDrillType:"expense",repDrillCatId:c.id}))}/>)}
+                          </Pie>
+                          <Tooltip formatter={v=>fmt(v)}/>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>}
+                  </div>
+                  <div style={{...S.card,flex:1,textAlign:"center",padding:"12px"}}>
+                    <div style={{fontSize:11.5,fontWeight:800,color:"#10b981",marginBottom:4}}>💰 المداخل</div>
+                    {incCatBreak.length===0?<div style={{fontSize:11,color:"#94a3b8",padding:20}}>لا بيانات</div>:
+                    <div style={{height:150}} className="no-print">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={incCatBreak} dataKey="amount" nameKey="name" cx="50%" cy="50%" innerRadius={38} outerRadius={62}>
+                            {incCatBreak.map((c,i)=><Cell key={i} fill={c.color} style={{cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,repDrillType:"income",repDrillCatId:c.id}))}/>)}
+                          </Pie>
+                          <Tooltip formatter={v=>fmt(v)}/>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>}
+                  </div>
+                </div>
+                <div className="no-print" style={{textAlign:"center",fontSize:10,color:"#a9a498",margin:"6px 0 12px"}}>👆 دوس على جزء من الدائرة لتفاصيل الفروع</div>
+
+                {(()=>{
+                  const drillType=ovExp.repDrillType;
+                  const drillCatId=ovExp.repDrillCatId;
+                  const src=drillType==="income"?incCatBreak:expCatBreak;
+                  const cat=drillType&&src.find(c=>c.id===drillCatId);
+                  if(!cat)return <div style={S.card}><div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>دوس على تصنيف من فوق باش تبان تفاصيله هنا</div></div>;
+                  const budgetInfo=drillType==="expense"&&periodCatBreakdown.find(x=>x.cat.id===cat.id);
+                  return <div style={S.card}>
+                    <div style={{fontSize:13,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>🔍 تفاصيل: {cat.icon} {cat.name}</div>
+                    {cat.subs.length>0?<>
+                      <div style={{height:150}} className="no-print">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={cat.subs} dataKey="amount" nameKey="name" cx="50%" cy="50%" innerRadius={38} outerRadius={62}>
+                              {cat.subs.map((s,i)=><Cell key={i} fill={cat.color} fillOpacity={1-(i*0.15)}/>)}
+                            </Pie>
+                            <Tooltip formatter={v=>fmt(v)}/>
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      {cat.subs.map(s=>(
+                        <div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:12,borderBottom:"1px solid #f8fafc"}}>
+                          <span>{s.name}</span><span style={{fontWeight:700,color:cat.color}}>{fmt(s.amount)}</span>
+                        </div>
+                      ))}
+                    </>:<div style={{textAlign:"center",color:"#94a3b8",fontSize:11,padding:10}}>هاد التصنيف بلا فروع — {fmt(cat.amount)}</div>}
+                    {budgetInfo&&<div style={{marginTop:10,paddingTop:10,borderTop:"1px dashed #e2e8f0",textAlign:"center",fontSize:11,color:"#64748b"}}>
+                      💰 من الميزانية المخصصة: <b style={{color:budgetInfo.spent<=budgetInfo.allocated?"#1a6b4a":"#ef4444"}}>{budgetInfo.allocated>0?(budgetInfo.spent/budgetInfo.allocated*100).toFixed(0):0}%</b> مستعمل · الباقي <b style={{color:"#1a6b4a"}}>{fmt(budgetInfo.allocated-budgetInfo.spent)}</b>
+                    </div>}
+                  </div>;
+                })()}
+
+                <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"18px 4px 10px",display:"flex",alignItems:"center",gap:6}}>🎯 حالة الميزانية<div style={{flex:1,height:1,background:"#e2e8f0"}}/></div>
+                <div style={S.card}>
+                  <div style={{width:130,height:130,margin:"0 auto",position:"relative"}}>
+                    <svg width="130" height="130" style={{transform:"rotate(-90deg)"}}>
+                      <circle cx="65" cy="65" r={MINI_R*1.9} fill="none" stroke="#f1f5f9" strokeWidth="12"/>
+                      <circle cx="65" cy="65" r={MINI_R*1.9} fill="none" stroke="#f59e0b" strokeWidth="12"
+                        strokeDasharray={2*Math.PI*MINI_R*1.9} strokeDashoffset={gaugeOffset(periodBudgetAllocated>0?Math.min(periodBudgetSpent/periodBudgetAllocated*100,100):0,2*Math.PI*MINI_R*1.9)} strokeLinecap="round"/>
+                    </svg>
+                    <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
+                      <div style={{fontSize:20,fontWeight:900,color:"#1a1a1a"}}>{periodBudgetAllocated>0?(periodBudgetSpent/periodBudgetAllocated*100).toFixed(0):0}%</div>
+                      <div style={{fontSize:9,color:"#94a3b8"}}>مستعمل</div>
                     </div>
                   </div>
-                </>}
-
-                <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"10px 2px 8px"}}>🏷️ حسب التصنيف</div>
-                <div style={S.card}>
-                  <div className="no-print" style={{display:"flex",gap:6,marginBottom:10}}>
-                    <button onClick={()=>setOvExp(p=>({...p,catTab:"expense"}))} style={{...S.btn(catTab==="expense"?"#ef4444":"#f1f5f9",false),flex:1,padding:"7px",fontSize:12,color:catTab==="expense"?"white":"#64748b"}}>مصاريف</button>
-                    <button onClick={()=>setOvExp(p=>({...p,catTab:"income"}))} style={{...S.btn(catTab==="income"?"#10b981":"#f1f5f9",false),flex:1,padding:"7px",fontSize:12,color:catTab==="income"?"white":"#64748b"}}>دخل</button>
+                  <div style={{display:"flex",justifyContent:"center",gap:16,marginTop:12}}>
+                    <div style={{textAlign:"center"}}><div style={{fontSize:13,fontWeight:900,color:"#1a1a1a"}}>{fmt(periodBudgetAllocated)}</div><div style={{fontSize:9.5,color:"#94a3b8"}}>مخصص كلي</div></div>
+                    <div style={{textAlign:"center"}}><div style={{fontSize:13,fontWeight:900,color:"#ef4444"}}>{fmt(periodBudgetSpent)}</div><div style={{fontSize:9.5,color:"#94a3b8"}}>مصروف</div></div>
+                    <div style={{textAlign:"center"}}><div style={{fontSize:13,fontWeight:900,color:periodBudgetRemaining>=0?"#1a6b4a":"#ef4444"}}>{fmt(periodBudgetRemaining)}</div><div style={{fontSize:9.5,color:"#94a3b8"}}>باقي</div></div>
                   </div>
-                  {activeCatBreak.length===0&&<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>لا توجد بيانات فهاد الفترة</div>}
-                  {activeCatBreak.length>0&&(()=>{
-                    const r=60,circ=2*Math.PI*r;let acc=0;
-                    return <div className="no-print" style={{display:"flex",justifyContent:"center",marginBottom:14}}>
-                      <svg width="160" height="160" viewBox="0 0 160 160" style={{transform:"rotate(-90deg)"}}>
-                        {activeCatBreak.map(c=>{
-                          const pct=c.amount/activeCatTotal;
-                          const dash=pct*circ;
-                          const offset=circ-acc*circ;
-                          acc+=pct;
-                          const isOpen=expandedCat===c.id;
-                          return <circle key={c.id} cx="80" cy="80" r={r} fill="none" stroke={c.color} strokeWidth={isOpen?20:16}
-                            strokeDasharray={`${dash} ${circ-dash}`} strokeDashoffset={offset} style={{cursor:"pointer",transition:"stroke-width .15s"}}
-                            onClick={()=>setOvExp(p=>({...p,expandedCat:isOpen?null:c.id}))}/>;
-                        })}
-                      </svg>
+                  {(()=>{
+                    const overBudget=periodCatBreakdown.filter(x=>x.spent>x.allocated);
+                    if(overBudget.length===0)return null;
+                    return <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid #f1f5f9"}}>
+                      <div style={{fontSize:11,fontWeight:800,color:"#ef4444",marginBottom:6}}>⚠️ تصنيفات نافذة (تجاوزت الميزانية)</div>
+                      {overBudget.map(({cat,allocated,spent})=>(
+                        <div key={cat.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0"}}>
+                          <span style={{fontSize:16}}>{cat.icon}</span>
+                          <span style={{flex:1,fontSize:12,fontWeight:700,color:"#1a1a1a"}}>{cat.name}</span>
+                          <span style={{fontSize:12,fontWeight:800,color:"#ef4444"}}>{fmt(allocated-spent)}</span>
+                        </div>
+                      ))}
                     </div>;
                   })()}
-                  {activeCatBreak.map(c=>{
-                    const pct=(c.amount/activeCatTotal*100);
-                    const isOpen=expandedCat===c.id;
-                    return(
-                      <div key={c.id} style={{padding:"9px 0",borderBottom:"1px solid #f8fafc"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,expandedCat:isOpen?null:c.id}))}>
-                          <div style={{width:34,height:34,borderRadius:10,background:c.color+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{c.icon}</div>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700,color:"#1a1a1a"}}><span>{c.name}</span><span style={{color:c.color}}>{fmt(c.amount)}</span></div>
-                            <div style={{height:4,background:"#f1f5f9",borderRadius:3,marginTop:5,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:c.color,borderRadius:3}}/></div>
-                            <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>{pct.toFixed(0)}% · {c.count} معاملة{c.subs.length>0?(isOpen?" · إخفاء ▲":" · عرض الفروع ▾"):""}</div>
-                          </div>
-                        </div>
-                        {isOpen&&c.subs.length>0&&<div style={{marginRight:44,marginTop:4,paddingTop:4}}>
-                          {c.subs.map(s=>(
-                            <div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:11,color:"#64748b",borderBottom:"1px dashed #f1f5f9"}}>
-                              <span>{s.name}</span><span>{fmt(s.amount)}</span>
-                            </div>
-                          ))}
-                        </div>}
-                      </div>
-                    );
-                  })}
                 </div>
+
+                <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"18px 4px 10px",display:"flex",alignItems:"center",gap:6}}>أعلى المصروفات<div style={{flex:1,height:1,background:"#e2e8f0"}}/></div>
+                {topExpenses.length>0&&<div style={S.card}>
+                  {topExpenses.map(t=>{const c=gc("expense",t.catId);return(
+                    <div key={t.id} className="tx">
+                      <div style={{width:32,height:32,borderRadius:9,background:"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{c?.icon||"💸"}</div>
+                      <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||c?.name||"—"}</div><div style={{fontSize:10,color:"#64748b"}}>{t.date}</div></div>
+                      <span style={{fontSize:13,fontWeight:700,color:"#ef4444"}}>{fmt(t.amount)}</span>
+                    </div>
+                  );})}
+                </div>}
 
                 <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"14px 2px 8px"}}>🏦 حسب الحساب</div>
                 <div style={S.card}>
@@ -4715,66 +4760,6 @@ function AppInner(){
                     );
                   })}
                 </div>
-
-                <div className="no-print" style={{...S.card,padding:"12px 14px",textAlign:"center",cursor:"pointer",marginTop:14}} onClick={()=>setOvExp(p=>({...p,repDetails:!p.repDetails}))}>
-                  <span style={{fontSize:13,fontWeight:700,color:"#475569"}}>📊 عرض التحليل المتقدم (رسوم بيانية) {showDetails?"▲":"▼"}</span>
-                </div>
-
-                {showDetails&&<>
-                {cashFlowData.length>0&&<div style={S.card}>
-                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:6}}>💵 التدفق النقدي</div>
-                  <div style={{height:220}}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={cashFlowData}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
-                        <XAxis dataKey="label" fontSize={10}/>
-                        <YAxis fontSize={10}/>
-                        <Tooltip formatter={v=>fmt(v)}/>
-                        <Legend/>
-                        <Bar dataKey="دخل" fill="#10b981" radius={[4,4,0,0]}/>
-                        <Bar dataKey="مصاريف" fill="#ef4444" radius={[4,4,0,0]}/>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>}
-                {balanceEvoData.length>0&&<div style={S.card}>
-                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:6}}>📉 تطور صافي التدفق خلال الفترة</div>
-                  <div style={{height:200}}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={balanceEvoData}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
-                        <XAxis dataKey="label" fontSize={10}/>
-                        <YAxis fontSize={10}/>
-                        <Tooltip formatter={v=>fmt(v)}/>
-                        <Line type="monotone" dataKey="الرصيد" stroke="#6366f1" strokeWidth={2} dot={false}/>
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>}
-                {topExpenses.length>0&&<div style={S.card}>
-                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:8}}>🔝 أعلى المصروفات</div>
-                  {topExpenses.map(t=>{const c=gc("expense",t.catId);return(
-                    <div key={t.id} className="tx">
-                      <div style={{width:32,height:32,borderRadius:9,background:"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{c?.icon||"💸"}</div>
-                      <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc||c?.name||"—"}</div><div style={{fontSize:10,color:"#64748b"}}>{t.date}</div></div>
-                      <span style={{fontSize:13,fontWeight:700,color:"#ef4444"}}>{fmt(t.amount)}</span>
-                    </div>
-                  );})}
-                </div>}
-                {pieData.some(p=>p.value>0)&&<div style={S.card}>
-                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",marginBottom:6}}>🧩 توزيع الأموال بين الصناديق</div>
-                  <div style={{height:200}}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={p=>fmt(p.value)}>
-                          {pieData.map((p,i)=><Cell key={i} fill={p.color}/>)}
-                        </Pie>
-                        <Tooltip formatter={v=>fmt(v)}/>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>}
-                </>}
 
                 <div className="no-print" style={{...S.card,padding:"12px 14px",textAlign:"center",cursor:"pointer",marginTop:14}} onClick={()=>setOvExp(p=>({...p,repBuckets:!p.repBuckets}))}>
                   <span style={{fontSize:13,fontWeight:700,color:"#475569"}}>🧩 عرض تفاصيل الأقسام الخمسة {showBuckets?"▲":"▼"}</span>

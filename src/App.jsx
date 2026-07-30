@@ -4333,7 +4333,7 @@ function AppInner(){
 
             const BackBtn=({title})=>(
               <div style={{display:"grid",gridTemplateColumns:"40px 1fr 40px",alignItems:"center",marginBottom:2}} className="no-print">
-                <button onClick={()=>setPage("dashboard")} style={{background:"#f1f5f9",border:"none",borderRadius:10,padding:"7px 10px",cursor:"pointer",fontSize:13}}>←</button>
+                <button onClick={()=>setOvExp(p=>({...p,repPage:null}))} style={{background:"#f1f5f9",border:"none",borderRadius:10,padding:"7px 10px",cursor:"pointer",fontSize:13}}>←</button>
                 <div style={{fontSize:15,fontWeight:900,color:"#1a1a1a",textAlign:"center"}}>{title}</div>
                 <div/>
               </div>
@@ -4501,9 +4501,404 @@ function AppInner(){
               const topExpenses=[...flowTxs.filter(t=>t.type==="expense")].sort((a,b)=>b.amount-a.amount).slice(0,8);
               const pieData=bucketSnaps.map(b=>({name:b.name,value:Math.max(b.balance,0),color:b.color}));
 
+              const repPage=ovExp.repPage||"hub";
+
+              if(repPage==="hub"){
+                const HubRow=({icon,bg,title,sub,onClick})=>(
+                  <div onClick={onClick} style={{display:"flex",alignItems:"center",gap:12,padding:"13px 0",cursor:"pointer"}}>
+                    <div style={{width:40,height:40,borderRadius:12,background:bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{icon}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13.5,fontWeight:800,color:"#1a1a1a"}}>{title}</div>
+                      {sub&&<div style={{fontSize:10,color:"#94a3b8",marginTop:1}}>{sub}</div>}
+                    </div>
+                    <ChevronLeft size={14} color="#c8c4b6"/>
+                  </div>
+                );
+                return <div id="reportsHub">
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                    <span style={{fontWeight:800,fontSize:18}}>📊 مركز التقارير</span>
+                    <button onClick={()=>setPage("dashboard")} style={{background:"#e8e8e4",border:"none",borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:13}}>← رجوع</button>
+                  </div>
+
+                  <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"18px 4px 8px",display:"flex",alignItems:"center",gap:6}}>نظرة شاملة<div style={{flex:1,height:1,background:"#e2e8f0"}}/></div>
+                  <div style={{...S.card,padding:0}}>
+                    <div style={{padding:"0 14px"}}>
+                      <HubRow icon="📋" bg="#e5f5ee" title="ملخص الحالة المالية" sub="دخل، مصروف، الثروة، الأقسام الخمسة" onClick={()=>setOvExp(p=>({...p,repPage:"full"}))}/>
+                      <div style={{borderTop:"1px solid #f0efe9"}}/>
+                      <HubRow icon="🥧" bg="#fdf3d9" title="توزيع الدخل على الأقسام" sub="نسب وتوزيع + مقارنة شهرية" onClick={()=>setOvExp(p=>({...p,repPage:"incomeDist"}))}/>
+                      <div style={{borderTop:"1px solid #f0efe9"}}/>
+                      <HubRow icon="🔀" bg="#eeedfc" title="التدفقات المالية بين الأقسام" sub="حركة الأموال من الدخل وبين الأقسام" onClick={()=>setOvExp(p=>({...p,repPage:"flows"}))}/>
+                      <div style={{borderTop:"1px solid #f0efe9"}}/>
+                      <HubRow icon="📈" bg="#e6f2fb" title="تطور الثروة الشهري" sub="تقريبي من المعاملات المسجلة" onClick={()=>setOvExp(p=>({...p,repPage:"wealthEvo"}))}/>
+                    </div>
+                  </div>
+
+                  <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"18px 4px 8px",display:"flex",alignItems:"center",gap:6}}>تقارير الأقسام<div style={{flex:1,height:1,background:"#e2e8f0"}}/></div>
+                  <div style={{...S.card,padding:0}}>
+                    <div style={{padding:"0 14px"}}>
+                      <HubRow icon="🛒" bg="#e5f5ee" title="الميزانية" onClick={()=>setOvExp(p=>({...p,repPage:"budget"}))}/>
+                      <div style={{borderTop:"1px solid #f0efe9"}}/>
+                      <HubRow icon="🚨" bg="#fdf3d9" title="الطوارئ" onClick={()=>setOvExp(p=>({...p,repPage:"emergency"}))}/>
+                      <div style={{borderTop:"1px solid #f0efe9"}}/>
+                      <HubRow icon="🏠" bg="#e6f2fb" title="الممتلكات" onClick={()=>setOvExp(p=>({...p,repPage:"assets"}))}/>
+                      <div style={{borderTop:"1px solid #f0efe9"}}/>
+                      <HubRow icon="📈" bg="#eeedfc" title="الاستثمار" onClick={()=>setOvExp(p=>({...p,repPage:"invest"}))}/>
+                      <div style={{borderTop:"1px solid #f0efe9"}}/>
+                      <HubRow icon="🏖️" bg="#fdeaea" title="التقاعد" onClick={()=>setOvExp(p=>({...p,repPage:"retire"}))}/>
+                    </div>
+                  </div>
+
+                  <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"18px 4px 8px",display:"flex",alignItems:"center",gap:6}}>التقييم الذكي<div style={{flex:1,height:1,background:"#e2e8f0"}}/></div>
+                  <div style={{...S.card,padding:0}}>
+                    <div style={{padding:"0 14px"}}>
+                      <HubRow icon="🧠" bg="#e5f5ee" title="التقييم المالي الذكي" sub="نقاط قوة وضعف وتوصيات" onClick={()=>setOvExp(p=>({...p,repPage:"smartScore"}))}/>
+                    </div>
+                  </div>
+                </div>;
+              }
+
+              if(repPage==="incomeDist"){
+                const distTotal=periodBudgetAllocated+periodEmergencyAllocated+periodAssetsAllocated+periodInvestAllocated+periodRetirementAllocated;
+                const distItems=[
+                  {icon:"🛒",name:"الميزانية",value:periodBudgetAllocated,color:"#1a6b4a"},
+                  {icon:"🚨",name:"الطوارئ",value:periodEmergencyAllocated,color:"#c98a0a"},
+                  {icon:"🏠",name:"الممتلكات",value:periodAssetsAllocated,color:"#3b82f6"},
+                  {icon:"📈",name:"الاستثمار",value:periodInvestAllocated,color:"#6366f1"},
+                  {icon:"🏖️",name:"التقاعد",value:periodRetirementAllocated,color:"#ef4444"},
+                ].filter(d=>d.value>0);
+                const savingsShare=totalIncome>0?((periodEmergencyAllocated+periodAssetsAllocated+periodInvestAllocated+periodRetirementAllocated)/totalIncome*100):0;
+                let prevSavingsShare=null;
+                if(momCompare&&momCompare.prevInc>0){
+                  const prevTiers=getActiveTiers(momCompare.prevM.slice(0,4));
+                  const prevSaved=["emergency","assets","investment","retirement"].reduce((s,k)=>s+getProgressiveAmount(momCompare.prevInc,prevTiers,k),0);
+                  prevSavingsShare=(prevSaved/momCompare.prevInc*100);
+                }
+                return <div id="incomeDistReport">
+                  <BackBtn title="🥧 توزيع الدخل"/>
+                  <div style={S.card}>
+                    {distItems.length===0?<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:20}}>ما كاينش دخل مسجل فهاد الفترة</div>:<>
+                    <div className="no-print" style={{height:200}}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={distItems} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75}>
+                            {distItems.map((d,i)=><Cell key={i} fill={d.color}/>)}
+                          </Pie>
+                          <Tooltip formatter={v=>fmt(v)}/>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10}}>
+                      {distItems.map(d=>(
+                        <div key={d.name} style={{background:"#f8fafc",borderRadius:12,padding:10,textAlign:"center"}}>
+                          <div style={{fontSize:13,fontWeight:900,color:d.color}}>{fmt(d.value)}</div>
+                          <div style={{fontSize:9.5,color:"#94a3b8",marginTop:2}}>{d.icon} {d.name} · {distTotal>0?(d.value/distTotal*100).toFixed(0):0}%</div>
+                        </div>
+                      ))}
+                    </div>
+                    {prevSavingsShare!==null&&<div style={{textAlign:"center",fontSize:11,color:"#64748b",marginTop:12,paddingTop:10,borderTop:"1px solid #f1f5f9"}}>
+                      مقارنة بالشهر لي فات: <b style={{color:savingsShare>=prevSavingsShare?"#10b981":"#ef4444"}}>{savingsShare>=prevSavingsShare?"▲":"▼"} {Math.abs(savingsShare-prevSavingsShare).toFixed(0)}%</b> فحصة الادخار
+                    </div>}
+                    </>}
+                  </div>
+                </div>;
+              }
+
+              if(repPage==="smartScore"){
+                const avgMonthlyExpense=totalExpense>0?(cashFlowData.length>0?totalExpense/cashFlowData.length:totalExpense):0;
+                const emgMonths=avgMonthlyExpense>0?(emgBkt?.balance||0)/avgMonthlyExpense:0;
+                const overBudgetCount=periodCatBreakdown.filter(x=>x.spent>x.allocated).length;
+
+                const dims=[
+                  {key:"savings",label:"نسبة الادخار",weight:25,score:Math.max(0,Math.min(100,savingsRate*2.5))},
+                  {key:"emergency",label:"جاهزية الطوارئ",weight:15,score:Math.max(0,Math.min(100,(emgMonths/3)*100))},
+                  {key:"budget",label:"انضباط الميزانية",weight:15,score:Math.max(0,100-overBudgetCount*25)},
+                  {key:"invest",label:"أداء الاستثمار",weight:15,score:Math.max(0,Math.min(100,(invROI/8)*100))},
+                  {key:"retire",label:"جاهزية التقاعد",weight:15,score:retirePct},
+                  {key:"cashflow",label:"استقرار التدفق النقدي",weight:15,score:netBalance>=0?100:Math.max(0,100+(netBalance/Math.max(totalIncome,1))*100)},
+                ];
+                const totalScore=Math.round(dims.reduce((s,d)=>s+d.score*(d.weight/100),0));
+                const scoreColor=totalScore>=80?"#1a6b4a":totalScore>=60?"#f59e0b":"#ef4444";
+                const scoreLabel=totalScore>=90?"ممتاز 🟢":totalScore>=75?"جيد جدا 🟢":totalScore>=60?"جيد 🟡":totalScore>=40?"يحتاج تحسين 🟠":"ضعيف 🔴";
+                const strengths=dims.filter(d=>d.score>=80);
+                const weaknesses=dims.filter(d=>d.score<60).sort((a,b)=>a.score-b.score);
+                const worstDim=weaknesses[0];
+                const recoText={
+                  savings:"حاول تخفض المصاريف غير الضرورية باش تزيد نسبة الادخار ديالك.",
+                  emergency:`صندوق الطوارئ ديالك يغطي غير ${emgMonths.toFixed(1)} شهر. حاول تزيد فيه شهريا حتى توصل لـ3 أشهر على الأقل.`,
+                  budget:"عندك تصنيفات تجاوزت الميزانية المخصصة ليها — راجع توزيع الميزانية على التصنيفات.",
+                  invest:"العائد ديال الاستثمارات ديالك ضعيف — راجع استراتيجية الاستثمار ديالك.",
+                  retire:"باقي بعيد على هدف التقاعد — حاول تزيد المساهمة الشهرية.",
+                  cashflow:"المصروف كبر على الدخل هاد الفترة — راقب المصاريف عن قرب.",
+                }[worstDim?.key];
+                let scoreTrend=null;
+                if(momCompare&&momCompare.prevInc>0&&momCompare.incChange!==null){
+                  const prevSavRate=((momCompare.prevInc-momCompare.prevExp)/momCompare.prevInc*100);
+                  scoreTrend=savingsRate-prevSavRate;
+                }
+
+                return <div id="smartScoreReport">
+                  <BackBtn title="🧠 التقييم المالي الذكي"/>
+                  <div style={{...S.card,textAlign:"center"}}>
+                    <div style={{width:150,height:150,margin:"0 auto",position:"relative"}}>
+                      <svg width="150" height="150" style={{transform:"rotate(-90deg)"}}>
+                        <circle cx="75" cy="75" r={HERO_R} fill="none" stroke="#f1f5f9" strokeWidth="14"/>
+                        <circle cx="75" cy="75" r={HERO_R} fill="none" stroke={scoreColor} strokeWidth="14" strokeDasharray={HERO_CIRC} strokeDashoffset={gaugeOffset(totalScore,HERO_CIRC)} strokeLinecap="round" style={{transition:"stroke-dashoffset .6s"}}/>
+                      </svg>
+                      <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
+                        <div style={{fontSize:30,fontWeight:900,color:scoreColor}}>{totalScore}</div>
+                        <div style={{fontSize:10,color:"#94a3b8"}}>من 100</div>
+                      </div>
+                    </div>
+                    <div style={{display:"inline-block",background:"#e5f5ee",color:"#1a6b4a",fontSize:11,fontWeight:800,padding:"4px 12px",borderRadius:20,marginTop:8}}>{scoreLabel}</div>
+                    {scoreTrend!==null&&<div style={{fontSize:11,color:"#8a8578",marginTop:10,paddingTop:10,borderTop:"1px solid #f1f5f9"}}>مقارنة بالشهر لي فات: <b style={{color:scoreTrend>=0?"#10b981":"#ef4444"}}>{scoreTrend>=0?"▲":"▼"} {Math.abs(scoreTrend).toFixed(0)} نقطة (حسب نسبة الادخار)</b></div>}
+                  </div>
+
+                  <div style={S.card}>
+                    <div style={{display:"flex",gap:10}}>
+                      <div style={{flex:1,background:"#f7f6f2",borderRadius:12,padding:10}}>
+                        <div style={{fontSize:11,fontWeight:800,color:"#1a6b4a",marginBottom:6}}>✅ نقاط القوة</div>
+                        {strengths.length===0?<div style={{fontSize:10.5,color:"#94a3b8"}}>مازال ماكاينش نقاط قوة بارزة</div>:strengths.map(d=>(
+                          <div key={d.key} style={{fontSize:10.5,color:"#5c584c",marginBottom:4,paddingRight:14,position:"relative"}}><span style={{position:"absolute",right:0,color:"#10b981",fontWeight:900}}>✓</span>{d.label}</div>
+                        ))}
+                      </div>
+                      <div style={{flex:1,background:"#f7f6f2",borderRadius:12,padding:10}}>
+                        <div style={{fontSize:11,fontWeight:800,color:"#ef4444",marginBottom:6}}>⚠️ نقاط الضعف</div>
+                        {weaknesses.length===0?<div style={{fontSize:10.5,color:"#94a3b8"}}>ماكاينش نقاط ضعف بارزة</div>:weaknesses.map(d=>(
+                          <div key={d.key} style={{fontSize:10.5,color:"#5c584c",marginBottom:4,paddingRight:14,position:"relative"}}><span style={{position:"absolute",right:0,color:"#ef4444",fontWeight:900}}>!</span>{d.label}</div>
+                        ))}
+                      </div>
+                    </div>
+                    {recoText&&<div style={{background:"#eeedfc",borderRadius:12,padding:12,marginTop:10}}>
+                      <div style={{fontSize:11,fontWeight:800,color:"#6366f1",marginBottom:6}}>💡 توصية ذكية</div>
+                      <p style={{fontSize:11,color:"#3730a3",lineHeight:1.7}}>{recoText}</p>
+                    </div>}
+                  </div>
+                </div>;
+              }
+
+              const StatChip=({l,v,c})=>(
+                <div style={{flex:1,minWidth:80,background:"#f7f6f2",borderRadius:10,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:9,color:"#8a8578"}}>{l}</div><div style={{fontSize:12,fontWeight:900,color:c}}>{typeof v==="number"?fmt(v):v}</div></div>
+              );
+
+              if(repPage==="budget"){
+                return <div id="repBudget">
+                  <BackBtn title="🛒 تقرير الميزانية"/>
+                  <div style={S.card}>
+                    <div style={{fontSize:13,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>📅 الميزانية المخصصة لهاد الفترة</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <StatChip l="مخصص للفترة" v={periodBudgetAllocated} c="#1a6b4a"/>
+                      <StatChip l="مصروف الفترة" v={periodBudgetSpent} c="#ef4444"/>
+                      <StatChip l="المتبقي" v={periodBudgetRemaining} c={periodBudgetRemaining>=0?"#1a6b4a":"#ef4444"}/>
+                      <StatChip l="نسبة الاستهلاك" v={periodBudgetAllocated>0?(periodBudgetSpent/periodBudgetAllocated*100).toFixed(0)+"%":"0%"} c="#f59e0b"/>
+                    </div>
+                    {topExpCatPeriod&&<div style={{marginTop:10,fontSize:11,color:"#8a8578"}}>🔝 أهم تصنيف فالفترة: <b style={{color:"#1a1a1a"}}>{topExpCatPeriod.icon} {topExpCatPeriod.name}</b> — {fmt(topExpCatPeriod.amount)}</div>}
+                    <div style={{marginTop:4,fontSize:10,color:"#a9a498"}}>{flowTxs.filter(t=>t.type==="expense").length} معاملة مصروف فهاد الفترة</div>
+                  </div>
+                  {periodCatBreakdown.length>0&&<div style={S.card}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>🏷️ حسب التصنيف</div>
+                    {periodCatBreakdown.map(({cat,allocated,spent})=>{
+                      const remain=allocated-spent;const pct=allocated>0?Math.min(spent/allocated*100,100):0;
+                      return <div key={cat.id} style={{padding:"8px 0",borderBottom:"1px solid #f0efe9"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}><span>{cat.icon} {cat.name}</span><span style={{fontWeight:800,color:remain>=0?"#1a6b4a":"#ef4444"}}>{fmt(spent)} / {fmt(allocated)}</span></div>
+                        <div style={{height:4,background:"#f1f5f9",borderRadius:3,marginTop:5,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:remain>=0?"#1a6b4a":"#ef4444",borderRadius:3}}/></div>
+                      </div>;
+                    })}
+                  </div>}
+                </div>;
+              }
+
+              if(repPage==="emergency"){
+                return <div id="repEmergency">
+                  <BackBtn title="🚨 تقرير الطوارئ"/>
+                  <div style={S.card}>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <StatChip l="الرصيد الحالي" v={emgBkt?.balance||0} c="#1a6b4a"/>
+                      <StatChip l="مرات الاستخدام (الفترة)" v={emgUsage.length} c="#c98a0a"/>
+                      <StatChip l="المسحوب (الفترة)" v={emgUsedTotal} c="#ef4444"/>
+                      <StatChip l="نسبة الاعتماد" v={emgBkt?.allocated>0?(emgUsedTotal/emgBkt.allocated*100).toFixed(0)+"%":"0%"} c="#c98a0a"/>
+                    </div>
+                  </div>
+                  <div style={S.card}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>📅 مخصص لهاد الفترة</div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span>مخصص: {fmt(periodEmergencyAllocated)}</span><span style={{fontWeight:800,color:"#1a6b4a"}}>مستعمل: {fmt(periodEmergencySpent)}</span></div>
+                  </div>
+                  {emgUsage.length>0&&<div style={S.card}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>🕓 سجل الاستخدام (الفترة)</div>
+                    {emgUsage.map(t=>(
+                      <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #f0efe9",fontSize:11.5}}>
+                        <span>{t.desc||"—"} · {t.date}</span>
+                        <span style={{fontWeight:800,color:t.type==="income"?"#1a6b4a":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
+                      </div>
+                    ))}
+                  </div>}
+                </div>;
+              }
+
+              if(repPage==="assets"){
+                return <div id="repAssets">
+                  <BackBtn title="🏠 تقرير الممتلكات"/>
+                  <div style={S.card}>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <StatChip l="العدد" v={assets.length} c="#3b82f6"/>
+                      <StatChip l="القيمة الإجمالية" v={totAst} c="#3b82f6"/>
+                    </div>
+                    {topAssetTxPeriod&&<div style={{marginTop:10,fontSize:11,color:"#8a8578"}}>🔝 أهم حركة فالفترة: <b style={{color:"#1a1a1a"}}>{topAssetTxPeriod.desc}</b> — {fmt(topAssetTxPeriod.amount)}</div>}
+                  </div>
+                  <div style={S.card}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>📋 قائمة الأصول</div>
+                    {assets.length===0?<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>ما كاينش ممتلكات مسجلة</div>:assets.map(a=>(
+                      <div key={a.id} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #f0efe9",fontSize:12.5}}>
+                        <span>{a.name}</span><span style={{fontWeight:800,color:"#3b82f6"}}>{fmt(a.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>;
+              }
+
+              if(repPage==="invest"){
+                return <div id="repInvest">
+                  <BackBtn title="📈 تقرير الاستثمار"/>
+                  <div style={S.card}>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <StatChip l="رأس المال" v={totInv} c="#6366f1"/>
+                      <StatChip l="الأرباح" v={totInvProfit} c={totInvProfit>=0?"#1a6b4a":"#ef4444"}/>
+                      <StatChip l="ROI" v={invROI.toFixed(1)+"%"} c="#6366f1"/>
+                      <StatChip l="نسبة النمو" v={invBkt?.allocated>0?((invBkt.balance/invBkt.allocated-1)*100).toFixed(1)+"%":"0%"} c="#6366f1"/>
+                    </div>
+                    {topInvTxPeriod&&<div style={{marginTop:10,fontSize:11,color:"#8a8578"}}>🔝 أهم حركة فالفترة: <b style={{color:"#1a1a1a"}}>{topInvTxPeriod.desc}</b> — {fmt(topInvTxPeriod.amount)}</div>}
+                  </div>
+                  <div style={S.card}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>📋 قائمة الاستثمارات</div>
+                    {investments.length===0?<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>ما كاينش استثمارات مسجلة</div>:investments.map(i=>(
+                      <div key={i.id} style={{padding:"8px 0",borderBottom:"1px solid #f0efe9"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12.5}}><span>{i.name}</span><span style={{fontWeight:800,color:"#6366f1"}}>{fmt(i.amount)}</span></div>
+                        {typeof i.profit==="number"&&<div style={{fontSize:10,color:i.profit>=0?"#1a6b4a":"#ef4444",marginTop:2}}>{i.profit>=0?"▲":"▼"} {fmt(Math.abs(i.profit))}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>;
+              }
+
+              if(repPage==="retire"){
+                return <div id="repRetire">
+                  <BackBtn title="🏖️ تقرير التقاعد"/>
+                  <div style={S.card}>
+                    <div style={{...S.row,marginBottom:8}}>
+                      <div style={{fontSize:13,fontWeight:800,color:"#1a1a1a"}}>الهدف</div>
+                      <input className="no-print" type="number" defaultValue={retireGoal} style={{width:100,padding:"4px 8px",fontSize:11,border:"1.5px solid #e2e8f0",borderRadius:8,textAlign:"center"}}
+                        onBlur={e=>{const v=parseFloat(e.target.value)||0;const nb={...budgetSettings,retireGoal:v};setBudgetSettings(nb);_save('budgetSettings',nb);}} placeholder="الهدف"/>
+                    </div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <StatChip l="الرصيد الحالي" v={retBkt?.balance||0} c="#ef4444"/>
+                      <StatChip l="الهدف" v={retireGoal} c="#ef4444"/>
+                      <StatChip l="نسبة التحقيق" v={retirePct.toFixed(0)+"%"} c="#1a6b4a"/>
+                      <StatChip l="الباقي" v={Math.max(retireGoal-(retBkt?.balance||0),0)} c="#c98a0a"/>
+                    </div>
+                    {topRetireTxPeriod&&<div style={{marginTop:10,fontSize:11,color:"#8a8578"}}>🔝 أهم حركة فالفترة: <b style={{color:"#1a1a1a"}}>{topRetireTxPeriod.desc}</b> — {fmt(topRetireTxPeriod.amount)}</div>}
+                  </div>
+                  <div style={S.card}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>📅 مخصص لهاد الفترة</div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}>
+                      <span>مخصص: {fmt(periodRetirementAllocated)}</span>
+                      <span style={{fontWeight:800,color:"#1a6b4a"}}>مسدد/مسحوب: {fmt(periodRetirementSpent)}</span>
+                    </div>
+                  </div>
+                </div>;
+              }
+
+              if(repPage==="flows"){
+                const distItems2=[
+                  {icon:"🛒",name:"الميزانية",value:periodBudgetAllocated,color:"#1a6b4a"},
+                  {icon:"🚨",name:"الطوارئ",value:periodEmergencyAllocated,color:"#c98a0a"},
+                  {icon:"🏠",name:"الممتلكات",value:periodAssetsAllocated,color:"#3b82f6"},
+                  {icon:"📈",name:"الاستثمار",value:periodInvestAllocated,color:"#6366f1"},
+                  {icon:"🏖️",name:"التقاعد",value:periodRetirementAllocated,color:"#ef4444"},
+                ].filter(d=>d.value>0);
+                const internalMoves=periodTxs.filter(t=>t.isTransfer||t.isAsset||t.isInvest||t.isLoan);
+                const labelForBucket=t=>{
+                  if(t.isTransfer)return(t.desc||"").includes("طوارئ")||(t.desc||"").includes("إعاشة")?"🚨 الطوارئ":"🔄 تحويل بين حسابات";
+                  if(t.isAsset)return"🏠 الممتلكات";
+                  if(t.isInvest)return(t.desc||"").startsWith("ربح")?"📈 ربح استثمار":"📈 الاستثمار";
+                  if(t.isLoan)return"🏖️ التقاعد";
+                  return"";
+                };
+                return <div id="repFlows">
+                  <BackBtn title="🔀 التدفقات المالية بين الأقسام"/>
+                  <div style={S.card}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:10}}>📥 من الدخل إلى الأقسام</div>
+                    {distItems2.length===0?<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>ماكاينش دخل مسجل فهاد الفترة</div>:distItems2.map(d=>(
+                      <div key={d.name} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #f0efe9"}}>
+                        <span style={{fontSize:11,color:"#8a8578"}}>💰 دخل</span>
+                        <span style={{color:"#c8c4b6"}}>←</span>
+                        <span style={{flex:1,fontSize:12.5,fontWeight:700}}>{d.icon} {d.name}</span>
+                        <span style={{fontWeight:800,color:d.color}}>{fmt(d.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={S.card}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:10}}>🔄 حركات داخلية بين الأقسام (الفترة)</div>
+                    {internalMoves.length===0?<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>ماكاينش حركات داخلية فهاد الفترة</div>:internalMoves.map(t=>(
+                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #f0efe9"}}>
+                        <span style={{flex:1,fontSize:11.5}}>{labelForBucket(t)} — {t.desc||""}</span>
+                        <span style={{fontSize:10,color:"#8a8578"}}>{t.date}</span>
+                        <span style={{fontWeight:800,color:t.type==="income"?"#1a6b4a":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>;
+              }
+
+              if(repPage==="wealthEvo"){
+                const netWealthEffect=t=>{
+                  if(t.isTransfer||t.isLoan||t.isAsset)return 0;
+                  if(t.isInvest)return(t.type==="income"&&(t.desc||"").startsWith("ربح"))?t.amount:0;
+                  return t.type==="income"?t.amount:-t.amount;
+                };
+                const sortedAll=[...txs].sort((a,b)=>a.date.localeCompare(b.date));
+                let totalDelta=0;sortedAll.forEach(t=>{totalDelta+=netWealthEffect(t);});
+                const baseline=wealthNow-totalDelta;
+                const byMonth={};
+                let run=baseline;
+                sortedAll.forEach(t=>{run+=netWealthEffect(t);const m=t.date.slice(0,7);byMonth[m]=run;});
+                const months=Object.keys(byMonth).sort();
+                const wealthSeries=months.map(m=>({label:m,الثروة:byMonth[m]}));
+                const values=wealthSeries.map(w=>w.الثروة);
+                const highest=values.length?Math.max(...values):0;
+                const lowest=values.length?Math.min(...values):0;
+                const growthRate=(values.length>1&&values[0]!==0)?((values[values.length-1]-values[0])/Math.abs(values[0])*100):0;
+                return <div id="repWealthEvo">
+                  <BackBtn title="📈 تطور الثروة الشهري"/>
+                  <div style={{...S.card,background:"#fef3c7",border:"1px solid #f59e0b"}}>
+                    <div style={{fontSize:11,color:"#92400e"}}>⚠️ هاد الرسم تقريبي — محسوب من المعاملات المسجلة بس (بلا الأرصدة الابتدائية اليدوية ولا تغير قيمة الممتلكات بلا معاملة)</div>
+                  </div>
+                  {wealthSeries.length>1?<div style={S.card}>
+                    <div style={{height:200}}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={wealthSeries}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
+                          <XAxis dataKey="label" fontSize={9}/>
+                          <YAxis fontSize={9}/>
+                          <Tooltip formatter={v=>fmt(v)}/>
+                          <Line type="monotone" dataKey="الثروة" stroke="#1a6b4a" strokeWidth={2.5} dot={false}/>
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>:<div style={S.card}><div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>ماكافيش بيانات كافية بعد</div></div>}
+                  <div style={S.card}>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <StatChip l="أعلى قيمة" v={highest} c="#1a6b4a"/>
+                      <StatChip l="أقل قيمة" v={lowest} c="#ef4444"/>
+                      <StatChip l="معدل النمو" v={growthRate.toFixed(1)+"%"} c={growthRate>=0?"#1a6b4a":"#ef4444"}/>
+                      <StatChip l="الثروة الحالية" v={wealthNow} c="#1a1a1a"/>
+                    </div>
+                  </div>
+                </div>;
+              }
+
               return <div id="reportsDashboard">
                 <style>{`@media print{.no-print{display:none!important}body{background:white!important}}`}</style>
                 <BackBtn title="📊 تقرير شامل"/>
+
 
                 <div style={{...S.card,padding:"12px 14px"}} className="no-print">
                   <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}>

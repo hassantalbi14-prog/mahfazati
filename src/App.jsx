@@ -585,6 +585,16 @@ function AppInner(){
     }
     return null;
   };
+  const getRetireGoal=()=>{
+    if((budgetSettings.retireGoalMode||"manual")==="months"){
+      const realExp=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset);
+      const monthsSet=[...new Set(realExp.map(t=>t.date.slice(0,7)))];
+      const totalExp=realExp.reduce((s,t)=>s+t.amount,0);
+      const avgMonthly=monthsSet.length>0?totalExp/monthsSet.length:0;
+      return avgMonthly*(budgetSettings.retireGoalMonths||24);
+    }
+    return budgetSettings.retireGoal||100000;
+  };
   const getEmergencyTarget=()=>{
     if(budgetSettings.emergencyTargetMode==="fixed"&&budgetSettings.emergencyFixedAmount){
       return budgetSettings.emergencyFixedAmount;
@@ -2924,6 +2934,39 @@ function AppInner(){
               </div>
             </div>
 
+            {/* هدف التقاعد */}
+            <div style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9"}}>
+              <div style={{background:"#f8fafc",borderRadius:10,padding:10}}>
+                <div style={{fontSize:12,color:"#1a1a1a",fontWeight:700,marginBottom:8}}>🏖️ هدف التقاعد</div>
+                <div style={{display:"flex",gap:6,marginBottom:10}}>
+                  {[["months","حساب تلقائي"],["manual","مبلغ يدوي"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>{const nb={...budgetSettings,retireGoalMode:v};setBudgetSettings(nb);_save('budgetSettings',nb);}}
+                      style={{...S.btn((budgetSettings.retireGoalMode||"manual")===v?"#1a6b4a":"#f1f5f9",false),flex:1,padding:"8px 6px",fontSize:12,color:(budgetSettings.retireGoalMode||"manual")===v?"white":"#475569"}}>{l}</button>
+                  ))}
+                </div>
+                {(budgetSettings.retireGoalMode||"manual")==="months"?(
+                  <>
+                    <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>الهدف = متوسط مصروفك الشهري × عدد الأشهر</div>
+                    <div style={{display:"flex",gap:6,marginBottom:10}}>
+                      {[12,24,60].map(m=>(
+                        <button key={m} onClick={()=>{const nb={...budgetSettings,retireGoalMonths:m};setBudgetSettings(nb);_save('budgetSettings',nb);}}
+                          style={{...S.btn((budgetSettings.retireGoalMonths||24)===m?"#1a6b4a":"#f1f5f9",false),flex:1,padding:"8px 6px",fontSize:12,color:(budgetSettings.retireGoalMonths||24)===m?"white":"#475569"}}>{m} شهر</button>
+                      ))}
+                    </div>
+                    <div style={{fontSize:11,color:"#64748b",marginBottom:6}}>أو رقم آخر</div>
+                    <input style={{...S.inp,padding:"8px",fontSize:13}} type="number" min="1" placeholder="مثلا 36"
+                      value={budgetSettings.retireGoalMonths||""} onChange={e=>{const v=parseInt(e.target.value)||1;const nb={...budgetSettings,retireGoalMonths:v};setBudgetSettings(nb);_save('budgetSettings',nb);}}/>
+                  </>
+                ):(
+                  <div>
+                    <div style={{fontSize:11,color:"#64748b",marginBottom:6}}>المبلغ المستهدف مباشرة (تقدر تبدلو من صفحة تقرير التقاعد زيادة)</div>
+                    <input style={{...S.inp,padding:"8px",fontSize:13}} type="number" min="0" placeholder="مثلا 100000"
+                      value={budgetSettings.retireGoal||""} onChange={e=>{const v=parseFloat(e.target.value)||0;const nb={...budgetSettings,retireGoal:v};setBudgetSettings(nb);_save('budgetSettings',nb);}}/>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* ربط الحسابات */}
             <div style={{borderBottom:"1px solid #f1f5f9"}}>
               <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setBudgetSec(p=>({...p,alloc:!p.alloc}))}>
@@ -4436,7 +4479,7 @@ function AppInner(){
               const emgUsedTotal=emgUsage.filter(t=>t.type==="income"&&(t.desc||"").includes("للميزانية")).reduce((s,t)=>s+t.amount,0);
               const totInvProfit=investments.reduce((s,i)=>s+(i.profit||0),0);
               const invROI=totInv>0?(totInvProfit/totInv*100):0;
-              const retireGoal=budgetSettings.retireGoal||100000;
+              const retireGoal=getRetireGoal();
               const retirePct=retireGoal>0?Math.min((retBkt?.balance||0)/retireGoal*100,100):0;
               const topExpCatPeriod=buildCatBreakdownFor("expense",periodTxs.filter(t=>!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset))[0];
               const topAssetTxPeriod=[...periodTxs.filter(t=>t.isAsset)].sort((a,b)=>b.amount-a.amount)[0];
@@ -4892,8 +4935,12 @@ function AppInner(){
                   <div style={S.card}>
                     <div style={{...S.row,marginBottom:8}}>
                       <div style={{fontSize:13,fontWeight:800,color:"#1a1a1a"}}>الهدف</div>
-                      <input className="no-print" type="number" defaultValue={retireGoal} style={{width:100,padding:"4px 8px",fontSize:11,border:"1.5px solid #e2e8f0",borderRadius:8,textAlign:"center"}}
-                        onBlur={e=>{const v=parseFloat(e.target.value)||0;const nb={...budgetSettings,retireGoal:v};setBudgetSettings(nb);_save('budgetSettings',nb);}} placeholder="الهدف"/>
+                      {(budgetSettings.retireGoalMode||"manual")==="months"?
+                        <span style={{fontSize:10.5,fontWeight:700,color:"#6366f1",background:"#eeedfc",padding:"4px 10px",borderRadius:20}}>🔄 تلقائي × {budgetSettings.retireGoalMonths||24} شهر</span>
+                      :
+                        <input className="no-print" type="number" defaultValue={retireGoal} style={{width:100,padding:"4px 8px",fontSize:11,border:"1.5px solid #e2e8f0",borderRadius:8,textAlign:"center"}}
+                          onBlur={e=>{const v=parseFloat(e.target.value)||0;const nb={...budgetSettings,retireGoal:v};setBudgetSettings(nb);_save('budgetSettings',nb);}} placeholder="الهدف"/>
+                      }
                     </div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                       <StatChip l="الرصيد الحالي" v={retBkt?.balance||0} c="#ef4444"/>

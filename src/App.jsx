@@ -4461,9 +4461,9 @@ function AppInner(){
                 return{curM,prevM,curInc,curExp,prevInc,prevExp,incChange,expChange};
               })();
               const accBreakdown=allAccList.map(a=>{
-                const aTxs=flowTxs.filter(t=>JSON.stringify(t.ref)===JSON.stringify(a.ref));
+                const aTxs=flowTxs.filter(t=>t.type==="income"&&JSON.stringify(t.ref)===JSON.stringify(a.ref));
                 const amount=aTxs.reduce((s,t)=>s+t.amount,0);
-                return{...a,amount,count:aTxs.length};
+                return{...a,amount,count:aTxs.length,txs:aTxs};
               }).filter(a=>a.amount>0).sort((a,b)=>b.amount-a.amount);
               const accTotal=accBreakdown.reduce((s,a)=>s+a.amount,0)||1;
               const healthPct=Math.max(0,Math.min(100,savingsRate));
@@ -4644,12 +4644,24 @@ function AppInner(){
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
-                    {accBreakdown.map((a,i)=>(
-                      <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderTop:"1px solid #f0efe9",fontSize:12}}>
-                        <span>{a.icon||"🏦"} {a.name||a.ref?.name||"حساب"}</span>
-                        <span style={{fontWeight:800,color:"#1a6b4a"}}>{fmt(a.amount)} · {(a.amount/accTotal*100).toFixed(0)}%</span>
-                      </div>
-                    ))}
+                    {accBreakdown.map((a,i)=>{
+                      const expanded=!!ovExp[`accExpand_${i}`];
+                      return <div key={i} style={{padding:"8px 0",borderTop:"1px solid #f0efe9"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`accExpand_${i}`]:!expanded}))}>
+                          <span>{a.icon||"🏦"} {a.name||a.ref?.name||"حساب"}<span style={{color:"#94a3b8",fontSize:10}}> {expanded?"▲":"▼"}</span></span>
+                          <span style={{fontWeight:800,color:"#1a6b4a"}}>{fmt(a.amount)} · {(a.amount/accTotal*100).toFixed(0)}%</span>
+                        </div>
+                        <div style={{fontSize:9.5,color:"#94a3b8",marginTop:2}}>{a.count} معاملة دخول</div>
+                        {expanded&&<div style={{marginTop:6}}>
+                          {a.txs.map(t=>(
+                            <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderTop:"1px solid #f8fafc",fontSize:10.5}}>
+                              <span style={{color:"#5c584c"}}>{t.desc||"دخل"} · {t.date}</span>
+                              <span style={{fontWeight:700,color:"#10b981"}}>+{fmt(t.amount)}</span>
+                            </div>
+                          ))}
+                        </div>}
+                      </div>;
+                    })}
                   </div>}
 
                   <div style={{display:"flex",gap:10,marginTop:4}}>
@@ -4757,12 +4769,26 @@ function AppInner(){
                     <div style={{marginTop:4,fontSize:10,color:"#a9a498"}}>{flowTxs.filter(t=>t.type==="expense").length} معاملة مصروف فهاد الفترة</div>
                   </div>
                   {periodCatBreakdown.length>0&&<div style={S.card}>
-                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>🏷️ حسب التصنيف</div>
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>🏷️ حسب التصنيف — دوس لتفاصيل المعاملات</div>
                     {periodCatBreakdown.map(({cat,allocated,spent})=>{
                       const remain=allocated-spent;const pct=allocated>0?Math.min(spent/allocated*100,100):0;
+                      const catTxsPeriod=flowTxs.filter(t=>t.type==="expense"&&t.catId===cat.id);
+                      const expanded=!!ovExp[`budCatExpand_${cat.id}`];
                       return <div key={cat.id} style={{padding:"8px 0",borderBottom:"1px solid #f0efe9"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}><span>{cat.icon} {cat.name}</span><span style={{fontWeight:800,color:remain>=0?"#1a6b4a":"#ef4444"}}>{fmt(spent)} / {fmt(allocated)}</span></div>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`budCatExpand_${cat.id}`]:!expanded}))}>
+                          <span>{cat.icon} {cat.name}<span style={{color:"#94a3b8",fontSize:10}}> {expanded?"▲":"▼"}</span></span>
+                          <span style={{fontWeight:800,color:remain>=0?"#1a6b4a":"#ef4444"}}>{fmt(spent)} / {fmt(allocated)}</span>
+                        </div>
                         <div style={{height:4,background:"#f1f5f9",borderRadius:3,marginTop:5,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:remain>=0?"#1a6b4a":"#ef4444",borderRadius:3}}/></div>
+                        <div style={{fontSize:9.5,color:"#94a3b8",marginTop:3}}>{catTxsPeriod.length} معاملة</div>
+                        {expanded&&<div style={{marginTop:6}}>
+                          {catTxsPeriod.map(t=>{const sub=cat.subs?.find(s=>s.id===t.subId);return(
+                            <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderTop:"1px solid #f8fafc",fontSize:10.5}}>
+                              <span style={{color:"#5c584c"}}>{t.desc||sub?.name||cat.name} · {t.date}</span>
+                              <span style={{fontWeight:700,color:"#ef4444"}}>-{fmt(t.amount)}</span>
+                            </div>
+                          );})}
+                        </div>}
                       </div>;
                     })}
                   </div>}
@@ -4830,13 +4856,32 @@ function AppInner(){
                     {topInvTxPeriod&&<div style={{marginTop:10,fontSize:11,color:"#8a8578"}}>🔝 أهم حركة فالفترة: <b style={{color:"#1a1a1a"}}>{topInvTxPeriod.desc}</b> — {fmt(topInvTxPeriod.amount)}</div>}
                   </div>
                   <div style={S.card}>
-                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>📋 قائمة الاستثمارات</div>
-                    {investments.length===0?<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>ما كاينش استثمارات مسجلة</div>:investments.map(i=>(
-                      <div key={i.id} style={{padding:"8px 0",borderBottom:"1px solid #f0efe9"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12.5}}><span>{i.name}</span><span style={{fontWeight:800,color:"#6366f1"}}>{fmt(i.amount)}</span></div>
-                        {typeof i.profit==="number"&&<div style={{fontSize:10,color:i.profit>=0?"#1a6b4a":"#ef4444",marginTop:2}}>{i.profit>=0?"▲":"▼"} {fmt(Math.abs(i.profit))}</div>}
-                      </div>
-                    ))}
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>📋 قائمة الاستثمارات — الداخل/الخارج لهاد الفترة</div>
+                    {investments.length===0?<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>ما كاينش استثمارات مسجلة</div>:investments.map(i=>{
+                      const invTxsPeriod=periodTxs.filter(t=>t.isInvest&&t.invId===i.id);
+                      const inflow=invTxsPeriod.filter(t=>t.type==="expense"||(t.type==="income"&&(t.desc||"").startsWith("ربح"))).reduce((s,t)=>s+t.amount,0);
+                      const outflow=invTxsPeriod.filter(t=>t.type==="income"&&(t.desc||"").startsWith("استرداد")).reduce((s,t)=>s+t.amount,0);
+                      const expanded=!!ovExp[`invExpand_${i.id}`];
+                      return <div key={i.id} style={{padding:"10px 0",borderBottom:"1px solid #f0efe9"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12.5,cursor:invTxsPeriod.length>0?"pointer":"default"}} onClick={()=>invTxsPeriod.length>0&&setOvExp(p=>({...p,[`invExpand_${i.id}`]:!expanded}))}>
+                          <span>{i.name}{invTxsPeriod.length>0?<span style={{color:"#94a3b8",fontSize:10}}> {expanded?"▲":"▼"}</span>:""}</span>
+                          <span style={{fontWeight:800,color:"#6366f1"}}>{fmt(i.amount)}</span>
+                        </div>
+                        {typeof i.profit==="number"&&<div style={{fontSize:10,color:i.profit>=0?"#1a6b4a":"#ef4444",marginTop:2}}>إجمالي الأرباح: {i.profit>=0?"▲":"▼"} {fmt(Math.abs(i.profit))}</div>}
+                        <div style={{display:"flex",gap:10,marginTop:6,fontSize:10.5}}>
+                          <span style={{color:"#10b981",fontWeight:700}}>⬇️ داخل: {fmt(inflow)}</span>
+                          <span style={{color:"#ef4444",fontWeight:700}}>⬆️ خارج: {fmt(outflow)}</span>
+                        </div>
+                        {expanded&&<div style={{marginTop:8,paddingRight:4}}>
+                          {invTxsPeriod.map(t=>(
+                            <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderTop:"1px solid #f8fafc",fontSize:10.5}}>
+                              <span style={{color:"#5c584c"}}>{t.desc} · {t.date}</span>
+                              <span style={{fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
+                            </div>
+                          ))}
+                        </div>}
+                      </div>;
+                    })}
                   </div>
                 </div>;
               }

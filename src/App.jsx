@@ -3088,6 +3088,35 @@ function AppInner(){
                               </div>
                             </div>
                             {hasSubs&&expanded&&cat.subs.map((sub,si)=>{
+                              const subList=(dist.subPcts||{})[cat.id];
+                              const hasEntry=Array.isArray(subList)&&subList.some(s=>s.subId===sub.id);
+                              if(!hasEntry){
+                                const draftK=`newSubPct_${selYear}_${cat.id}_${sub.id}`;
+                                return <div key={sub.id} style={{padding:"9px 0 9px 14px",background:"#fef3c7",borderBottom:"1px solid #f1f5f9"}}>
+                                  <div style={{fontSize:11,fontWeight:700,color:"#92400e",marginBottom:6}}>⚠️ "{sub.name}" فرع جديد — ماعندوش نسبة محددة بعد لهاد السنة</div>
+                                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                    <input style={{...S.inp,width:70,textAlign:"center",padding:"6px"}} type="number" min="0" max="100" placeholder="0"
+                                      value={ovExp[draftK]||""} onChange={e=>setOvExp(p=>({...p,[draftK]:e.target.value}))}/>
+                                    <span style={{fontSize:11,color:"#78350f"}}>%</span>
+                                    <button style={{...S.btn("#f59e0b"),flex:1,padding:"8px",fontSize:11}} onClick={()=>{
+                                      const pct=parseFloat(ovExp[draftK]);
+                                      if(!pct||pct<=0){showErr("⛔ دخل نسبة صحيحة");setTimeout(()=>setErr(null),3000);return;}
+                                      const updatedYears=(budgetSettings.catDistYears||[]).map(d=>{
+                                        if(d.year!==selYear)return d;
+                                        const newSubPcts={...(d.subPcts||{})};
+                                        newSubPcts[cat.id]=[...(newSubPcts[cat.id]||[]),{subId:sub.id,pct}];
+                                        return{...d,subPcts:newSubPcts};
+                                      });
+                                      const nb={...budgetSettings,catDistYears:updatedYears};
+                                      setBudgetSettings(nb);_save('budgetSettings',nb);
+                                      setOvExp(p=>({...p,[draftK]:""}));
+                                      const newTotal=((dist.subPcts||{})[cat.id]||[]).reduce((s,x)=>s+x.pct,0)+pct;
+                                      showErr(newTotal===100?"✅ تم إضافة النسبة":`✅ تمت الإضافة — تنبيه: مجموع فروع "${cat.name}" دابا ${newTotal}% (خاصو يكون 100%)`);
+                                      setTimeout(()=>setErr(null),4000);
+                                    }}>➕ إضافة</button>
+                                  </div>
+                                </div>;
+                              }
                               const sd=getCatDetail(cat.id,sub.id,selYear);
                               const sBarColor=sd.balance<0?"#ef4444":sd.usedPct>=80?"#f59e0b":"#1a6b4a";
                               return <div key={sub.id} style={{padding:"9px 0 9px 14px",borderBottom:si<cat.subs.length-1?"1px solid #f1f5f9":"1px solid #f1f5f9",background:"#fafaf7"}}>

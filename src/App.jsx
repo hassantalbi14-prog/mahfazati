@@ -4704,6 +4704,30 @@ function AppInner(){
                     </>}
                   </div>
 
+                  {[["المداخل حسب التصنيف","incCat",incCatBreak,"#10b981"],["المصاريف حسب التصنيف","expCat",expCatBreak,"#ef4444"]].map(([title,key,items,color])=>(
+                  <React.Fragment key={key}>
+                    <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"18px 4px 10px",display:"flex",alignItems:"center",gap:6}}>{title}<div style={{flex:1,height:1,background:"#e2e8f0"}}/></div>
+                    {items.length===0?<div style={{...S.card,textAlign:"center",color:"#94a3b8",fontSize:12}}>ماكاينش بيانات فهاد الفترة</div>:<div style={S.card}>
+                      {items.map((c,ci)=>{
+                        const expanded=!!ovExp[`repCatExpand_${key}_${c.id}`];
+                        return <div key={c.id} style={{padding:"9px 0",borderTop:ci>0?"1px solid #f0efe9":"none"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:12.5,cursor:c.subs.length>0?"pointer":"default"}} onClick={()=>c.subs.length>0&&setOvExp(p=>({...p,[`repCatExpand_${key}_${c.id}`]:!expanded}))}>
+                            <span>{c.icon} {c.name}{c.subs.length>0?<span style={{color:"#94a3b8",fontSize:10}}> {expanded?"▲":"▼"}</span>:""}</span>
+                            <span style={{fontWeight:800,color}}>{fmt(c.amount)}</span>
+                          </div>
+                          <div style={{fontSize:9.5,color:"#94a3b8",marginTop:2}}>{c.count} معاملة</div>
+                          {expanded&&c.subs.map(s=>(
+                            <div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0 5px 14px",borderTop:"1px solid #f8fafc",fontSize:11}}>
+                              <span style={{color:"#5c584c"}}>↳ {s.name}</span>
+                              <span style={{fontWeight:700,color}}>{fmt(s.amount)}</span>
+                            </div>
+                          ))}
+                        </div>;
+                      })}
+                    </div>}
+                  </React.Fragment>
+                  ))}
+
                   <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"18px 4px 10px",display:"flex",alignItems:"center",gap:6}}>المداخل حسب الحساب<div style={{flex:1,height:1,background:"#e2e8f0"}}/></div>
                   {accBreakdown.length>0&&<div style={S.card}>
                     <div className="no-print" style={{height:140}}>

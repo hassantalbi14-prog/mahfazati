@@ -2551,7 +2551,7 @@ function AppInner(){
             </div>
           </div>
           {dp&&["banks","cash","assets","expCat","incCat","cloud","profile","appearance","security","distribution","catDist","widget"].includes(dp)&&(
-            <div style={{position:isDesktop?"absolute":"fixed",inset:0,background:"#f5f5f0",zIndex:100,overflowY:"auto",padding:"20px 20px 90px"}}>
+            <div style={{position:isDesktop?"absolute":"fixed",inset:0,height:"100%",maxHeight:"100%",background:"#f5f5f0",zIndex:100,overflowY:"scroll",padding:"20px 20px 160px"}}>
               <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');`}</style>
               <div dir="rtl" style={{fontFamily:"Tajawal",color:"#1a1a1a",display:"flex",flexDirection:"column",gap:14}}>
 

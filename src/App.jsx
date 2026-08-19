@@ -1635,7 +1635,7 @@ function AppInner(){
   return (
     <div dir="rtl" style={isDesktop?{position:"fixed",inset:0,overflow:"hidden",background:"#e8ece9"}:undefined}>
     {isDesktop&&<DesktopSidebar/>}
-    <div dir="rtl" className={darkMode?"dark":""} style={{fontFamily:"'Tajawal',sans-serif",background:darkMode?"#0f172a":"#f5f5f0",minHeight:isDesktop?undefined:"100vh",height:isDesktop?undefined:"auto",color:darkMode?"#e2e8f0":"#1a1a1a",display:"flex",flexDirection:"column",position:isDesktop?"absolute":"relative",overflow:isDesktop?"hidden":"hidden",fontSize:(16*fontScale)+"px",zoom:fontScale,...(isDesktop?{top:0,bottom:0,left:0,right:230,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
+    <div dir="rtl" className={darkMode?"dark":""} style={{fontFamily:"'Tajawal',sans-serif",background:darkMode?"#0f172a":"#f5f5f0",minHeight:isDesktop?undefined:"100vh",height:isDesktop?undefined:"auto",color:darkMode?"#e2e8f0":"#1a1a1a",display:"flex",flexDirection:"column",position:isDesktop?"absolute":"relative",overflow:isDesktop?"hidden":"hidden",fontSize:(16*fontScale)+"px",...(isDesktop?{}:{zoom:fontScale}),...(isDesktop?{top:0,bottom:0,left:0,right:230,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
       {typeof window!=="undefined"&&window.__mhfLoadError&&(
         <div style={{position:"fixed",inset:0,zIndex:99999,background:"#fef2f2",padding:20,overflowY:"auto",display:"flex",flexDirection:"column",gap:14}}>
           <div style={{fontSize:40,textAlign:"center"}}>⚠️</div>
@@ -2551,7 +2551,7 @@ function AppInner(){
             </div>
           </div>
           {dp&&["banks","cash","assets","expCat","incCat","cloud","profile","appearance","security","distribution","catDist","widget"].includes(dp)&&(
-            <div style={{position:isDesktop?"absolute":"fixed",inset:0,height:"100%",maxHeight:"100%",background:"#f5f5f0",zIndex:100,overflowY:"scroll",padding:"20px 20px 160px"}}>
+            <div style={{position:isDesktop?"absolute":"fixed",inset:0,background:"#f5f5f0",zIndex:100,overflowY:"auto",padding:"20px 20px 160px"}}>
               <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');`}</style>
               <div dir="rtl" style={{fontFamily:"Tajawal",color:"#1a1a1a",display:"flex",flexDirection:"column",gap:14}}>
 

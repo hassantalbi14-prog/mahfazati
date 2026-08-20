@@ -82,7 +82,7 @@ const ITX=[];
 let _darkFlag=false;
 const setDarkFlag=v=>{_darkFlag=v;};
 const S={
-  get card(){return _darkFlag?{background:"rgba(30,41,59,0.85)",borderRadius:20,padding:18,border:"1px solid rgba(71,85,105,0.5)",boxShadow:"0 2px 16px rgba(0,0,0,0.35)",backdropFilter:"blur(12px)",color:"#e2e8f0"}:{background:"rgba(255,255,255,0.85)",borderRadius:20,padding:18,border:"1px solid rgba(226,232,240,0.7)",boxShadow:"0 2px 16px rgba(15,23,42,0.07)",backdropFilter:"blur(12px)"};},
+  get card(){return _darkFlag?{background:"#1e293b",borderRadius:20,padding:18,border:"1px solid rgba(71,85,105,0.5)",boxShadow:"0 2px 16px rgba(0,0,0,0.35)",color:"#e2e8f0"}:{background:"#ffffff",borderRadius:20,padding:18,border:"1px solid rgba(226,232,240,0.7)",boxShadow:"0 2px 16px rgba(15,23,42,0.07)"};},
   get inp(){return _darkFlag?{background:"rgba(15,23,42,0.9)",border:"1.5px solid #334155",borderRadius:12,padding:"11px 14px",color:"#e2e8f0",fontFamily:"Tajawal",fontSize:14,width:"100%",outline:"none",transition:"border-color .2s"}:{background:"rgba(248,250,252,0.9)",border:"1.5px solid #e2e8f0",borderRadius:12,padding:"11px 14px",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:14,width:"100%",outline:"none",transition:"border-color .2s"};},
   get num(){return _darkFlag?{background:"rgba(15,23,42,0.9)",border:"2px solid #334155",borderRadius:14,padding:"14px 16px",color:"#e2e8f0",fontFamily:"Tajawal",fontSize:22,fontWeight:900,width:"100%",outline:"none",textAlign:"center",letterSpacing:1}:{background:"rgba(248,250,252,0.9)",border:"2px solid #e2e8f0",borderRadius:14,padding:"14px 16px",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:22,fontWeight:900,width:"100%",outline:"none",textAlign:"center",letterSpacing:1};},
   get sel(){return _darkFlag?{background:"rgba(15,23,42,0.9)",border:"1.5px solid #334155",borderRadius:12,padding:"11px 14px",color:"#e2e8f0",fontFamily:"Tajawal",fontSize:14,width:"100%",outline:"none"}:{background:"rgba(248,250,252,0.9)",border:"1.5px solid #e2e8f0",borderRadius:12,padding:"11px 14px",color:"#1a1a1a",fontFamily:"Tajawal",fontSize:14,width:"100%",outline:"none"};},
@@ -105,9 +105,9 @@ body{background:linear-gradient(135deg,#f0f4ff 0%,#e8f5f0 50%,#f0f4ff 100%);min-
 .dark .pbar{background:#334155;}
 .drw{position:fixed;top:0;right:0;height:100%;width:285px;background:linear-gradient(180deg,#1a6b4a,#0f4a33);border-left:1px solid rgba(255,255,255,.1);z-index:200;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:-8px 0 32px rgba(0,0,0,.2);}
 .drw.op{transform:translateX(0);}
-.ovl{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:199;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(4px);}
+.ovl{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:199;opacity:0;pointer-events:none;transition:opacity .3s;}
 .ovl.op{opacity:1;pointer-events:all;}
-.mwp{position:fixed;inset:0;background:rgba(2,6,23,.75);z-index:300;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(8px);}
+.mwp{position:fixed;inset:0;background:rgba(2,6,23,.75);z-index:300;display:flex;align-items:flex-end;justify-content:center;}
 .mbx{background:linear-gradient(180deg,rgba(30,41,59,.98),rgba(15,23,42,.98));border-radius:24px 24px 0 0;padding:24px;width:100%;border-top:1px solid rgba(255,255,255,.12);max-height:90vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,.3);}
 .mi{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.07);color:white;font-size:15px;font-weight:600;transition:background .2s;border-radius:10px;margin:2px 4px;}
 .mi:hover{background:rgba(255,255,255,.1);}
@@ -1859,7 +1859,7 @@ function AppInner(){
             <div style={{position:"absolute",bottom:-40,right:-20,width:160,height:160,borderRadius:"50%",background:"rgba(255,255,255,.07)"}}/>
             <div style={{position:"absolute",top:60,left:40,width:60,height:60,borderRadius:"50%",background:"rgba(255,255,255,.04)"}}/>
             <div style={{position:"absolute",top:14,left:14,background:"rgba(255,255,255,.2)",borderRadius:8,padding:"3px 10px",fontSize:11,color:"#1a1a1a",fontWeight:700}}>اضغط للتفاصيل ←</div>
-            <button onClick={e=>{e.stopPropagation();setHideBalance(p=>!p);}} style={{position:"absolute",top:14,right:14,background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.25)",borderRadius:10,padding:"6px 10px",cursor:"pointer",color:"#1a1a1a",display:"flex",alignItems:"center",gap:4,backdropFilter:"blur(4px)"}}>
+            <button onClick={e=>{e.stopPropagation();setHideBalance(p=>!p);}} style={{position:"absolute",top:14,right:14,background:"rgba(255,255,255,.25)",border:"1px solid rgba(255,255,255,.35)",borderRadius:10,padding:"6px 10px",cursor:"pointer",color:"#1a1a1a",display:"flex",alignItems:"center",gap:4}}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {hideBalance?<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>:<><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>}
               </svg>
@@ -5064,7 +5064,7 @@ function AppInner(){
       </div>
 
       {/* BOTTOM NAV */}
-      {!isDesktop&&<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",background:"rgba(255,255,255,0.85)",borderTop:"1px solid rgba(226,232,240,0.5)",display:"flex",padding:"8px 4px",zIndex:50,backdropFilter:"blur(20px)",boxShadow:"0 -2px 20px rgba(15,23,42,0.08)"}}>
+      {!isDesktop&&<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",background:"#ffffff",borderTop:"1px solid rgba(226,232,240,0.5)",display:"flex",padding:"8px 4px",zIndex:50,boxShadow:"0 -2px 20px rgba(15,23,42,0.08)"}}>
         {NAV.map(n=><button key={n.id} className={`nb${page===n.id?" on":""}`} onClick={()=>setPage(n.id)}>{n.icon}<span>{n.lbl}</span></button>)}
       </div>}
 

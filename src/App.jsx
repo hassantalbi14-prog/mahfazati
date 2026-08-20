@@ -1850,7 +1850,7 @@ function AppInner(){
       </div>
 
       {/* CONTENT */}
-      <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"16px 20px 90px",display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"16px 20px 140px",display:"flex",flexDirection:"column",gap:14}}>
 
         {page==="dashboard"&&(()=>{
           const leftContent = <>

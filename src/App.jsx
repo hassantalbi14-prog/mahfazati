@@ -1635,7 +1635,7 @@ function AppInner(){
   return (
     <div dir="rtl" style={isDesktop?{position:"fixed",inset:0,overflow:"hidden",background:"#e8ece9"}:undefined}>
     {isDesktop&&<DesktopSidebar/>}
-    <div dir="rtl" className={darkMode?"dark":""} style={{fontFamily:"'Tajawal',sans-serif",background:darkMode?"#0f172a":"#f5f5f0",minHeight:isDesktop?undefined:"100vh",height:isDesktop?undefined:"auto",color:darkMode?"#e2e8f0":"#1a1a1a",display:"flex",flexDirection:"column",position:isDesktop?"absolute":"relative",overflow:isDesktop?"hidden":"hidden",fontSize:(16*fontScale)+"px",...(isDesktop?{}:{zoom:fontScale}),...(isDesktop?{top:0,bottom:0,left:0,right:230,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
+    <div dir="rtl" className={darkMode?"dark":""} style={{fontFamily:"'Tajawal',sans-serif",background:darkMode?"#0f172a":"#f5f5f0",height:isDesktop?undefined:"100vh",color:darkMode?"#e2e8f0":"#1a1a1a",display:"flex",flexDirection:"column",position:isDesktop?"absolute":"relative",overflow:"hidden",fontSize:(16*fontScale)+"px",...(isDesktop?{top:0,bottom:0,left:0,right:230,boxShadow:"-1px 0 0 #e2e8f0"}:{})}}>
       {typeof window!=="undefined"&&window.__mhfLoadError&&(
         <div style={{position:"fixed",inset:0,zIndex:99999,background:"#fef2f2",padding:20,overflowY:"auto",display:"flex",flexDirection:"column",gap:14}}>
           <div style={{fontSize:40,textAlign:"center"}}>⚠️</div>
@@ -1850,7 +1850,7 @@ function AppInner(){
       </div>
 
       {/* CONTENT */}
-      <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"16px 20px 140px",display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{flex:1,minHeight:0,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"16px 20px 140px",display:"flex",flexDirection:"column",gap:14}}>
 
         {page==="dashboard"&&(()=>{
           const leftContent = <>

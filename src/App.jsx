@@ -1549,7 +1549,7 @@ function AppInner(){
         <button style={{...S.btn(isE?"#ef4444":"#10b981"),padding:"11px"}} onClick={()=>om("addMCat",{catType})}>+ إضافة تصنيف جديد</button>
       </div>
       {cats[catType].map(cat=>(
-        <div key={cat.id} style={{background:"white",borderRadius:16,margin:"0 14px 8px",boxShadow:"0 1px 6px rgba(0,0,0,.06)",overflow:"hidden"}}>
+        <div key={cat.id} style={{background:"white",borderRadius:16,margin:"0 14px 8px",boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
           <div style={{display:"flex",alignItems:"center",padding:"14px 14px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`cat_${cat.id}`]:!p[`cat_${cat.id}`]}))}>
             <div style={{width:44,height:44,borderRadius:13,background:cat.color+"22"||"#10b98122",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",fontSize:22,marginLeft:14,flexShrink:0}}>
               <Ico src={cat.ci} fb={cat.icon}/>
@@ -1591,7 +1591,7 @@ function AppInner(){
   };
 
   const AccCard=({sec,icon,label,color,amount,count,children})=>(
-    <div style={{...S.card,padding:0,overflow:"hidden",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[sec]:!p[sec]}))}>
+    <div style={{...S.card,padding:0,cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[sec]:!p[sec]}))}>
       <div style={{display:"flex",alignItems:"center",gap:12,padding:"16px"}}>
         <div style={{width:44,height:44,borderRadius:12,background:color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{icon}</div>
         <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15}}>{label}</div><div style={{fontSize:11,color:"#64748b",marginTop:2}}>{count}</div></div>
@@ -2338,7 +2338,7 @@ function AppInner(){
               // نستعمل investments state (بحال assets) — مع إضافة الأرباح من المعاملات
               const invTotal=investments.reduce((s,i)=>s+i.amount,0);
               const invReturn=investments.reduce((s,i)=>s+(i.profit||0),0);
-              const invNet=invReturn-invTotal;
+              const invNet=invReturn;
 
               return <>
                 <div style={{display:"flex",gap:8,marginBottom:8}}>
@@ -2358,7 +2358,7 @@ function AppInner(){
                 {investments.length>0&&<>
                   <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 الاستثمارات ({investments.length})</div>
                   {investments.map(inv=>{
-                    const net=(inv.profit||0)-inv.amount;
+                    const net=(inv.profit||0);
                     const invTxs=txs.filter(t=>t.isInvest&&t.invId===inv.id);
                     return(
                       <div key={inv.id} style={{...S.card,padding:"14px 16px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,ovPage:"invDetail",ovInv:inv.id}))}>
@@ -2495,7 +2495,7 @@ function AppInner(){
           </div>
 
           <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>المظهر والأمان<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
-          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+          <div style={{...S.card,padding:0}}>
             {[
               {id:"appearance",icon:"🎨",label:"المظهر",bg:"#eef0ea",fg:"#5c584c"},
               {id:"security",icon:"🔐",label:"الأمان والحساب",bg:"#eeedfc",fg:"#6366f1"},
@@ -2509,7 +2509,7 @@ function AppInner(){
           </div>
 
           <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>الأموال والأهداف<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
-          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+          <div style={{...S.card,padding:0}}>
             {[{id:"banks",icon:"🏦",label:"البنوك",bg:"#e5f5ee",fg:"#10b981"},{id:"cash",icon:"💵",label:"الكاش",bg:"#fdf3d9",fg:"#c98a0a"},{id:"assets",icon:"🏠",label:"الممتلكات",bg:"#e5f5ee",fg:"#10b981"}].map((item,i,arr)=>(
               <div key={item.id} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:"1px solid #f0efe9"}} onClick={()=>setDp(item.id)}>
                 <div style={{width:40,height:40,borderRadius:12,background:item.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{item.icon}</div>
@@ -2530,7 +2530,7 @@ function AppInner(){
           </div>
 
           <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>التصنيفات والبيانات<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
-          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+          <div style={{...S.card,padding:0}}>
             {[{id:"expCat",icon:"🔴",label:"تصنيفات النفقات",bg:"#fdeaea",count:`${cats.expense.length} تصنيف`},{id:"incCat",icon:"🟢",label:"تصنيفات الدخل",bg:"#e5f5ee",count:`${cats.income.length} تصنيف`}].map((item,i,arr)=>(
               <div key={item.id} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:"1px solid #f0efe9"}} onClick={()=>setDp(item.id)}>
                 <div style={{width:40,height:40,borderRadius:12,background:item.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{item.icon}</div>
@@ -2694,7 +2694,7 @@ function AppInner(){
             </div>
           </div>
 
-                  <div style={{...S.card,padding:0,overflow:"hidden"}}>
+                  <div style={{...S.card,padding:0}}>
             <div style={{display:"flex",alignItems:"center",padding:"16px",cursor:"pointer",borderBottom:"1px solid #e2e8f0"}} onClick={()=>om("changePw")}>
               <div style={{width:42,height:42,borderRadius:12,background:"#f5f5f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginLeft:14,flexShrink:0}}>🔑</div>
               <span style={{flex:1,fontSize:16,fontWeight:700,color:"#1a1a1a"}}>تغيير كلمة السر</span>
@@ -2875,7 +2875,7 @@ function AppInner(){
                     </div>
 
           {/* ====== الأقسام الخمسة ====== */}
-          <div style={{...S.card,padding:0,overflow:"hidden"}}>
+          <div style={{...S.card,padding:0}}>
             <div style={{padding:"10px 16px 6px",fontSize:11,color:"#64748b",fontWeight:700,letterSpacing:1,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>🧩 الأقسام الخمسة</div>
 
             {/* نسبة الطوارئ للميزانية */}
@@ -3389,7 +3389,7 @@ function AppInner(){
                   {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
 
                   <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"4px 4px 10px",display:"flex",alignItems:"center",gap:6}}>الحفظ والاسترجاع<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
-                  <div style={{...S.card,padding:0,overflow:"hidden"}}>
+                  <div style={{...S.card,padding:0}}>
                     {[
                       {icon:"📤",bg:"#e5f5ee",label:"تحميل نسخة احتياطية",fn:expData,lbl:"تحميل نسخة احتياطية"},
                       {icon:"☁️",bg:"#e6f2fb",label:"حفظ في Google Drive",fn:openDriveAfterExport,lbl:"حفظ في Google Drive"},
@@ -3408,7 +3408,7 @@ function AppInner(){
                   </div>
 
                   <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>تصدير البيانات<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
-                  <div style={{...S.card,padding:0,overflow:"hidden"}}>
+                  <div style={{...S.card,padding:0}}>
                     {[
                       {icon:"📊",bg:"#e5f5ee",label:"تصدير Excel (المعاملات)",fn:exportExcel,lbl:"تصدير Excel (المعاملات)"},
                       {icon:"📥",bg:"#e5f5ee",label:"استيراد Excel",fn:()=>excelRef.current.click(),lbl:"استيراد Excel"},

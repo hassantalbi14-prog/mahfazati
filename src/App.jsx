@@ -2284,7 +2284,7 @@ function AppInner(){
             const inv=investments.find(i=>i.id===ovExp.ovInv);
             if(!inv)return null;
             const invTxs=txs.filter(t=>t.isInvest&&(t.invId===inv.id||(t.desc||"").includes(inv.name))).sort((a,b)=>b.date.localeCompare(a.date));
-            const net=(inv.profit||0)-inv.amount;
+            const net=(inv.profit||0);
             return <>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
                 <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"invest",ovInv:null}))}>← رجوع</button>

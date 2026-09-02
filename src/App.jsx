@@ -264,6 +264,7 @@ function AppInner(){
   const[appPassword,setAppPassword]=useState(()=>localStorage.getItem("mhf_pw")||"1234");
   const fRef=useRef();
   const excelRef=useRef();
+  const distExcelRef=useRef();
   const iRef=useRef();
   const eiRef=useRef();
 
@@ -427,7 +428,7 @@ function AppInner(){
   const pie=Object.entries(expByCat).map(([name,value])=>({name,value}));
   const chart=Array.from({length:6},(_,i)=>{const now=new Date();const d=new Date(now.getFullYear(),now.getMonth()-i,1);const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return{lbl:d.toLocaleString("ar-MA",{month:"short"}),inc:txs.filter(t=>t.type==="income"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0),exp:txs.filter(t=>t.type==="expense"&&t.date.startsWith(k)&&t.pm!=="تحويل"&&!t.isTransfer&&!t.isAsset&&!t.isInvest).reduce((s,t)=>s+t.amount,0)};}).reverse();
 
-  const om=(t,x={})=>{setForm(x);setModal(t);};
+  const om=(t,x={})=>{setForm(x);setModal(t);setOvExp(p=>({...p,overrunPending:null,overrunStep:0,forceOverride:false}));};
   const cm=()=>{setModal(null);setForm({});};
   const F=(k,v)=>setForm(f=>({...f,[k]:v}));
   const showErr=m=>{setErr(m);setTimeout(()=>setErr(null),3500);};
@@ -889,14 +890,15 @@ function AppInner(){
     const _selCat=gc(form.txType||"expense",parseInt(form.catId));
     if(_selCat?.subs?.length>0&&!form.subId){showErr("⛔ الفرع إجباري — اختر الفرع");return;}
     if(form.pm!=="كريدي"&&!form.akey){showErr("⛔ اختر الحساب");return;}
-    // منع المصروف إذا الميزانية ناقصة
+    // منع المصروف إذا الميزانية ناقصة — بتأكيد 3 خطوات بدل المنع الكامل
     if((form.txType||"expense")==="expense"&&!form.isLoan&&!form.isInvest&&!form.isAsset){
       const expBkt=(budgetSettings.buckets||[]).find(b=>b.type==="expenses");
       if(expBkt){
         const bktBal=getBucketBalanceLive("expenses");
         const newAmt=parseFloat(form.amount)||0;
-        if(bktBal-newAmt<0){
-          showErr(`⛔ رصيد الميزانية غير كافي — المتاح: ${fmt(Math.max(0,bktBal))} د.م`);return;
+        if(bktBal-newAmt<0&&!ovExp.forceOverride){
+          setOvExp(p=>({...p,overrunPending:{kind:"bucket",available:bktBal,needed:newAmt},overrunStep:0}));
+          return;
         }
         const bktAllocated=computeBucketAllocated("expenses");
         if(bktAllocated>0){
@@ -919,8 +921,10 @@ function AppInner(){
       const subIdNum=form.subId?parseInt(form.subId):null;
       const catBal=getCatBalance(catIdNum,subIdNum,curYear);
       const newAmt2=parseFloat(form.amount)||0;
-      if(catBal-newAmt2<0){
-        showErr(`⛔ رصيد التصنيف غير كافي — المتاح: ${fmt(Math.max(0,catBal))} د.م`);return;
+      if(catBal-newAmt2<0&&!ovExp.forceOverride){
+        const catName=gc("expense",catIdNum)?.name||"التصنيف";
+        setOvExp(p=>({...p,overrunPending:{kind:"category",available:catBal,needed:newAmt2,catName},overrunStep:0}));
+        return;
       }
       const catDetailBefore=getCatDetail(catIdNum,subIdNum,curYear);
       if(catDetailBefore.totalAvail>0){
@@ -944,6 +948,7 @@ function AppInner(){
     const tx={id:uid(),type:form.txType||"expense",amount:amt,catId:(isNaN(parseInt(form.catId))?form.catId:parseInt(form.catId)),subId:form.subId?(isNaN(parseInt(form.subId))?form.subId:parseInt(form.subId)):null,desc:form.desc||"",date:form.date||new Date().toISOString().split("T")[0],pm:form.pm||"نقدي",ref:acc?.ref||null};
     setTxs(p=>[tx,...p]);
     if(tx.pm!=="كريدي"&&acc)updBal(acc.ref,tx.amount,tx.type,"add");
+    setOvExp(p=>({...p,forceOverride:false,overrunPending:null,overrunStep:0}));
     cm();
     // ملاحظة: توزيع الأقسام الخمسة أوتوماتيكي بالكامل (نسبة % من كل دخل)
     // ما خاصوش أي خطوة يدوية — الأرصدة كتتحسب مباشرة فصفحة الميزانية
@@ -1353,6 +1358,97 @@ function AppInner(){
       }
     }catch(e){showErr("⛔ فشل تصدير Excel — خاصك تدير npm install xlsx");setTimeout(()=>setErr(null),4000);}
   };
+
+  const exportExcelFull=async()=>{
+    try{
+      const XLSX=await import("xlsx");
+      const wb=XLSX.utils.book_new();
+
+      // 1) المعاملات
+      const txRows=txs.map(t=>{
+        const tp=t.type==="income"?"income":"expense";
+        const c=gc(tp,t.catId);
+        const s=t.subId?gs(tp,t.catId,t.subId):null;
+        const acc=allAcc.find(a=>JSON.stringify(a.ref)===JSON.stringify(t.ref));
+        return{"التاريخ":t.date,"النوع":t.type==="income"?"دخل":"مصروف","التصنيف":c?.name||"","الفرع":s?.name||"","المبلغ":t.amount,"الحساب":acc?`${acc.bn} - ${acc.name}`:"","الوصف":t.desc||"","طريقة الدفع":t.pm||""};
+      });
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(txRows),"المعاملات");
+
+      // 2) البنوك
+      const bankRows=[];
+      banks.forEach(b=>b.accounts.forEach(a=>bankRows.push({"البنك":b.name,"الحساب":a.name,"الرصيد":a.balance})));
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bankRows),"البنوك");
+
+      // 3) الكاش
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(cash.map(c=>({"النوع":c.type,"الرصيد":c.balance}))),"الكاش");
+
+      // 4) الممتلكات
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(assets.map(a=>({"الاسم":a.name,"القيمة":a.value}))),"الممتلكات");
+
+      // 5) الاستثمارات
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(investments.map(i=>({"الاسم":i.name,"رأس المال":i.amount,"الأرباح":i.profit||0}))),"الاستثمارات");
+
+      // 6) السلف
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(loans.map(l=>({"النوع":l.kind,"الاسم":l.name||"","المبلغ الأصلي":l.amount,"المتبقي":l.remaining}))),"السلف");
+
+      // 7) تصنيفات المصاريف
+      const expCatRows=[];
+      (cats.expense||[]).forEach(c=>{
+        if(c.subs&&c.subs.length>0)c.subs.forEach(s=>expCatRows.push({"التصنيف":c.name,"الفرع":s.name}));
+        else expCatRows.push({"التصنيف":c.name,"الفرع":""});
+      });
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(expCatRows),"تصنيفات المصاريف");
+
+      // 8) تصنيفات الدخل
+      const incCatRows=[];
+      (cats.income||[]).forEach(c=>{
+        if(c.subs&&c.subs.length>0)c.subs.forEach(s=>incCatRows.push({"التصنيف":c.name,"الفرع":s.name}));
+        else incCatRows.push({"التصنيف":c.name,"الفرع":""});
+      });
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(incCatRows),"تصنيفات الدخل");
+
+      // 9) توزيع الميزانية على التصنيفات (سنة/تصنيف/فرع/نسبة)
+      const distRows=[];
+      (budgetSettings.catDistYears||[]).forEach(d=>{
+        (d.catPcts||[]).forEach(cp=>{
+          const cat=(cats.expense||[]).find(c=>c.id===cp.catId);
+          const subList=(d.subPcts||{})[cp.catId]||[];
+          if(subList.length>0){
+            subList.forEach(sp=>{
+              const sub=cat?.subs?.find(s=>s.id===sp.subId);
+              distRows.push({"السنة":d.year,"التصنيف":cat?.name||cp.catId,"الفرع":sub?.name||"","النسبة %":sp.pct});
+            });
+          } else {
+            distRows.push({"السنة":d.year,"التصنيف":cat?.name||cp.catId,"الفرع":"","النسبة %":cp.pct});
+          }
+        });
+      });
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(distRows),"توزيع الميزانية");
+
+      // 10) الأقسام الخمسة عبر السنين (tiers)
+      const tierRows=[];
+      (budgetSettings.tiersByYear||[]).forEach(ty=>{
+        (ty.tiers||[]).forEach((t,i)=>tierRows.push({"السنة":ty.year,"الشريحة":i+1,"الحد الأقصى":t.max===null?"بلا حد":t.max,"الميزانية %":t.budget,"الطوارئ %":t.emergency,"الممتلكات %":t.assets,"الاستثمار %":t.investment,"التقاعد %":t.retirement}));
+      });
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(tierRows),"شرائح التوزيع");
+
+      // 11) أهداف الدخل عبر السنين
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet((budgetSettings.incomeGoalsByYear||[]).map(g=>({"السنة":g.year,"هدف الدخل":g.amount}))),"أهداف الدخل");
+
+      const base64=XLSX.write(wb,{type:"base64",bookType:"xlsx"});
+      const fileName="mahfazati-full-export-"+new Date().toISOString().split("T")[0]+".xlsx";
+      try{
+        const {Filesystem,Directory}=await import("@capacitor/filesystem");
+        await Filesystem.writeFile({path:fileName,data:base64,directory:Directory.Documents,recursive:true});
+        setBkMsg("✅ تم تصدير كل البيانات فـ Documents/"+fileName);setTimeout(()=>setBkMsg(null),4500);
+      }catch(e2){
+        const bin=atob(base64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+        const blob=new Blob([arr],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+        const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=fileName;a.click();URL.revokeObjectURL(u);
+        setBkMsg("✅ تم تحميل التصدير الكامل — شوف Downloads");setTimeout(()=>setBkMsg(null),4000);
+      }
+    }catch(e){showErr("⛔ فشل التصدير الكامل — "+(e?.message||""));setTimeout(()=>setErr(null),4000);}
+  };
   const importExcel=async(e)=>{
     const file=e.target.files[0];if(!file)return;
     try{
@@ -1385,6 +1481,99 @@ function AppInner(){
       setTxs(p=>[...newTxs,...p]);
       setBkMsg(`✅ تم استيراد ${newTxs.length} معاملة من Excel`);setTimeout(()=>setBkMsg(null),4000);
     }catch(err){console.error(err);showErr("⛔ فشل الاستيراد — تأكد من شكل الملف (نفس أعمدة التصدير)");setTimeout(()=>setErr(null),4000);}
+    e.target.value="";
+  };
+  const importDistributionExcel=async(e)=>{
+    const file=e.target.files[0];if(!file)return;
+    try{
+      const XLSX=await import("xlsx");
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:"array"});
+      autoBackup("before-distribution-import");
+      let newBudgetSettings={...budgetSettings};
+      let summary=[];
+
+      // 1) توزيع الميزانية على التصنيفات
+      if(wb.SheetNames.includes("توزيع الميزانية")){
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets["توزيع الميزانية"]);
+        const byYear={};
+        rows.forEach(r=>{
+          const year=String(r["السنة"]||"").trim();
+          const catName=String(r["التصنيف"]||"").trim();
+          const subName=String(r["الفرع"]||"").trim();
+          const pct=parseFloat(r["النسبة %"])||0;
+          if(!year||!catName||pct<=0)return;
+          const cat=(cats.expense||[]).find(c=>c.name===catName);
+          if(!cat)return;
+          if(!byYear[year])byYear[year]={catPcts:{},subPcts:{}};
+          if(subName){
+            const sub=(cat.subs||[]).find(s=>s.name===subName);
+            if(!sub)return;
+            if(!byYear[year].subPcts[cat.id])byYear[year].subPcts[cat.id]=[];
+            byYear[year].subPcts[cat.id].push({subId:sub.id,pct});
+            byYear[year].catPcts[cat.id]=(byYear[year].catPcts[cat.id]||0)+pct;
+          } else {
+            byYear[year].catPcts[cat.id]=(byYear[year].catPcts[cat.id]||0)+pct;
+          }
+        });
+        const newCatDistYears=Object.keys(byYear).sort().map(year=>({
+          year,
+          catPcts:Object.keys(byYear[year].catPcts).map(catId=>({catId:parseInt(catId),pct:byYear[year].catPcts[catId]})),
+          subPcts:Object.keys(byYear[year].subPcts).reduce((acc,catId)=>{acc[catId]=byYear[year].subPcts[catId];return acc;},{}),
+        }));
+        // ندمجو مع السنين الموجودة ديجا (نبدلو غير السنين اللي كاينين فالملف)
+        const existingYears=(newBudgetSettings.catDistYears||[]).filter(d=>!byYear[d.year]);
+        newBudgetSettings.catDistYears=[...existingYears,...newCatDistYears].sort((a,b)=>a.year.localeCompare(b.year));
+        summary.push(`${newCatDistYears.length} سنة (توزيع التصنيفات)`);
+      }
+
+      // 2) شرائح التوزيع (الأقسام الخمسة)
+      if(wb.SheetNames.includes("شرائح التوزيع")){
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets["شرائح التوزيع"]);
+        const byYear={};
+        rows.forEach(r=>{
+          const year=String(r["السنة"]||"").trim();
+          if(!year)return;
+          if(!byYear[year])byYear[year]=[];
+          const maxRaw=r["الحد الأقصى"];
+          byYear[year].push({
+            max:(maxRaw==="بلا حد"||maxRaw===""||maxRaw===undefined)?null:parseFloat(maxRaw),
+            budget:parseFloat(r["الميزانية %"])||0,
+            emergency:parseFloat(r["الطوارئ %"])||0,
+            assets:parseFloat(r["الممتلكات %"])||0,
+            investment:parseFloat(r["الاستثمار %"])||0,
+            retirement:parseFloat(r["التقاعد %"])||0,
+          });
+        });
+        const newTiersByYear=Object.keys(byYear).sort().map(year=>({year,tiers:byYear[year]}));
+        const existingTierYears=(newBudgetSettings.tiersByYear||[]).filter(d=>!byYear[d.year]);
+        newBudgetSettings.tiersByYear=[...existingTierYears,...newTiersByYear].sort((a,b)=>a.year.localeCompare(b.year));
+        summary.push(`${newTiersByYear.length} سنة (شرائح التوزيع)`);
+      }
+
+      // 3) أهداف الدخل
+      if(wb.SheetNames.includes("أهداف الدخل")){
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets["أهداف الدخل"]);
+        const byYear={};
+        rows.forEach(r=>{
+          const year=String(r["السنة"]||"").trim();
+          const amount=parseFloat(r["هدف الدخل"])||0;
+          if(!year||amount<=0)return;
+          byYear[year]=amount;
+        });
+        const newGoals=Object.keys(byYear).sort().map(year=>({year,amount:byYear[year]}));
+        const existingGoalYears=(newBudgetSettings.incomeGoalsByYear||[]).filter(d=>!byYear[d.year]);
+        newBudgetSettings.incomeGoalsByYear=[...existingGoalYears,...newGoals].sort((a,b)=>a.year.localeCompare(b.year));
+        summary.push(`${newGoals.length} سنة (أهداف الدخل)`);
+      }
+
+      if(summary.length===0){
+        showErr("⛔ ماكاينش شيتات معروفة فالملف — خاصو يحتوي 'توزيع الميزانية' و/أو 'شرائح التوزيع' و/أو 'أهداف الدخل'");
+        setTimeout(()=>setErr(null),4500);e.target.value="";return;
+      }
+      setBudgetSettings(newBudgetSettings);_save('budgetSettings',newBudgetSettings);
+      setBkMsg(`✅ تم استيراد التوزيع: ${summary.join(" · ")}`);setTimeout(()=>setBkMsg(null),5000);
+    }catch(err){console.error(err);showErr("⛔ فشل استيراد التوزيع — تأكد من شكل الملف");setTimeout(()=>setErr(null),4000);}
     e.target.value="";
   };
   const impData=e=>{
@@ -1853,7 +2042,32 @@ function AppInner(){
       <div style={{flex:1,minHeight:0,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"16px 20px 140px",display:"flex",flexDirection:"column",gap:14}}>
 
         {page==="dashboard"&&(()=>{
+          const bktAllocNow=computeBucketAllocated("expenses");
+          const bktBalNow=getBucketBalanceLive("expenses");
+          const bktSpentNow=Math.max(bktAllocNow-bktBalNow,0);
+          const todayDay=new Date().getDate();
+          const daysInMonth=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
+          const isMonthEnd=todayDay>=daysInMonth-4;
+          const shortfall=bktAllocNow>0&&mInc<bktAllocNow?bktAllocNow-mInc:0;
+          const showShortfallBanner=shortfall>0&&!ovExp.dismissShortfall;
+          const showSurplusBanner=isMonthEnd&&bktBalNow>0&&!ovExp.dismissSurplus;
           const leftContent = <>
+          {showShortfallBanner&&<div style={{background:"#fef3c7",border:"1.5px solid #f59e0b",borderRadius:14,padding:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><span style={{fontSize:18}}>⚠️</span><span style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>الميزانية ناقصة هاد الشهر</span></div>
+            <div style={{fontSize:11.5,color:"#5c584c",marginBottom:10,lineHeight:1.6}}>الدخل لحد دابا ({fmt(mInc)}) ماكافيش لهدف الميزانية ({fmt(bktAllocNow)}). باقي {fmt(shortfall)} درهم.</div>
+            <div style={{display:"flex",gap:8}}>
+              <button style={{...S.btn("#f59e0b"),flex:1,padding:"9px",fontSize:11.5}} onClick={()=>setPage("buckets")}>🚨 جيبها من الطوارئ</button>
+              <button style={{...S.btn("#fff",false),flex:1,padding:"9px",fontSize:11.5,color:"#92400e",border:"1px solid #f59e0b"}} onClick={()=>setOvExp(p=>({...p,dismissShortfall:true}))}>تجاهل</button>
+            </div>
+          </div>}
+          {showSurplusBanner&&<div style={{background:"#e0f2fe",border:"1.5px solid #3b82f6",borderRadius:14,padding:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><span style={{fontSize:18}}>💰</span><span style={{fontWeight:800,fontSize:13,color:"#1a1a1a"}}>بقا فائض هاد الشهر</span></div>
+            <div style={{fontSize:11.5,color:"#5c584c",marginBottom:10,lineHeight:1.6}}>صرفتي {fmt(bktSpentNow)} من أصل {fmt(bktAllocNow)}. بقا ليك {fmt(bktBalNow)} درهم مامصروفش.</div>
+            <div style={{display:"flex",gap:8}}>
+              <button style={{...S.btn("#3b82f6"),flex:1,padding:"9px",fontSize:11.5}} onClick={()=>setPage("buckets")}>🚨 حطها فالطوارئ</button>
+              <button style={{...S.btn("#fff",false),flex:1,padding:"9px",fontSize:11.5,color:"#1e40af",border:"1px solid #3b82f6"}} onClick={()=>setOvExp(p=>({...p,dismissSurplus:true}))}>خليها للشهر الجاي</button>
+            </div>
+          </div>}
           <div style={{background:"linear-gradient(145deg,#1a6b4a,#0f4a33)",borderRadius:24,padding:26,position:"relative",overflow:"hidden",cursor:"pointer",boxShadow:"0 8px 32px rgba(26,107,74,.35)"}} onClick={()=>setPage("overview")}>
             <div style={{position:"absolute",top:-30,left:-30,width:130,height:130,borderRadius:"50%",background:"rgba(255,255,255,.07)"}}/>
             <div style={{position:"absolute",bottom:-40,right:-20,width:160,height:160,borderRadius:"50%",background:"rgba(255,255,255,.07)"}}/>
@@ -3411,7 +3625,9 @@ function AppInner(){
                   <div style={{...S.card,padding:0}}>
                     {[
                       {icon:"📊",bg:"#e5f5ee",label:"تصدير Excel (المعاملات)",fn:exportExcel,lbl:"تصدير Excel (المعاملات)"},
+                      {icon:"📦",bg:"#eeedfc",label:"تصدير كل البيانات (Excel شامل)",fn:exportExcelFull,lbl:"تصدير كل البيانات"},
                       {icon:"📥",bg:"#e5f5ee",label:"استيراد Excel",fn:()=>excelRef.current.click(),lbl:"استيراد Excel"},
+                      {icon:"📐",bg:"#eeedfc",label:"استيراد توزيع الميزانية (Excel)",fn:()=>distExcelRef.current.click(),lbl:"استيراد توزيع الميزانية"},
                       {icon:"📄",bg:"#fdeaea",label:"تصدير تقرير PDF",fn:exportReportPDF,lbl:"تصدير تقرير PDF"},
                     ].map((it,i,arr)=>(
                       <div key={it.label} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #f0efe9":"none"}} onClick={()=>{
@@ -3453,6 +3669,7 @@ function AppInner(){
                     </div>}
                   </div>
                   <input ref={excelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importExcel}/>
+                  <input ref={distExcelRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={importDistributionExcel}/>
                   <div style={{background:"#fdeaea",border:"1.5px dashed #f0b8b8",borderRadius:14,padding:16,marginTop:8}}>
                     <div style={{fontWeight:800,color:"#c0392b",marginBottom:8,fontSize:14.5}}>🗑️ إعادة ضبط كامل</div>
                     <div style={{fontSize:12,color:"#8a5a52",marginBottom:12}}>كتمسح كل البيانات بما فيها البنوك والتصنيفات</div>
@@ -5163,7 +5380,36 @@ function AppInner(){
               <input style={S.inp} placeholder="الوصف" value={modal==="addTx"?form.desc||"":ei?.desc||""} onChange={e=>modal==="addTx"?F("desc",e.target.value):setEi(p=>({...p,desc:e.target.value}))}/>
               <input style={S.inp} type="date" value={modal==="addTx"?form.date||new Date().toISOString().split("T")[0]:ei?.date||""} onChange={e=>modal==="addTx"?F("date",e.target.value):setEi(p=>({...p,date:e.target.value}))}/>
               {(modal==="addTx"?(form.txType||"expense"):ei?.type)==="expense"&&<PmBtns val={modal==="addTx"?form.pm||"نقدي":ei?.pm||"نقدي"} onChange={v=>modal==="addTx"?F("pm",v):setEi(p=>({...p,pm:v}))}/>}
-              <button style={S.btn(modal==="addTx"?"#10b981":"#6366f1")} onClick={modal==="addTx"?addTx:saveTxEdit}>حفظ</button>
+              {modal==="addTx"&&ovExp.overrunPending?(
+                <div style={{background:"#fef2f2",border:"1.5px solid #ef4444",borderRadius:14,padding:14,textAlign:"center"}}>
+                  <div style={{fontSize:28,marginBottom:6}}>🚫</div>
+                  <div style={{fontWeight:900,color:"#ef4444",fontSize:14,marginBottom:6}}>
+                    {ovExp.overrunPending.kind==="bucket"?"وصلتي لحد الميزانية الكلية!":`وصلتي لحد تصنيف "${ovExp.overrunPending.catName}"!`}
+                  </div>
+                  <div style={{fontSize:12,color:"#5c584c",marginBottom:12,lineHeight:1.7}}>
+                    المتاح: {fmt(Math.max(0,ovExp.overrunPending.available))} · هاد المصروف: {fmt(ovExp.overrunPending.needed)}
+                  </div>
+                  <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:12}}>
+                    {[0,1,2].map(i=>(
+                      <div key={i} style={{width:(ovExp.overrunStep||0)>i?20:8,height:8,borderRadius:4,background:(ovExp.overrunStep||0)>i?"#ef4444":"#f1d5d5",transition:"all .2s"}}/>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button style={{...S.btn("#e8e8e4",false),flex:1,padding:"10px",fontSize:12,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,overrunPending:null,overrunStep:0,forceOverride:false}))}>إلغاء</button>
+                    <button style={{...S.btn("#ef4444"),flex:1,padding:"10px",fontSize:12}} onClick={()=>{
+                      const nextStep=(ovExp.overrunStep||0)+1;
+                      if(nextStep>=3){
+                        setOvExp(p=>({...p,forceOverride:true,overrunStep:0}));
+                        setTimeout(()=>addTx(),0);
+                      } else {
+                        setOvExp(p=>({...p,overrunStep:nextStep}));
+                      }
+                    }}>{(ovExp.overrunStep||0)>=2?"✅ تأكيد نهائي، كمل":`متأكد؟ (${(ovExp.overrunStep||0)+1}/3)`}</button>
+                  </div>
+                </div>
+              ):(
+                <button style={S.btn(modal==="addTx"?"#10b981":"#6366f1")} onClick={modal==="addTx"?addTx:saveTxEdit}>حفظ</button>
+              )}
               </>)}
             </div>}
 

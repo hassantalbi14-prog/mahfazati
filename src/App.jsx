@@ -1058,10 +1058,10 @@ function AppInner(){
       if(retBal!==null&&amt>retBal){showErr(`⛔ قسم التقاعد ناقص — المتاح: ${fmt(Math.max(retBal,0))}`);return;}
     }
     const txType=form.kind==="أعطيت"?"expense":"income";
+    const newLoanId=uid();
     if(acc)updBal(acc.ref,amt,txType,"add");
     const ldate=form.date||new Date().toISOString().split("T")[0];
-    setTxs(p=>[{id:uid(),type:txType,amount:amt,catId:null,subId:null,desc:`${form.kind==="أعطيت"?"سلفة لـ":form.wi?"قرض من":"سلفة من"} ${form.person}`,date:ldate,pm:"نقدي",ref:acc?.ref||null,isLoan:true,isTransfer:true,loanKind:form.kind||"أعطيت"},...p]);
-    const newLoanId=uid();
+    setTxs(p=>[{id:uid(),type:txType,amount:amt,catId:null,subId:null,desc:`${form.kind==="أعطيت"?"سلفة لـ":form.wi?"قرض من":"سلفة من"} ${form.person}`,date:ldate,pm:"نقدي",ref:acc?.ref||null,isLoan:true,isTransfer:true,loanKind:form.kind||"أعطيت",loanId:newLoanId},...p]);
     setLoans(p=>[...p,{id:newLoanId,kind:form.kind||"أعطيت",person:form.person,amount:amt,remaining:amt,date:ldate,note:form.note||"",wi:!!form.wi,interest:parseFloat(form.irate||0),inst:!!form.inst,minst:parseFloat(form.minst||0),akey:form.akey,remindDate:form.remindDate||null}]);
     if(form.remindDate)scheduleLoanReminder(newLoanId,form.person,amt,form.remindDate,form.kind||"أعطيت");
     cm();
@@ -1089,7 +1089,18 @@ function AppInner(){
     if(t==="bacc"){const b=banks.find(x=>x.id===ex);const a=b?.accounts.find(x=>x.id===id);if((a?.balance||0)>0){showErr("⛔ الحساب فيه رصيد");setCd(null);return;}setBanks(p=>p.map(b=>b.id===ex?{...b,accounts:b.accounts.filter(a=>a.id!==id)}:b));}
     if(t==="cash"){const c=cash.find(x=>x.id===id);if((c?.balance||0)>0){showErr("⛔ الكاش فيه رصيد");setCd(null);return;}setCash(p=>p.filter(x=>x.id!==id));}
     if(t==="ast")setAssets(p=>p.filter(x=>x.id!==id));
-    if(t==="loan"){const l=loans.find(x=>x.id===id);if((l?.remaining||0)>0){showErr("⛔ القرض لم يُسدد");setCd(null);return;}setLoans(p=>p.filter(x=>x.id!==id));}
+    if(t==="loan"){
+      const l=loans.find(x=>x.id===id);
+      if((l?.remaining||0)>0&&!ex?.forceLoanDel){
+        showErr("⛔ القرض لم يُسدد — دوس حذف مرة أخرى للتأكيد إلا بغيتي تحذفو وترجع الفلوس لحالها");
+        setCd(p=>({...p,ex:{...(p.ex||{}),forceLoanDel:true}}));
+        return;
+      }
+      const relatedTxs=txs.filter(tx=>tx.loanId===id);
+      relatedTxs.forEach(tx=>{if(tx.ref)updBal(tx.ref,tx.amount,tx.type,"remove");});
+      setTxs(p=>p.filter(tx=>tx.loanId!==id));
+      setLoans(p=>p.filter(x=>x.id!==id));
+    }
     if(t==="tx"){delTx(id);setCd(null);return;}
     if(t==="mcat"){if(txs.some(tx=>tx.catId===id)){showErr("⛔ التصنيف مستخدم");setCd(null);return;}setCats(p=>({...p,[ex]:p[ex].filter(c=>c.id!==id)}));}
     if(t==="scat"){if(txs.some(tx=>tx.subId===id)){showErr("⛔ الفرع مستخدم");setCd(null);return;}setCats(p=>({...p,[ex.ct]:p[ex.ct].map(c=>c.id===ex.cid?{...c,subs:c.subs.filter(s=>s.id!==id)}:c)}));}
@@ -3068,16 +3079,32 @@ function AppInner(){
                       <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>هادو النسب الحقيقية اللي كتستعملها كل الحسابات لهاد العام</div>
                       {tiersExisting?(
                         <>
-                          {tiersExisting.tiers.map((t,i)=>(
-                            <div key={i} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
-                              <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:6}}>
-                                {i===0?`دخل أقل من ${fmt(t.max)}`:(t.max===Infinity||t.max===null||t.max>=999999999)?`دخل أكبر من ${fmt(tiersExisting.tiers[i-1].max)}`:`دخل بين ${fmt(tiersExisting.tiers[i-1].max)} و${fmt(t.max)}`}
-                              </div>
-                              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                                {bKeys.map(k=><span key={k} style={{fontSize:11,color:"#475569"}}>{bLabels[k]}: <b>{t.pcts[k]||0}%</b></span>)}
-                              </div>
-                            </div>
-                          ))}
+                          {(()=>{
+                            const goalForCalc=incomeExisting?.amount||0;
+                            let cumAmounts={};bKeys.forEach(k=>cumAmounts[k]=0);
+                            let prevMax=0;
+                            return tiersExisting.tiers.map((t,i)=>{
+                              const bracketSize=goalForCalc>0?Math.max(0,Math.min(t.max,goalForCalc)-prevMax):0;
+                              const tierAmounts={};
+                              bKeys.forEach(k=>{tierAmounts[k]=bracketSize*((t.pcts[k]||0)/100);cumAmounts[k]+=tierAmounts[k];});
+                              const row=<div key={i} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
+                                <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:6}}>
+                                  {i===0?`دخل أقل من ${fmt(t.max)}`:(t.max===Infinity||t.max===null||t.max>=999999999)?`دخل أكبر من ${fmt(tiersExisting.tiers[i-1].max)}`:`دخل بين ${fmt(tiersExisting.tiers[i-1].max)} و${fmt(t.max)}`}
+                                </div>
+                                {bKeys.map(k=>(
+                                  <div key={k} style={{marginBottom:4}}>
+                                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
+                                      <span style={{color:"#475569"}}>{bLabels[k]}: <b>{t.pcts[k]||0}%</b></span>
+                                      {goalForCalc>0&&<span style={{fontWeight:800,color:"#1a6b4a"}}>{fmt(tierAmounts[k])} د.م</span>}
+                                    </div>
+                                    {i>0&&goalForCalc>0&&<div style={{fontSize:9,color:"#1a6b4a",textAlign:"left"}}>مجموع 1→{i+1}: {fmt(cumAmounts[k])} د.م</div>}
+                                  </div>
+                                ))}
+                              </div>;
+                              prevMax=t.max;
+                              return row;
+                            });
+                          })()}
                           {ovExp[`confirmDelTiers_${selYear}`]?(
                             <div style={{display:"flex",flexDirection:"column",gap:6}}>
                               {selYear!==nowYear.toString()&&<div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>⚠️ حذف سنة قديمة قد يأثر على حسابات السنين الجايين</div>}
@@ -3097,27 +3124,46 @@ function AppInner(){
                         </>
                       ):(
                         <div>
-                          {[0,1,2,3,4].map(ti=>{
+                          {(()=>{
+                            const goalForCalc=incomeExisting?.amount||parseFloat(ovExp.newIncomeAmt)||0;
+                            let cumAmounts={};bKeys.forEach(k=>cumAmounts[k]=0);
+                            let prevMax=0;
+                            return [0,1,2,3,4].map(ti=>{
                             const tKey=n=>`newTierY_${selYear}_${ti}_${n}`;
                             const defaults=DEFAULT_TIERS[ti];
                             const tot=bKeys.reduce((s,k)=>s+(parseInt(ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0))||0),0);
-                            return <div key={ti} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
+                            const maxVal=ti===4?Infinity:(parseFloat(ovExp[tKey("max")]!==undefined?ovExp[tKey("max")]:defaults.max)||defaults.max);
+                            const bracketSize=goalForCalc>0?Math.max(0,Math.min(maxVal,goalForCalc)-prevMax):0;
+                            const tierAmounts={};
+                            bKeys.forEach(k=>{
+                              const pctVal=parseInt(ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0))||0;
+                              tierAmounts[k]=bracketSize*(pctVal/100);
+                              cumAmounts[k]+=tierAmounts[k];
+                            });
+                            const row=<div key={ti} style={{background:"#f8fafc",borderRadius:10,padding:10,marginBottom:8}}>
                               <div style={{fontSize:12,fontWeight:800,marginBottom:6}}>المستوى {ti+1}</div>
                               {ti<4&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
                                 <span style={{fontSize:11,color:"#64748b"}}>الحد الأقصى للدخل:</span>
                                 <input style={{...S.inp,width:90,padding:"6px 8px",fontSize:12}} type="number" value={ovExp[tKey("max")]!==undefined?ovExp[tKey("max")]:defaults.max} onChange={e=>setOvExp(p=>({...p,[tKey("max")]:e.target.value}))}/>
                               </div>}
                               {bKeys.map(k=>(
-                                <div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                                  <div style={{flex:1,fontSize:12}}>{bLabels[k]}</div>
-                                  <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100"
-                                    value={ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0)} onChange={e=>setOvExp(p=>({...p,[tKey(k)]:e.target.value}))}/>
-                                  <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                                <div key={k} style={{marginBottom:6}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                    <div style={{flex:1,fontSize:12}}>{bLabels[k]}</div>
+                                    {goalForCalc>0&&<span style={{fontSize:10,fontWeight:800,color:"#1a6b4a",whiteSpace:"nowrap"}}>{fmt(tierAmounts[k])} د.م</span>}
+                                    <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100"
+                                      value={ovExp[tKey(k)]!==undefined?ovExp[tKey(k)]:(defaults.pcts[k]||0)} onChange={e=>setOvExp(p=>({...p,[tKey(k)]:e.target.value}))}/>
+                                    <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                                  </div>
+                                  {ti>0&&goalForCalc>0&&<div style={{fontSize:9.5,color:"#1a6b4a",background:"#f0f7f2",borderRadius:6,padding:"3px 6px",marginTop:3,textAlign:"center"}}>➕ مجموع المستويات 1 → {ti+1} = <b>{fmt(cumAmounts[k])} د.م</b></div>}
                                 </div>
                               ))}
-                              <div style={{textAlign:"center",fontSize:11,fontWeight:700,color:tot===100?"#10b981":"#ef4444"}}>المجموع: {tot}% {tot===100?"✅":"⚠️"}</div>
+                              <div style={{textAlign:"center",fontSize:11,fontWeight:700,color:tot===100?"#10b981":"#ef4444",marginTop:4}}>المجموع: {tot}% {tot===100?"✅":"⚠️"}</div>
                             </div>;
-                          })}
+                            prevMax=maxVal;
+                            return row;
+                            });
+                          })()}
                           <button style={S.btn("#6366f1")} onClick={()=>{
                             const newTiers=[0,1,2,3,4].map(ti=>{
                               const tKey=n=>`newTierY_${selYear}_${ti}_${n}`;
@@ -3301,6 +3347,7 @@ function AppInner(){
                   const draftKey=it=>`catpct_${selYear}_${it.catId}_${it.subId||"x"}`;
                   const catDraftKey=c=>`catpctL1_${selYear}_${c.id}`;
                   const subDraftKey=(c,s)=>`catpctL2_${selYear}_${c.id}_${s.id}`;
+                  const sub2DraftKey=(c,s,s2)=>`catpctL3_${selYear}_${c.id}_${s.id}_${s2.id}`;
                   const catDraftTotal=expCats.reduce((s,c)=>s+(parseFloat(ovExp[catDraftKey(c)])||0),0);
 
                   return <>
@@ -3477,32 +3524,64 @@ function AppInner(){
                         </div>
 
                         <div style={{fontSize:12,fontWeight:800,color:"#334155",marginBottom:8}}>1️⃣ وزع 100% على التصنيفات</div>
-                        {expCats.map(c=>(
+                        {expCats.map(c=>{
+                          const catPctVal=parseFloat(ovExp[catDraftKey(c)])||0;
+                          const catAmt=(yearBudgetTotals[selYear]||0)*(catPctVal/100);
+                          return (
                           <div key={c.id} style={{marginBottom:c.subs&&c.subs.length>0?4:8}}>
                             <div style={{display:"flex",alignItems:"center",gap:10}}>
                               <div style={{flex:1,fontSize:13}}>{c.icon} {c.name}</div>
+                              <span style={{fontSize:10.5,fontWeight:800,color:"#1a6b4a",whiteSpace:"nowrap"}}>{fmt(catAmt)} د.م</span>
                               <input style={{...S.inp,width:64,textAlign:"center",padding:"7px"}} type="number" min="0" max="100"
                                 value={ovExp[catDraftKey(c)]!==undefined?ovExp[catDraftKey(c)]:"0"} onChange={e=>setOvExp(p=>({...p,[catDraftKey(c)]:e.target.value}))}/>
                               <span style={{fontSize:12,color:"#64748b"}}>%</span>
                             </div>
                             {c.subs&&c.subs.length>0&&(()=>{
-                              const catPct=parseFloat(ovExp[catDraftKey(c)])||0;
+                              const catPct=catPctVal;
                               const subTotal=c.subs.reduce((s,sub)=>s+(parseFloat(ovExp[subDraftKey(c,sub)])||0),0);
                               return <div style={{marginRight:20,marginTop:6,paddingRight:10,borderRight:"2px solid #e2e8f0"}}>
                                 <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>2️⃣ وزع النسبة ديال "{c.name}" ({catPct}%) على الفروع</div>
-                                {c.subs.map(sub=>(
-                                  <div key={sub.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                                    <div style={{flex:1,fontSize:12,color:"#475569"}}>{sub.name}</div>
-                                    <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100"
-                                      value={ovExp[subDraftKey(c,sub)]!==undefined?ovExp[subDraftKey(c,sub)]:"0"} onChange={e=>setOvExp(p=>({...p,[subDraftKey(c,sub)]:e.target.value}))}/>
-                                    <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                                {c.subs.map(sub=>{
+                                  const subPctVal=parseFloat(ovExp[subDraftKey(c,sub)])||0;
+                                  const subAmt=catAmt*(subPctVal/100);
+                                  return (
+                                  <div key={sub.id} style={{marginBottom:6}}>
+                                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                      <div style={{flex:1,fontSize:12,color:"#475569"}}>{sub.name}</div>
+                                      <span style={{fontSize:9.5,fontWeight:800,color:"#1a6b4a",whiteSpace:"nowrap"}}>{fmt(subAmt)} د.م</span>
+                                      <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100"
+                                        value={ovExp[subDraftKey(c,sub)]!==undefined?ovExp[subDraftKey(c,sub)]:"0"} onChange={e=>setOvExp(p=>({...p,[subDraftKey(c,sub)]:e.target.value}))}/>
+                                      <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                                    </div>
+                                    {sub.subs&&sub.subs.length>0&&(()=>{
+                                      const sub2Total=sub.subs.reduce((s,s2)=>s+(parseFloat(ovExp[sub2DraftKey(c,sub,s2)])||0),0);
+                                      return <div style={{marginRight:18,marginTop:5,paddingRight:10,borderRight:"2px dashed #dcd9cd"}}>
+                                        <div style={{fontSize:9.5,color:"#94a3b8",marginBottom:4}}>3️⃣ وزع النسبة ديال "{sub.name}" ({subPctVal}%) على الفروع الفرعية</div>
+                                        {sub.subs.map(s2=>{
+                                          const s2PctVal=parseFloat(ovExp[sub2DraftKey(c,sub,s2)])||0;
+                                          const s2Amt=subAmt*(s2PctVal/100);
+                                          return (
+                                          <div key={s2.id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+                                            <div style={{flex:1,fontSize:11,color:"#5c584c"}}>{s2.name}</div>
+                                            <span style={{fontSize:9,fontWeight:800,color:"#6366f1",whiteSpace:"nowrap"}}>{fmt(s2Amt)} د.م</span>
+                                            <input style={{...S.inp,width:48,textAlign:"center",padding:"5px"}} type="number" min="0" max="100"
+                                              value={ovExp[sub2DraftKey(c,sub,s2)]!==undefined?ovExp[sub2DraftKey(c,sub,s2)]:"0"} onChange={e=>setOvExp(p=>({...p,[sub2DraftKey(c,sub,s2)]:e.target.value}))}/>
+                                            <span style={{fontSize:10,color:"#64748b"}}>%</span>
+                                          </div>
+                                          );
+                                        })}
+                                        <div style={{fontSize:9,fontWeight:700,color:sub2Total===100?"#10b981":"#ef4444",marginBottom:6}}>مجموع فروع "{sub.name}": {sub2Total}% {sub2Total===100?"✅":"⚠️"}</div>
+                                      </div>;
+                                    })()}
                                   </div>
-                                ))}
+                                  );
+                                })}
                                 <div style={{fontSize:10,fontWeight:700,color:subTotal===100?"#10b981":"#ef4444",marginBottom:8}}>مجموع فروع "{c.name}": {subTotal}% {subTotal===100?"✅":"⚠️"}</div>
                               </div>;
                             })()}
                           </div>
-                        ))}
+                          );
+                        })}
                         <div style={{textAlign:"center",fontSize:13,fontWeight:800,color:catDraftTotal===100?"#10b981":"#ef4444",margin:"10px 0"}}>مجموع كل التصنيفات: {catDraftTotal}% {catDraftTotal===100?"✅":"⚠️"}</div>
                         <button style={S.btn("#1a6b4a")} onClick={()=>{
                           if(catDraftTotal!==100){showErr(`⛔ مجموع نسب التصنيفات ${catDraftTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
@@ -3510,16 +3589,29 @@ function AppInner(){
                             if(c.subs&&c.subs.length>0){
                               const subTotal=c.subs.reduce((s,sub)=>s+(parseFloat(ovExp[subDraftKey(c,sub)])||0),0);
                               if(subTotal!==100){showErr(`⛔ مجموع فروع "${c.name}" ${subTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
+                              for(const sub of c.subs){
+                                if(sub.subs&&sub.subs.length>0){
+                                  const sub2Total=sub.subs.reduce((s,s2)=>s+(parseFloat(ovExp[sub2DraftKey(c,sub,s2)])||0),0);
+                                  if(sub2Total!==100){showErr(`⛔ مجموع فروع "${sub.name}" ${sub2Total}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
+                                }
+                              }
                             }
                           }
                           const catPcts=expCats.map(c=>({catId:c.id,pct:parseFloat(ovExp[catDraftKey(c)])||0}));
                           const subPcts={};
+                          const sub2Pcts={};
                           expCats.forEach(c=>{
                             if(c.subs&&c.subs.length>0){
                               subPcts[c.id]=c.subs.map(sub=>({subId:sub.id,pct:parseFloat(ovExp[subDraftKey(c,sub)])||0}));
+                              c.subs.forEach(sub=>{
+                                if(sub.subs&&sub.subs.length>0){
+                                  if(!sub2Pcts[c.id])sub2Pcts[c.id]={};
+                                  sub2Pcts[c.id][sub.id]=sub.subs.map(s2=>({sub2Id:s2.id,pct:parseFloat(ovExp[sub2DraftKey(c,sub,s2)])||0}));
+                                }
+                              });
                             }
                           });
-                          const nb={...budgetSettings,catDistYears:[...(budgetSettings.catDistYears||[]),{year:selYear,catPcts,subPcts}]};
+                          const nb={...budgetSettings,catDistYears:[...(budgetSettings.catDistYears||[]),{year:selYear,catPcts,subPcts,sub2Pcts}]};
                           setBudgetSettings(nb);_save('budgetSettings',nb);
                           setErr(`✅ تم حفظ توزيع ${selYear}`);setTimeout(()=>setErr(null),3000);
                         }}>💾 حفظ توزيع {selYear}</button>
@@ -5941,7 +6033,7 @@ function AppInner(){
                 const isGiven=ei.kind==="أعطيت";
                 const txType=isGiven?"income":"expense";
                 const desc=isGiven?`رجوع سلفة — ${ei.person}`:`تسديد ${ei.wi?"قرض":"سلفة"} — ${ei.person}`;
-                setTxs(p=>[{id:uid(),type:txType,amount:amt,catId:null,subId:null,desc,date:form.date||new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref,isLoan:true,isTransfer:true,loanKind:ei.kind},...p]);
+                setTxs(p=>[{id:uid(),type:txType,amount:amt,catId:null,subId:null,desc,date:form.date||new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref,isLoan:true,isTransfer:true,loanKind:ei.kind,loanId:ei.id},...p]);
                 updBal(acc.ref,amt,txType,"add");
                 setLoans(p=>p.map(l=>l.id===ei.id?{...l,remaining:Math.max(0,l.remaining-amt)}:l));
                 cm();

@@ -267,6 +267,10 @@ function AppInner(){
   const distExcelRef=useRef();
   const iRef=useRef();
   const eiRef=useRef();
+  const sRef=useRef();
+  const esRef=useRef();
+  const s2Ref=useRef();
+  const es2Ref=useRef();
 
   const[banks,setBanks]=useState(IBK);
   const[cash,setCash]=useState(ICS);
@@ -421,7 +425,7 @@ function AppInner(){
 
   const gc=(tp,id)=>cats[tp]?.find(c=>c.id===id);
   const gs=(tp,cid,sid)=>gc(tp,cid)?.subs?.find(s=>s.id===sid);
-  const tl=t=>{const tp=t.type==="income"?"income":"expense";const c=gc(tp,t.catId);const s=gs(tp,t.catId,t.subId);return{cn:c?.name||"—",sn:s?.name||"",ic:c?.ci||c?.icon||"📌",hi:!!c?.ci,col:c?.color||"#64748b"};};
+  const tl=t=>{const tp=t.type==="income"?"income":"expense";const c=gc(tp,t.catId);const s=gs(tp,t.catId,t.subId);const s2=t.sub2Id?gs2(tp,t.catId,t.subId,t.sub2Id):null;return{cn:c?.name||"—",sn:s?.name||"",s2n:s2?.name||"",ic:s2?.ci||s2?.icon||c?.ci||c?.icon||"📌",hi:!!(s2?.ci||c?.ci),col:c?.color||"#64748b"};};
   const al=ref=>{if(!ref)return"";if(ref.k==="bank"){const b=banks.find(x=>x.id===ref.bid);const a=b?.accounts.find(x=>x.id===ref.aid);return`${b?.name} - ${a?.name}`;}if(ref.k==="cash"){return cash.find(x=>x.id===ref.cid)?.name;}return"";};
 
   const expByCat=txs.filter(t=>t.type==="expense"&&t.date.startsWith(MONTH)&&!t.isTransfer&&t.pm!=="تحويل"&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((acc,t)=>{const c=gc("expense",t.catId);const k=c?.name||"أخرى";acc[k]=(acc[k]||0)+t.amount;return acc;},{});
@@ -676,7 +680,7 @@ function AppInner(){
   };
 
   const getCatDistYear=(year)=>(budgetSettings.catDistYears||[]).find(d=>d.year===year);
-  const getCatEffectivePct=(catId,subId,year)=>{
+  const getCatEffectivePct=(catId,subId,year,sub2Id=null)=>{
     const dist=getCatDistYear(year);
     if(!dist)return 0;
     const catEntry=(Array.isArray(dist.catPcts)?dist.catPcts:[]).find(c=>c.catId===catId);
@@ -686,41 +690,47 @@ function AppInner(){
     const subList=Array.isArray(rawSubList)?rawSubList:[];
     const subEntry=subList.find(s=>s.subId===subId);
     const subPct=subEntry?subEntry.pct:0;
-    return catPct*(subPct/100);
+    const subEffective=catPct*(subPct/100);
+    if(sub2Id==null)return subEffective;
+    const rawSub2List=((dist.sub2Pcts||{})[catId]||{})[subId];
+    const sub2List=Array.isArray(rawSub2List)?rawSub2List:[];
+    const sub2Entry=sub2List.find(s=>s.sub2Id===sub2Id);
+    const sub2Pct=sub2Entry?sub2Entry.pct:0;
+    return subEffective*(sub2Pct/100);
   };
   const catBalanceCache=useMemo(()=>new Map(),[txs,budgetSettings]);
-  const getCatCarryover=(catId,subId,year)=>{
+  const getCatCarryover=(catId,subId,year,sub2Id=null)=>{
     const yNum=parseInt(year);
     if(!year||isNaN(yNum))return 0; // حماية: سنة غير صحيحة = وقف فورا (يمنع حلقة لا نهائية)
     const prevYear=(yNum-1).toString();
     if(isNaN(parseInt(prevYear))||parseInt(prevYear)<2017)return 0;
     if(!getCatDistYear(prevYear))return 0; // ماكاينش توزيع للعام السابق = بلا ترحيل
-    return getCatBalance(catId,subId,prevYear);
+    return getCatBalance(catId,subId,prevYear,sub2Id);
   };
-  const getCatBalance=(catId,subId,year)=>{
-    const cacheKey=`${catId}_${subId||""}_${year}`;
+  const getCatBalance=(catId,subId,year,sub2Id=null)=>{
+    const cacheKey=`${catId}_${subId||""}_${sub2Id||""}_${year}`;
     if(catBalanceCache.has(cacheKey))return catBalanceCache.get(cacheKey);
-    const pct=getCatEffectivePct(catId,subId,year);
+    const pct=getCatEffectivePct(catId,subId,year,sub2Id);
     const yearBudgetTotal=yearBudgetTotals[year]||0;
     const catBudget=yearBudgetTotal*(pct/100);
-    const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)).reduce((s,t)=>s+t.amount,0);
+    const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)&&(sub2Id?t.sub2Id===sub2Id:true)).reduce((s,t)=>s+t.amount,0);
     const transfers=budgetSettings.catTransfers||[];
     const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(subId==null||(tr.toSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
     const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(subId==null||(tr.fromSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
-    const carryover=getCatCarryover(catId,subId,year);
+    const carryover=getCatCarryover(catId,subId,year,sub2Id);
     const result=carryover+catBudget-spent+transfersIn-transfersOut;
     catBalanceCache.set(cacheKey,result);
     return result;
   };
-  const getCatDetail=(catId,subId,year)=>{
-    const pct=getCatEffectivePct(catId,subId,year);
+  const getCatDetail=(catId,subId,year,sub2Id=null)=>{
+    const pct=getCatEffectivePct(catId,subId,year,sub2Id);
     const yearBudgetTotal=yearBudgetTotals[year]||0;
     const allocated=yearBudgetTotal*(pct/100);
-    const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)).reduce((s,t)=>s+t.amount,0);
+    const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)&&(sub2Id?t.sub2Id===sub2Id:true)).reduce((s,t)=>s+t.amount,0);
     const transfers=budgetSettings.catTransfers||[];
     const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(subId==null||(tr.toSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
     const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(subId==null||(tr.fromSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
-    const carryover=getCatCarryover(catId,subId,year);
+    const carryover=getCatCarryover(catId,subId,year,sub2Id);
     const totalAvail=carryover+allocated+transfersIn-transfersOut;
     const balance=totalAvail-spent;
     const effectivePct=yearBudgetTotal>0?(totalAvail/yearBudgetTotal)*100:0;
@@ -889,6 +899,8 @@ function AppInner(){
     // تحقق من الفرع إذا كان التصنيف عنده فروع
     const _selCat=gc(form.txType||"expense",parseInt(form.catId));
     if(_selCat?.subs?.length>0&&!form.subId){showErr("⛔ الفرع إجباري — اختر الفرع");return;}
+    const _selSub=_selCat?.subs?.find(s=>s.id===parseInt(form.subId));
+    if(_selSub?.subs?.length>0&&!form.sub2Id){showErr("⛔ الفرع الفرعي إجباري — اختر الفرع الفرعي");return;}
     if(form.pm!=="كريدي"&&!form.akey){showErr("⛔ اختر الحساب");return;}
     // منع المصروف إذا الميزانية ناقصة — بتأكيد 3 خطوات بدل المنع الكامل
     if((form.txType||"expense")==="expense"&&!form.isLoan&&!form.isInvest&&!form.isAsset){
@@ -945,7 +957,7 @@ function AppInner(){
     if((form.txType||"expense")==="expense"&&form.pm!=="كريدي"&&acc&&amt>(acc.balance||0)){
       showErr("⛔ الرصيد غير كافي — الرصيد المتاح: "+fmt(acc.balance||0));return;
     }
-    const tx={id:uid(),type:form.txType||"expense",amount:amt,catId:(isNaN(parseInt(form.catId))?form.catId:parseInt(form.catId)),subId:form.subId?(isNaN(parseInt(form.subId))?form.subId:parseInt(form.subId)):null,desc:form.desc||"",date:form.date||new Date().toISOString().split("T")[0],pm:form.pm||"نقدي",ref:acc?.ref||null};
+    const tx={id:uid(),type:form.txType||"expense",amount:amt,catId:(isNaN(parseInt(form.catId))?form.catId:parseInt(form.catId)),subId:form.subId?(isNaN(parseInt(form.subId))?form.subId:parseInt(form.subId)):null,sub2Id:form.sub2Id?(isNaN(parseInt(form.sub2Id))?form.sub2Id:parseInt(form.sub2Id)):null,desc:form.desc||"",date:form.date||new Date().toISOString().split("T")[0],pm:form.pm||"نقدي",ref:acc?.ref||null};
     setTxs(p=>[tx,...p]);
     if(tx.pm!=="كريدي"&&acc)updBal(acc.ref,tx.amount,tx.type,"add");
     setOvExp(p=>({...p,forceOverride:false,overrunPending:null,overrunStep:0}));
@@ -985,12 +997,14 @@ function AppInner(){
     if(!ei||!ei.amount)return;
     const _editCat=gc(ei.type||"expense",ei.catId);
     if(_editCat?.subs?.length>0&&!ei.subId){showErr("⛔ الفرع إجباري — اختر الفرع");return;}
+    const _editSub=_editCat?.subs?.find(s=>s.id===parseInt(ei.subId));
+    if(_editSub?.subs?.length>0&&!ei.sub2Id){showErr("⛔ الفرع الفرعي إجباري — اختر الفرع الفرعي");return;}
     const old=txs.find(x=>x.id===ei.id);if(!old)return;
     const diff=parseFloat(ei.amount)-old.amount;
     const sign=old.type==="income"?1:-1;
     if(old.ref.k==="bank")setBanks(p=>p.map(b=>b.id===old.ref.bid?{...b,accounts:b.accounts.map(a=>a.id===old.ref.aid?{...a,balance:a.balance+sign*diff}:a)}:b));
     if(old.ref.k==="cash")setCash(p=>p.map(c=>c.id===old.ref.cid?{...c,balance:c.balance+sign*diff}:c));
-    setTxs(p=>p.map(x=>x.id===ei.id?{...x,amount:parseFloat(ei.amount),desc:ei.desc??x.desc,date:ei.date||x.date,pm:ei.pm||x.pm||"نقدي",catId:ei.catId?parseInt(ei.catId):x.catId,subId:ei.subId?parseInt(ei.subId):null}:x));
+    setTxs(p=>p.map(x=>x.id===ei.id?{...x,amount:parseFloat(ei.amount),desc:ei.desc??x.desc,date:ei.date||x.date,pm:ei.pm||x.pm||"نقدي",catId:ei.catId?parseInt(ei.catId):x.catId,subId:ei.subId?parseInt(ei.subId):null,sub2Id:ei.sub2Id?parseInt(ei.sub2Id):null}:x));
     cm();
   };
 
@@ -1056,8 +1070,17 @@ function AppInner(){
 
   const addMCat=(ct)=>{if(!form.cn)return;if(cats[ct].some(c=>c.name===form.cn)){showErr("⛔ التصنيف موجود");return;}setCats(p=>({...p,[ct]:[...p[ct],{id:uid(),name:form.cn,icon:form.em||"📌",color:form.color||"#10b981",ci:form.ci||null,subs:[]}]}));cm();};
   const edMCat=(ct,id,d)=>setCats(p=>({...p,[ct]:p[ct].map(c=>c.id===id?{...c,...d}:c)}));
-  const addSCat=(ct,cid)=>{if(!form.sn)return;const c=cats[ct].find(x=>x.id===cid);if(c?.subs.some(s=>s.name===form.sn)){showErr("⛔ الفرع موجود");return;}setCats(p=>({...p,[ct]:p[ct].map(c=>c.id===cid?{...c,subs:[...c.subs,{id:uid(),name:form.sn}]}:c)}));cm();};
-  const edSCat=(ct,cid,sid,nm)=>setCats(p=>({...p,[ct]:p[ct].map(c=>c.id===cid?{...c,subs:c.subs.map(s=>s.id===sid?{...s,name:nm}:s)}:c)}));
+  const addSCat=(ct,cid)=>{if(!form.sn)return;const c=cats[ct].find(x=>x.id===cid);if(c?.subs.some(s=>s.name===form.sn)){showErr("⛔ الفرع موجود");return;}setCats(p=>({...p,[ct]:p[ct].map(c=>c.id===cid?{...c,subs:[...c.subs,{id:uid(),name:form.sn,icon:form.sem||null,ci:form.sci||null,subs:[]}]}:c)}));cm();};
+  const edSCat=(ct,cid,sid,nm,icon,ci)=>setCats(p=>({...p,[ct]:p[ct].map(c=>c.id===cid?{...c,subs:c.subs.map(s=>s.id===sid?{...s,name:nm,...(icon!==undefined?{icon}:{}),...(ci!==undefined?{ci}:{})}:s)}:c)}));
+  const gs2=(tp,cid,sid,s2id)=>gs(tp,cid,sid)?.subs?.find(x=>x.id===s2id);
+  const addSSCat=(ct,cid,sid)=>{
+    if(!form.s2n)return;
+    const c=cats[ct].find(x=>x.id===cid);const s=c?.subs?.find(x=>x.id===sid);
+    if(s?.subs?.some(x=>x.name===form.s2n)){showErr("⛔ الفرع الفرعي موجود");return;}
+    setCats(p=>({...p,[ct]:p[ct].map(c=>c.id!==cid?c:{...c,subs:c.subs.map(s=>s.id!==sid?s:{...s,subs:[...(s.subs||[]),{id:uid(),name:form.s2n,icon:form.s2em||null,ci:form.s2ci||null}]})})}));
+    cm();
+  };
+  const edSSCat=(ct,cid,sid,s2id,nm,icon,ci)=>setCats(p=>({...p,[ct]:p[ct].map(c=>c.id!==cid?c:{...c,subs:c.subs.map(s=>s.id!==sid?s:{...s,subs:(s.subs||[]).map(x=>x.id===s2id?{...x,name:nm,...(icon!==undefined?{icon}:{}),...(ci!==undefined?{ci}:{})}:x)})})}));
 
 
   const doDel=()=>{
@@ -1070,6 +1093,7 @@ function AppInner(){
     if(t==="tx"){delTx(id);setCd(null);return;}
     if(t==="mcat"){if(txs.some(tx=>tx.catId===id)){showErr("⛔ التصنيف مستخدم");setCd(null);return;}setCats(p=>({...p,[ex]:p[ex].filter(c=>c.id!==id)}));}
     if(t==="scat"){if(txs.some(tx=>tx.subId===id)){showErr("⛔ الفرع مستخدم");setCd(null);return;}setCats(p=>({...p,[ex.ct]:p[ex.ct].map(c=>c.id===ex.cid?{...c,subs:c.subs.filter(s=>s.id!==id)}:c)}));}
+    if(t==="sscat"){if(txs.some(tx=>tx.sub2Id===id)){showErr("⛔ الفرع الفرعي مستخدم");setCd(null);return;}setCats(p=>({...p,[ex.ct]:p[ex.ct].map(c=>c.id!==ex.cid?c:{...c,subs:c.subs.map(s=>s.id!==ex.sid?s:{...s,subs:(s.subs||[]).filter(s2=>s2.id!==id)})})}));}
     setCd(null);
   };
 
@@ -1755,18 +1779,42 @@ function AppInner(){
           </div>
           {ovExp[`cat_${cat.id}`]&&<>
             {cat.subs.map(s=>{
-              const used=txs.some(t=>t.subId===s.id);
-              return <div key={s.id} style={{display:"flex",alignItems:"center",padding:"11px 14px 11px 28px",borderTop:"1px solid #f0f0f0",background:"#fafafa"}}>
-                <div style={{width:6,height:6,borderRadius:"50%",background:"#1a6b4a",marginLeft:12,flexShrink:0,opacity:.5}}/>
-                <span style={{flex:1,fontSize:14,color:"#333333",fontWeight:600}}>{s.name}</span>
-                {used&&<span style={{fontSize:10,color:"#f59e0b",marginLeft:6}}>●</span>}
-                <div style={{display:"flex",gap:6,opacity:ovExp[`del_sub_${s.id}`]?1:0,transition:"opacity .2s"}} onClick={e=>e.stopPropagation()}>
-                  <button style={{background:"#e8f5ee",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"#1a6b4a",fontSize:11,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>{setEi({...s,catType,catId:cat.id});om("edSCat");}}>تعديل</button>
-                  <button style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:11,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>ask("scat",s.id,s.name,{ct:catType,cid:cat.id})}>حذف</button>
+              const used=txs.some(t=>t.subId===s.id&&!t.sub2Id);
+              const subOpen=ovExp[`sub_${s.id}`];
+              return <div key={s.id}>
+                <div style={{display:"flex",alignItems:"center",padding:"11px 14px 11px 28px",borderTop:"1px solid #f0f0f0",background:"#fafafa",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`sub_${s.id}`]:!p[`sub_${s.id}`]}))}>
+                  <div style={{width:24,height:24,borderRadius:8,background:"#e8f5ee",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",fontSize:13,marginLeft:10,flexShrink:0}}><Ico src={s.ci} fb={s.icon||"◦"} sz={13}/></div>
+                  <span style={{flex:1,fontSize:14,color:"#333333",fontWeight:600}}>{s.name}</span>
+                  {used&&<span style={{fontSize:10,color:"#f59e0b",marginLeft:6}}>●</span>}
+                  <div style={{display:"flex",gap:6,opacity:ovExp[`del_sub_${s.id}`]?1:0,transition:"opacity .2s"}} onClick={e=>e.stopPropagation()}>
+                    <button style={{background:"#e8f5ee",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"#1a6b4a",fontSize:11,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>{setEi({...s,catType,catId:cat.id});om("edSCat");}}>تعديل</button>
+                    <button style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:11,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>ask("scat",s.id,s.name,{ct:catType,cid:cat.id})}>حذف</button>
+                  </div>
+                  <div style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={e=>{e.stopPropagation();setOvExp(p=>({...p,[`del_sub_${s.id}`]:!p[`del_sub_${s.id}`]}));}}>
+                    <span style={{fontSize:16,color:"#64748b"}}>⋯</span>
+                  </div>
+                  <span style={{color:"#94a3b8",fontSize:12}}>{subOpen?"▲":"▼"}</span>
                 </div>
-                <div style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`del_sub_${s.id}`]:!p[`del_sub_${s.id}`]}))}>
-                  <span style={{fontSize:16,color:"#64748b"}}>⋯</span>
-                </div>
+                {subOpen&&<>
+                  {(s.subs||[]).map(s2=>{
+                    const used2=txs.some(t=>t.sub2Id===s2.id);
+                    return <div key={s2.id} style={{display:"flex",alignItems:"center",padding:"9px 14px 9px 46px",borderTop:"1px solid #f1f1f1",background:"#f5f4ef"}}>
+                      <div style={{width:20,height:20,borderRadius:6,background:"#eeedfc",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",fontSize:11,marginLeft:8,flexShrink:0}}><Ico src={s2.ci} fb={s2.icon||"⌐"} sz={11}/></div>
+                      <span style={{flex:1,fontSize:13,color:"#5c584c",fontWeight:600}}>{s2.name}</span>
+                      {used2&&<span style={{fontSize:9,color:"#f59e0b",marginLeft:6}}>●</span>}
+                      <div style={{display:"flex",gap:6,opacity:ovExp[`del_ss_${s2.id}`]?1:0,transition:"opacity .2s"}} onClick={e=>e.stopPropagation()}>
+                        <button style={{background:"#eeedfc",border:"none",borderRadius:7,padding:"3px 7px",cursor:"pointer",color:"#6366f1",fontSize:10.5,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>{setEi({...s2,catType,catId:cat.id,subId:s.id});om("edSSCat");}}>تعديل</button>
+                        <button style={{background:"#fef2f2",border:"none",borderRadius:7,padding:"3px 7px",cursor:"pointer",color:"#ef4444",fontSize:10.5,fontFamily:"Tajawal",fontWeight:700}} onClick={()=>ask("sscat",s2.id,s2.name,{ct:catType,cid:cat.id,sid:s.id})}>حذف</button>
+                      </div>
+                      <div style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,[`del_ss_${s2.id}`]:!p[`del_ss_${s2.id}`]}))}>
+                        <span style={{fontSize:14,color:"#94a3b8"}}>⋯</span>
+                      </div>
+                    </div>;
+                  })}
+                  <div style={{padding:"7px 14px 10px 46px"}}>
+                    <button style={{background:"#eeedfc",border:"1px dashed #6366f166",borderRadius:8,padding:"7px 12px",cursor:"pointer",color:"#6366f1",fontSize:12,fontFamily:"Tajawal",fontWeight:700,width:"100%"}} onClick={()=>om("addSSCat",{catType,catId:cat.id,subId:s.id,subName:s.name})}>+ إضافة فرع فرعي (إجباري للمعاملات الجديدة)</button>
+                  </div>
+                </>}
               </div>;
             })}
             <div style={{padding:"8px 14px 10px"}}>
@@ -1841,6 +1889,10 @@ function AppInner(){
       <input ref={fRef} type="file" accept=".json" style={{display:"none"}} onChange={impData}/>
       <input ref={iRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("ci",b));e.target.value="";}}/>
       <input ref={eiRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>setEi(p=>({...p,ci:b})));e.target.value="";}}/>
+      <input ref={sRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("sci",b));e.target.value="";}}/>
+      <input ref={esRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>setEi(p=>({...p,ci:b})));e.target.value="";}}/>
+      <input ref={s2Ref} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>F("s2ci",b));e.target.value="";}}/>
+      <input ref={es2Ref} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])rImg(e.target.files[0],b=>setEi(p=>({...p,ci:b})));e.target.value="";}}/>
       <div className={`ovl${drw?" op":""}`} onClick={()=>setDrw(false)}/>
 
       {/* FAB — مثبت على كل الصفحات */}
@@ -2254,16 +2306,16 @@ function AppInner(){
           <div style={S.card}>
             
             <div style={{...S.row,marginBottom:12,marginTop:8}}><span style={{fontWeight:700}}>آخر المعاملات</span><button style={{background:"none",border:"none",color:"#1a6b4a",fontSize:12,cursor:"pointer",fontFamily:"Tajawal"}} onClick={()=>setPage("transactions")}>عرض الكل ←</button></div>
-            {txs.slice(0,5).map(t=>{const{cn,sn,ic,hi}=tl(t);return(
+            {txs.slice(0,5).map(t=>{const{cn,sn,s2n,ic,hi}=tl(t);return(
               <div key={t.id} className="tx">
                 <div style={{width:38,height:38,borderRadius:10,background:t.type==="income"?"#10b98122":"#ef444422",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0}}><Ico src={hi?ic:null} fb={ic} sz={18}/></div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:13,fontWeight:600}}>{t.desc||cn}</span>{t.pm==="كريدي"&&<span style={{fontSize:9,background:"#f59e0b22",color:"#f59e0b",padding:"1px 6px",borderRadius:10,fontWeight:700}}>💳</span>}</div>
-                  <div style={{fontSize:11,color:"#64748b"}}>{t.date}{sn&&` • ${sn}`}</div>
+                  <div style={{fontSize:11,color:"#64748b"}}>{t.date}{sn&&` • ${sn}`}{s2n&&` ← ${s2n}`}</div>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{fontSize:14,fontWeight:700,color:t.type==="income"?"#10b981":"#ef4444"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
-                  <Btn label="✏️" onClick={()=>{setEi({...t,amount:t.amount.toString(),catId:t.catId?.toString(),subId:t.subId?.toString()});om("edTx");}}/>
+                  <Btn label="✏️" onClick={()=>{setEi({...t,amount:t.amount.toString(),catId:t.catId?.toString(),subId:t.subId?.toString(),sub2Id:t.sub2Id?.toString()});om("edTx");}}/>
                 </div>
               </div>
             );})}
@@ -3333,19 +3385,69 @@ function AppInner(){
                               }
                               const sd=getCatDetail(cat.id,sub.id,selYear);
                               const sBarColor=sd.balance<0?"#ef4444":sd.usedPct>=80?"#f59e0b":"#1a6b4a";
-                              return <div key={sub.id} style={{padding:"9px 0 9px 14px",borderBottom:si<cat.subs.length-1?"1px solid #f1f5f9":"1px solid #f1f5f9",background:"#fafaf7"}}>
-                                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}>
-                                  <span>↳ {sub.name}</span>
-                                  <span style={{fontWeight:800,color:sd.balance>=0?"#1a6b4a":"#ef4444"}}>{sd.balance<0?"-":""}{fmt(Math.abs(sd.balance))}</span>
+                              const hasSub2=sub.subs&&sub.subs.length>0;
+                              const sub2Expanded=!!ovExp[`catDistExpand2_${sub.id}`];
+                              return <div key={sub.id}>
+                                <div style={{padding:"9px 0 9px 14px",borderBottom:(hasSub2&&sub2Expanded)?"none":"1px solid #f1f5f9",background:"#fafaf7",cursor:hasSub2?"pointer":"default"}} onClick={()=>{if(hasSub2)setOvExp(p=>({...p,[`catDistExpand2_${sub.id}`]:!sub2Expanded}));}}>
+                                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}>
+                                    <span>↳ {sub.name}{hasSub2?<span style={{color:"#94a3b8",fontSize:10}}> {sub2Expanded?"▲":"▼"}</span>:""}</span>
+                                    <span style={{fontWeight:800,color:sd.balance>=0?"#1a6b4a":"#ef4444"}}>{sd.balance<0?"-":""}{fmt(Math.abs(sd.balance))}</span>
+                                  </div>
+                                  <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>مثبت: {sd.pct.toFixed(1)}% · فعليا دابا: {sd.effectivePct.toFixed(1)}% من الميزانية</div>
+                                  <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
+                                    <div style={{height:"100%",width:Math.min(sd.usedPct,100)+"%",background:sBarColor,borderRadius:3}}/>
+                                  </div>
+                                  <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
+                                    <span>مخصص: {fmt(sd.totalAvail)} · صرف: {fmt(sd.spent)}</span>
+                                    <span>{sd.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-sd.usedPct,0).toFixed(0)}%`}</span>
+                                  </div>
                                 </div>
-                                <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>مثبت: {sd.pct.toFixed(1)}% · فعليا دابا: {sd.effectivePct.toFixed(1)}% من الميزانية</div>
-                                <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
-                                  <div style={{height:"100%",width:Math.min(sd.usedPct,100)+"%",background:sBarColor,borderRadius:3}}/>
-                                </div>
-                                <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
-                                  <span>مخصص: {fmt(sd.totalAvail)} · صرف: {fmt(sd.spent)}</span>
-                                  <span>{sd.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-sd.usedPct,0).toFixed(0)}%`}</span>
-                                </div>
+                                {hasSub2&&sub2Expanded&&sub.subs.map((sub2,s2i)=>{
+                                  const sub2ListRaw=((dist.sub2Pcts||{})[cat.id]||{})[sub.id];
+                                  const has2Entry=Array.isArray(sub2ListRaw)&&sub2ListRaw.some(x=>x.sub2Id===sub2.id);
+                                  if(!has2Entry){
+                                    const draftK2=`newSub2Pct_${selYear}_${cat.id}_${sub.id}_${sub2.id}`;
+                                    return <div key={sub2.id} style={{padding:"8px 0 8px 28px",background:"#fef3c7",borderBottom:"1px solid #f1f5f9"}}>
+                                      <div style={{fontSize:10.5,fontWeight:700,color:"#92400e",marginBottom:6}}>⚠️ "{sub2.name}" فرع فرعي جديد — بلا نسبة بعد</div>
+                                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <input style={{...S.inp,width:64,textAlign:"center",padding:"5px"}} type="number" min="0" max="100" placeholder="0"
+                                          value={ovExp[draftK2]||""} onChange={e=>setOvExp(p=>({...p,[draftK2]:e.target.value}))}/>
+                                        <span style={{fontSize:10,color:"#78350f"}}>%</span>
+                                        <button style={{...S.btn("#f59e0b"),flex:1,padding:"7px",fontSize:10.5}} onClick={()=>{
+                                          const pct2=parseFloat(ovExp[draftK2]);
+                                          if(!pct2||pct2<=0){showErr("⛔ دخل نسبة صحيحة");setTimeout(()=>setErr(null),3000);return;}
+                                          const updatedYears=(budgetSettings.catDistYears||[]).map(d=>{
+                                            if(d.year!==selYear)return d;
+                                            const newSub2Pcts={...(d.sub2Pcts||{})};
+                                            newSub2Pcts[cat.id]={...(newSub2Pcts[cat.id]||{})};
+                                            newSub2Pcts[cat.id][sub.id]=[...((newSub2Pcts[cat.id]||{})[sub.id]||[]),{sub2Id:sub2.id,pct:pct2}];
+                                            return{...d,sub2Pcts:newSub2Pcts};
+                                          });
+                                          const nb={...budgetSettings,catDistYears:updatedYears};
+                                          setBudgetSettings(nb);_save('budgetSettings',nb);
+                                          setOvExp(p=>({...p,[draftK2]:""}));
+                                          showErr("✅ تم إضافة النسبة");setTimeout(()=>setErr(null),3000);
+                                        }}>➕ إضافة</button>
+                                      </div>
+                                    </div>;
+                                  }
+                                  const s2d=getCatDetail(cat.id,sub.id,selYear,sub2.id);
+                                  const s2BarColor=s2d.balance<0?"#ef4444":s2d.usedPct>=80?"#f59e0b":"#1a6b4a";
+                                  return <div key={sub2.id} style={{padding:"8px 0 8px 28px",borderBottom:s2i<sub.subs.length-1?"1px solid #f1f1f1":"1px solid #f1f5f9",background:"#f5f4ef"}}>
+                                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,marginBottom:2}}>
+                                      <span>⌐ {sub2.name}</span>
+                                      <span style={{fontWeight:800,color:s2d.balance>=0?"#1a6b4a":"#ef4444"}}>{s2d.balance<0?"-":""}{fmt(Math.abs(s2d.balance))}</span>
+                                    </div>
+                                    <div style={{fontSize:9.5,color:"#94a3b8",marginBottom:4}}>مثبت: {s2d.pct.toFixed(2)}% · فعليا دابا: {s2d.effectivePct.toFixed(2)}% من الميزانية</div>
+                                    <div style={{height:4,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
+                                      <div style={{height:"100%",width:Math.min(s2d.usedPct,100)+"%",background:s2BarColor,borderRadius:3}}/>
+                                    </div>
+                                    <div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:"#94a3b8"}}>
+                                      <span>مخصص: {fmt(s2d.totalAvail)} · صرف: {fmt(s2d.spent)}</span>
+                                      <span>{s2d.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-s2d.usedPct,0).toFixed(0)}%`}</span>
+                                    </div>
+                                  </div>;
+                                })}
                               </div>;
                             })}
                           </div>;
@@ -3915,7 +4017,7 @@ function AppInner(){
           </div>
           <div style={S.card}>
             {typeFiltered.length===0&&<div style={{textAlign:"center",color:"#64748b",padding:20,fontSize:13}}>ما كاينش معاملات</div>}
-            {(()=>{let lastMonth=null;return typeFiltered.map(t=>{const{cn,sn,ic,hi}=tl(t);const ac=al(t.ref);const isOpen=openTxId===t.id;const txType=getTxType(t);
+            {(()=>{let lastMonth=null;return typeFiltered.map(t=>{const{cn,sn,s2n,ic,hi}=tl(t);const ac=al(t.ref);const isOpen=openTxId===t.id;const txType=getTxType(t);
               const typeIcon={income:"💰",expense:"💸",transfer:"🔄",credit:"💳",loan:"🤝",asset:"🏠",invest:"📈"}[txType];
               const isPositive=t.type==="income";
               const monthKey=t.date?.slice(0,7);
@@ -3936,7 +4038,7 @@ function AppInner(){
                 {isOpen&&<div style={{background:"#f8fafc",borderRadius:10,padding:12,margin:"4px 0 8px",border:"1px solid #e2e8f0"}}>
                   <div style={{fontSize:12,color:"#475569",marginBottom:8,display:"flex",flexDirection:"column",gap:4}}>
                     <div>🏷️ {typeIcon} {typeLabels[txType]}</div>
-                    <div>📂 {cn}{sn&&` ← ${sn}`}</div>
+                    <div>📂 {cn}{sn&&` ← ${sn}`}{s2n&&` ← ${s2n}`}</div>
                     {ac&&<div>📍 {ac}</div>}
                     {t.pm&&<div>💳 طريقة الدفع: {t.pm}</div>}
                     <div>📅 {t.date}</div>
@@ -3944,7 +4046,7 @@ function AppInner(){
                     {t.note&&<div>📝 {t.note}</div>}
                   </div>
                   <div style={{display:"flex",gap:8}}>
-                    <button style={{...S.btn("#6366f1"),flex:1,padding:"8px",fontSize:12}} onClick={e=>{e.stopPropagation();setEi({...t,amount:t.amount.toString(),catId:t.catId?.toString(),subId:t.subId?.toString()});om("edTx");}}>✏️ تعديل</button>
+                    <button style={{...S.btn("#6366f1"),flex:1,padding:"8px",fontSize:12}} onClick={e=>{e.stopPropagation();setEi({...t,amount:t.amount.toString(),catId:t.catId?.toString(),subId:t.subId?.toString(),sub2Id:t.sub2Id?.toString()});om("edTx");}}>✏️ تعديل</button>
                     <button style={{...S.btn("#ef4444"),flex:1,padding:"8px",fontSize:12}} onClick={e=>{e.stopPropagation();ask("tx",t.id,t.desc||cn);}}>🗑️ حذف</button>
                   </div>
                 </div>}
@@ -4611,8 +4713,13 @@ function AppInner(){
               const cTxs=txList.filter(t=>t.type===tp&&t.catId===c.id);
               const amount=cTxs.reduce((s,t)=>s+t.amount,0);
               const subs=(c.subs||[]).map(s=>{
-                const amt=cTxs.filter(t=>t.subId===s.id).reduce((sum,t)=>sum+t.amount,0);
-                return{...s,amount:amt};
+                const sTxs=cTxs.filter(t=>t.subId===s.id);
+                const amt=sTxs.reduce((sum,t)=>sum+t.amount,0);
+                const subs2=(s.subs||[]).map(s2=>{
+                  const amt2=sTxs.filter(t=>t.sub2Id===s2.id).reduce((sum,t)=>sum+t.amount,0);
+                  return{...s2,amount:amt2};
+                }).filter(s2=>s2.amount>0).sort((a,b)=>b.amount-a.amount);
+                return{...s,amount:amt,subs2};
               }).filter(s=>s.amount>0).sort((a,b)=>b.amount-a.amount);
               return{...c,amount,count:cTxs.length,subs};
             }).filter(c=>c.amount>0).sort((a,b)=>b.amount-a.amount);
@@ -4933,12 +5040,22 @@ function AppInner(){
                             <span style={{fontWeight:800,color}}>{fmt(c.amount)}</span>
                           </div>
                           <div style={{fontSize:9.5,color:"#94a3b8",marginTop:2}}>{c.count} معاملة</div>
-                          {expanded&&c.subs.map(s=>(
-                            <div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0 5px 14px",borderTop:"1px solid #f8fafc",fontSize:11}}>
-                              <span style={{color:"#5c584c"}}>↳ {s.name}</span>
-                              <span style={{fontWeight:700,color}}>{fmt(s.amount)}</span>
-                            </div>
-                          ))}
+                          {expanded&&c.subs.map(s=>{
+                            const subExpanded=!!ovExp[`repSub2Expand_${key}_${s.id}`];
+                            const hasS2=s.subs2&&s.subs2.length>0;
+                            return <div key={s.id}>
+                              <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0 5px 14px",borderTop:"1px solid #f8fafc",fontSize:11,cursor:hasS2?"pointer":"default"}} onClick={()=>hasS2&&setOvExp(p=>({...p,[`repSub2Expand_${key}_${s.id}`]:!subExpanded}))}>
+                                <span style={{color:"#5c584c"}}>↳ {s.name}{hasS2?<span style={{color:"#94a3b8",fontSize:9}}> {subExpanded?"▲":"▼"}</span>:""}</span>
+                                <span style={{fontWeight:700,color}}>{fmt(s.amount)}</span>
+                              </div>
+                              {subExpanded&&s.subs2.map(s2=>(
+                                <div key={s2.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 0 4px 28px",borderTop:"1px solid #f8fafc",fontSize:10}}>
+                                  <span style={{color:"#8a8578"}}>⌐ {s2.name}</span>
+                                  <span style={{fontWeight:700,color}}>{fmt(s2.amount)}</span>
+                                </div>
+                              ))}
+                            </div>;
+                          })}
                         </div>;
                       })}
                     </div>}
@@ -5296,7 +5413,9 @@ function AppInner(){
                 {modal==="addMCat"&&`إضافة تصنيف ${form.catType==="expense"?"نفقة":"دخل"}`}
                 {modal==="edMCat"&&"تعديل التصنيف"}
                 {modal==="addSCat"&&`إضافة فرع — ${form.catName}`}
-                {modal==="edSCat"&&"تعديل اسم الفرع"}
+                {modal==="edSCat"&&"تعديل الفرع"}
+                {modal==="addSSCat"&&`إضافة فرع فرعي — ${form.subName}`}
+                {modal==="edSSCat"&&"تعديل الفرع الفرعي"}
                 {modal==="addBank"&&"إضافة بنك"}
                 {modal==="addBAcc"&&"إضافة حساب بنكي"}
                 {modal==="edBAcc"&&"تعديل الحساب"}
@@ -5358,7 +5477,20 @@ function AppInner(){
                 <option value="">اختر التصنيف</option>
                 {cats[modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense")].map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}
               </select>
-              {(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx")F("subId",e.target.value);else setEi(p=>({...p,subId:e.target.value}));}}><option value="">⚠️ الفرع (إجباري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
+              {(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx"){F("subId",e.target.value);F("sub2Id","");}else setEi(p=>({...p,subId:e.target.value,sub2Id:""}));}}><option value="">⚠️ الفرع (إجباري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
+              {(()=>{
+                const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);
+                const type=modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense");
+                const cat=gc(type,cid);
+                const rawSub=modal==="addTx"?form.subId:ei?.subId;
+                if(!rawSub)return null;
+                const sub=cat?.subs?.find(s=>s.id===parseInt(rawSub));
+                if(!sub||!sub.subs||sub.subs.length===0)return null;
+                return <select style={S.sel} value={modal==="addTx"?form.sub2Id||"":ei?.sub2Id||""} onChange={e=>{if(modal==="addTx")F("sub2Id",e.target.value);else setEi(p=>({...p,sub2Id:e.target.value}));}}>
+                  <option value="">⚠️ الفرع الفرعي (إجباري)</option>
+                  {sub.subs.map(s2=><option key={s2.id} value={s2.id}>{s2.name}</option>)}
+                </select>;
+              })()}
               {(()=>{
                 const type=modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense");
                 if(type!=="expense")return null;
@@ -5435,11 +5567,73 @@ function AppInner(){
               </button>
             </div>}
 
-            {modal==="addSCat"&&<div style={S.col}><input style={S.inp} placeholder="اسم الفرع" value={form.sn||""} onChange={e=>F("sn",e.target.value)}/><button style={S.btn()} onClick={()=>addSCat(form.catType,form.catId)}>إضافة</button></div>}
+            {modal==="addSCat"&&<div style={S.col}>
+              <input style={S.inp} placeholder="اسم الفرع" value={form.sn||""} onChange={e=>F("sn",e.target.value)}/>
+              <div style={{fontSize:12,color:"#64748b",marginBottom:4}}>الأيقونة:</div>
+              <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                <div>
+                  <div className="iu" style={{width:44,height:44}} onClick={()=>sRef.current.click()}>
+                    {form.sci?<img src={form.sci} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<><Camera size={14} color="#64748b"/><div style={{fontSize:8,color:"#64748b",marginTop:1}}>تحميل</div></>}
+                  </div>
+                  {form.sci&&<button style={{background:"none",border:"none",color:"#ef4444",fontSize:10,cursor:"pointer",fontFamily:"Tajawal",marginTop:2}} onClick={()=>F("sci",null)}>إزالة</button>}
+                </div>
+                <div style={{flex:1,display:"flex",flexWrap:"wrap",gap:3}}>
+                  {(form.catType==="expense"?EE:IE).map(e=><button key={e} className={`eb${!form.sci&&form.sem===e?" sl":""}`} onClick={()=>{F("sem",e);F("sci",null);}} style={{width:29,height:29,fontSize:15,opacity:form.sci?0.35:1}}>{e}</button>)}
+                </div>
+              </div>
+              <button style={S.btn()} onClick={()=>addSCat(form.catType,form.catId)}>إضافة</button>
+            </div>}
             {modal==="edSCat"&&ei&&<div style={S.col}>
               <div style={{padding:"10px 14px",background:"#f8fafc",borderRadius:10,fontSize:13,color:"#475569"}}>الحالي: <strong style={{color:"#1a1a1a"}}>{ei.name}</strong></div>
               <input style={S.inp} placeholder="الاسم الجديد" defaultValue={ei.name} onChange={e=>setEi(p=>({...p,newName:e.target.value}))}/>
-              <button style={S.btn()} onClick={()=>{edSCat(ei.catType,ei.catId,ei.id,ei.newName||ei.name);cm();}}>حفظ</button>
+              <div style={{fontSize:12,color:"#64748b",marginBottom:4}}>الأيقونة:</div>
+              <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                <div>
+                  <div className="iu" style={{width:44,height:44}} onClick={()=>esRef.current.click()}>
+                    {ei.ci?<img src={ei.ci} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<><Camera size={14} color="#64748b"/><div style={{fontSize:8,color:"#64748b",marginTop:1}}>تحميل</div></>}
+                  </div>
+                  {ei.ci&&<button style={{background:"none",border:"none",color:"#ef4444",fontSize:10,cursor:"pointer",fontFamily:"Tajawal",marginTop:2}} onClick={()=>setEi(p=>({...p,ci:null}))}>إزالة</button>}
+                </div>
+                <div style={{flex:1,display:"flex",flexWrap:"wrap",gap:3}}>
+                  {(ei.catType==="expense"?EE:IE).map(e=><button key={e} className={`eb${!ei.ci&&ei.icon===e?" sl":""}`} onClick={()=>setEi(p=>({...p,icon:e,ci:null}))} style={{width:29,height:29,fontSize:15,opacity:ei.ci?0.35:1}}>{e}</button>)}
+                </div>
+              </div>
+              <button style={S.btn()} onClick={()=>{edSCat(ei.catType,ei.catId,ei.id,ei.newName||ei.name,ei.icon,ei.ci);cm();}}>حفظ</button>
+            </div>}
+
+            {modal==="addSSCat"&&<div style={S.col}>
+              <div style={{padding:"10px 14px",background:"#eeedfc",borderRadius:10,fontSize:12,color:"#4338ca"}}>فرع فرعي جديد تحت: <strong>{form.subName}</strong></div>
+              <input style={S.inp} placeholder="اسم الفرع الفرعي" value={form.s2n||""} onChange={e=>F("s2n",e.target.value)}/>
+              <div style={{fontSize:12,color:"#64748b",marginBottom:4}}>الأيقونة:</div>
+              <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                <div>
+                  <div className="iu" style={{width:44,height:44}} onClick={()=>s2Ref.current.click()}>
+                    {form.s2ci?<img src={form.s2ci} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<><Camera size={14} color="#64748b"/><div style={{fontSize:8,color:"#64748b",marginTop:1}}>تحميل</div></>}
+                  </div>
+                  {form.s2ci&&<button style={{background:"none",border:"none",color:"#ef4444",fontSize:10,cursor:"pointer",fontFamily:"Tajawal",marginTop:2}} onClick={()=>F("s2ci",null)}>إزالة</button>}
+                </div>
+                <div style={{flex:1,display:"flex",flexWrap:"wrap",gap:3}}>
+                  {(form.catType==="expense"?EE:IE).map(e=><button key={e} className={`eb${!form.s2ci&&form.s2em===e?" sl":""}`} onClick={()=>{F("s2em",e);F("s2ci",null);}} style={{width:29,height:29,fontSize:15,opacity:form.s2ci?0.35:1}}>{e}</button>)}
+                </div>
+              </div>
+              <button style={S.btn("#6366f1")} onClick={()=>addSSCat(form.catType,form.catId,form.subId)}>إضافة</button>
+            </div>}
+            {modal==="edSSCat"&&ei&&<div style={S.col}>
+              <div style={{padding:"10px 14px",background:"#f8fafc",borderRadius:10,fontSize:13,color:"#475569"}}>الحالي: <strong style={{color:"#1a1a1a"}}>{ei.name}</strong></div>
+              <input style={S.inp} placeholder="الاسم الجديد" defaultValue={ei.name} onChange={e=>setEi(p=>({...p,newName:e.target.value}))}/>
+              <div style={{fontSize:12,color:"#64748b",marginBottom:4}}>الأيقونة:</div>
+              <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                <div>
+                  <div className="iu" style={{width:44,height:44}} onClick={()=>es2Ref.current.click()}>
+                    {ei.ci?<img src={ei.ci} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<><Camera size={14} color="#64748b"/><div style={{fontSize:8,color:"#64748b",marginTop:1}}>تحميل</div></>}
+                  </div>
+                  {ei.ci&&<button style={{background:"none",border:"none",color:"#ef4444",fontSize:10,cursor:"pointer",fontFamily:"Tajawal",marginTop:2}} onClick={()=>setEi(p=>({...p,ci:null}))}>إزالة</button>}
+                </div>
+                <div style={{flex:1,display:"flex",flexWrap:"wrap",gap:3}}>
+                  {(ei.catType==="expense"?EE:IE).map(e=><button key={e} className={`eb${!ei.ci&&ei.icon===e?" sl":""}`} onClick={()=>setEi(p=>({...p,icon:e,ci:null}))} style={{width:29,height:29,fontSize:15,opacity:ei.ci?0.35:1}}>{e}</button>)}
+                </div>
+              </div>
+              <button style={S.btn("#6366f1")} onClick={()=>{edSSCat(ei.catType,ei.catId,ei.subId,ei.id,ei.newName||ei.name,ei.icon,ei.ci);cm();}}>حفظ</button>
             </div>}
 
             {modal==="addBank"&&<div style={S.col}><input style={S.inp} placeholder="اسم البنك" value={form.name||""} onChange={e=>F("name",e.target.value)}/><input style={S.inp} placeholder="العنوان" value={form.addr||""} onChange={e=>F("addr",e.target.value)}/><button style={S.btn()} onClick={addBank}>حفظ</button></div>}

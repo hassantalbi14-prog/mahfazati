@@ -3380,6 +3380,10 @@ function AppInner(){
                           <div style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>✅ توزيع {selYear} مثبت</div>
                           <div style={{fontSize:11,color:"#64748b",marginTop:2}}>ثابت طول العام — التعديل غير التحويل اليدوي بين التصنيفات</div>
                         </div>
+                        <div style={{background:"#f0f7f2",borderRadius:10,padding:"8px 12px",marginBottom:10,textAlign:"center"}}>
+                          <span style={{fontSize:11,color:"#5c584c"}}>💰 المبلغ الكامل ديال الميزانية — {selYear}: </span>
+                          <span style={{fontSize:14,fontWeight:900,color:"#1a6b4a"}}>{fmt(yearBudgetTotals[selYear]||0)} د.م</span>
+                        </div>
                         {expCats.map((cat,ci)=>{
                           const hasSubs=cat.subs&&cat.subs.length>0;
                           const d=getCatDetail(cat.id,null,selYear);
@@ -3523,6 +3527,10 @@ function AppInner(){
                           <div style={{fontSize:11,color:"#78350f",marginTop:4}}>{selYear===nowYear.toString()?"ما تقدرش تصرف من الميزانية حتى تدخل النسب وتحفظ":"دخل التوزيع ديال هاد العام القديم باش تكمل السجل التاريخي"}</div>
                         </div>
 
+                        <div style={{background:"#e5f5ee",borderRadius:10,padding:"8px 12px",marginBottom:8,textAlign:"center"}}>
+                          <span style={{fontSize:11,color:"#5c584c"}}>💰 المبلغ الكامل اللي غادي تتوزع: </span>
+                          <span style={{fontSize:14,fontWeight:900,color:"#1a6b4a"}}>{fmt(yearBudgetTotals[selYear]||0)} د.م</span>
+                        </div>
                         <div style={{fontSize:12,fontWeight:800,color:"#334155",marginBottom:8}}>1️⃣ وزع 100% على التصنيفات</div>
                         {expCats.map(c=>{
                           const catPctVal=parseFloat(ovExp[catDraftKey(c)])||0;
@@ -3540,6 +3548,10 @@ function AppInner(){
                               const catPct=catPctVal;
                               const subTotal=c.subs.reduce((s,sub)=>s+(parseFloat(ovExp[subDraftKey(c,sub)])||0),0);
                               return <div style={{marginRight:20,marginTop:6,paddingRight:10,borderRight:"2px solid #e2e8f0"}}>
+                                <div style={{background:"#f0f7f2",borderRadius:8,padding:"6px 10px",marginBottom:6,textAlign:"center"}}>
+                                  <span style={{fontSize:9.5,color:"#5c584c"}}>💰 المبلغ الكامل ديال "{c.name}": </span>
+                                  <span style={{fontSize:12,fontWeight:900,color:"#1a6b4a"}}>{fmt(catAmt)} د.م</span>
+                                </div>
                                 <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>2️⃣ وزع النسبة ديال "{c.name}" ({catPct}%) على الفروع</div>
                                 {c.subs.map(sub=>{
                                   const subPctVal=parseFloat(ovExp[subDraftKey(c,sub)])||0;
@@ -3556,6 +3568,10 @@ function AppInner(){
                                     {sub.subs&&sub.subs.length>0&&(()=>{
                                       const sub2Total=sub.subs.reduce((s,s2)=>s+(parseFloat(ovExp[sub2DraftKey(c,sub,s2)])||0),0);
                                       return <div style={{marginRight:18,marginTop:5,paddingRight:10,borderRight:"2px dashed #dcd9cd"}}>
+                                        <div style={{background:"#eeedfc",borderRadius:8,padding:"5px 9px",marginBottom:5,textAlign:"center"}}>
+                                          <span style={{fontSize:9,color:"#5c584c"}}>💰 المبلغ الكامل ديال "{sub.name}": </span>
+                                          <span style={{fontSize:11,fontWeight:900,color:"#6366f1"}}>{fmt(subAmt)} د.م</span>
+                                        </div>
                                         <div style={{fontSize:9.5,color:"#94a3b8",marginBottom:4}}>3️⃣ وزع النسبة ديال "{sub.name}" ({subPctVal}%) على الفروع الفرعية</div>
                                         {sub.subs.map(s2=>{
                                           const s2PctVal=parseFloat(ovExp[sub2DraftKey(c,sub,s2)])||0;

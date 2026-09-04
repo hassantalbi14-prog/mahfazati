@@ -3346,8 +3346,6 @@ function AppInner(){
                   });
                   const draftKey=it=>`catpct_${selYear}_${it.catId}_${it.subId||"x"}`;
                   const catDraftKey=c=>`catpctL1_${selYear}_${c.id}`;
-                  const subDraftKey=(c,s)=>`catpctL2_${selYear}_${c.id}_${s.id}`;
-                  const sub2DraftKey=(c,s,s2)=>`catpctL3_${selYear}_${c.id}_${s.id}_${s2.id}`;
                   const catDraftTotal=expCats.reduce((s,c)=>s+(parseFloat(ovExp[catDraftKey(c)])||0),0);
 
                   return <>
@@ -3374,25 +3372,126 @@ function AppInner(){
                       </div>
                     </div>
 
-                    {dist ? (
-                      <div style={S.card}>
-                        <div style={{background:"#e8f5ee",borderRadius:10,padding:10,marginBottom:10,textAlign:"center"}}>
-                          <div style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>✅ توزيع {selYear} مثبت</div>
-                          <div style={{fontSize:11,color:"#64748b",marginTop:2}}>ثابت طول العام — التعديل غير التحويل اليدوي بين التصنيفات</div>
-                        </div>
-                        <div style={{background:"#f0f7f2",borderRadius:10,padding:"8px 12px",marginBottom:10,textAlign:"center"}}>
-                          <span style={{fontSize:11,color:"#5c584c"}}>💰 المبلغ الكامل ديال الميزانية — {selYear}: </span>
-                          <span style={{fontSize:14,fontWeight:900,color:"#1a6b4a"}}>{fmt(yearBudgetTotals[selYear]||0)} د.م</span>
-                        </div>
-                        {expCats.map((cat,ci)=>{
-                          const hasSubs=cat.subs&&cat.subs.length>0;
-                          const d=getCatDetail(cat.id,null,selYear);
-                          const barColor=d.balance<0?"#ef4444":d.usedPct>=80?"#f59e0b":"#1a6b4a";
-                          const expanded=!!ovExp[`catDistExpand_${cat.id}`];
-                          return <div key={cat.id}>
-                            <div style={{padding:"9px 0",borderBottom:(hasSubs&&expanded)?"none":"1px solid #f1f5f9",cursor:hasSubs?"pointer":"default"}} onClick={()=>{if(hasSubs)setOvExp(p=>({...p,[`catDistExpand_${cat.id}`]:!expanded}));}}>
+                    {(()=>{
+                      const drillCatId=ovExp.catDistDrillCat;
+                      const drillSubId=ovExp.catDistDrillSub;
+                      const drillCat=(dist&&drillCatId)?expCats.find(c=>c.id===drillCatId):null;
+                      const drillSub=(drillCat&&drillSubId)?drillCat.subs?.find(s=>s.id===drillSubId):null;
+
+                      // شاشة 3: فروع فرعية لفرع محدد
+                      if(dist&&drillCat&&drillSub){
+                        const subD=getCatDetail(drillCat.id,drillSub.id,selYear);
+                        const items=drillSub.subs||[];
+                        const existingList=((dist.sub2Pcts||{})[drillCat.id]||{})[drillSub.id]||[];
+                        const dKey=s2=>`drillS2_${selYear}_${drillCat.id}_${drillSub.id}_${s2.id}`;
+                        const valOf=s2=>{const ex=existingList.find(x=>x.sub2Id===s2.id);return ovExp[dKey(s2)]!==undefined?ovExp[dKey(s2)]:(ex?String(ex.pct):"0");};
+                        const sub2Total=items.reduce((s,s2)=>s+(parseFloat(valOf(s2))||0),0);
+                        return <div style={S.card}>
+                          <button onClick={()=>setOvExp(p=>({...p,catDistDrillSub:null}))} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:12,marginBottom:10,fontFamily:"Tajawal"}}>← رجوع لـ"{drillCat.name}"</button>
+                          <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>3️⃣ فروع فرعية لـ"{drillSub.name}"</div>
+                          <div style={{background:"#eeedfc",borderRadius:10,padding:"8px 12px",marginBottom:10,textAlign:"center"}}>
+                            <span style={{fontSize:11,color:"#5c584c"}}>💰 المبلغ الكامل ديال "{drillSub.name}": </span>
+                            <span style={{fontSize:13,fontWeight:900,color:"#6366f1"}}>{fmt(subD.totalAvail)} د.م</span>
+                          </div>
+                          {items.map(s2=>{
+                            const val=valOf(s2);
+                            const amt=subD.totalAvail*((parseFloat(val)||0)/100);
+                            return <div key={s2.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid #f1f5f9"}}>
+                              <span style={{flex:1,fontSize:12.5}}>{s2.name}</span>
+                              <span style={{fontSize:9.5,fontWeight:800,color:"#6366f1",whiteSpace:"nowrap"}}>{fmt(amt)} د.م</span>
+                              <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100" value={val} onChange={e=>setOvExp(p=>({...p,[dKey(s2)]:e.target.value}))}/>
+                              <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                            </div>;
+                          })}
+                          <div style={{textAlign:"center",fontSize:12,fontWeight:800,color:sub2Total===100?"#10b981":"#ef4444",margin:"10px 0"}}>المجموع: {sub2Total}% {sub2Total===100?"✅":"⚠️"}</div>
+                          <button style={S.btn("#6366f1")} onClick={()=>{
+                            if(sub2Total!==100){showErr(`⛔ المجموع ${sub2Total}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3000);return;}
+                            const newList=items.map(s2=>({sub2Id:s2.id,pct:parseFloat(valOf(s2))||0}));
+                            const updatedYears=(budgetSettings.catDistYears||[]).map(d=>{
+                              if(d.year!==selYear)return d;
+                              const newSub2Pcts={...(d.sub2Pcts||{})};
+                              newSub2Pcts[drillCat.id]={...(newSub2Pcts[drillCat.id]||{})};
+                              newSub2Pcts[drillCat.id][drillSub.id]=newList;
+                              return{...d,sub2Pcts:newSub2Pcts};
+                            });
+                            const nb={...budgetSettings,catDistYears:updatedYears};
+                            setBudgetSettings(nb);_save('budgetSettings',nb);
+                            setErr(`✅ تم حفظ فروع "${drillSub.name}"`);setTimeout(()=>setErr(null),3000);
+                            setOvExp(p=>({...p,catDistDrillSub:null}));
+                          }}>💾 حفظ فروع "{drillSub.name}"</button>
+                        </div>;
+                      }
+
+                      // شاشة 2: فروع لتصنيف محدد
+                      if(dist&&drillCat){
+                        const catD=getCatDetail(drillCat.id,null,selYear);
+                        const items=drillCat.subs||[];
+                        const existingList=(dist.subPcts||{})[drillCat.id]||[];
+                        const dKey=sub=>`drillS_${selYear}_${drillCat.id}_${sub.id}`;
+                        const valOf=sub=>{const ex=existingList.find(x=>x.subId===sub.id);return ovExp[dKey(sub)]!==undefined?ovExp[dKey(sub)]:(ex?String(ex.pct):"0");};
+                        const subTotal=items.reduce((s,sub)=>s+(parseFloat(valOf(sub))||0),0);
+                        return <div style={S.card}>
+                          <button onClick={()=>setOvExp(p=>({...p,catDistDrillCat:null}))} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:12,marginBottom:10,fontFamily:"Tajawal"}}>← رجوع للتصنيفات</button>
+                          <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>2️⃣ فروع "{drillCat.name}"</div>
+                          <div style={{background:"#f0f7f2",borderRadius:10,padding:"8px 12px",marginBottom:10,textAlign:"center"}}>
+                            <span style={{fontSize:11,color:"#5c584c"}}>💰 المبلغ الكامل ديال "{drillCat.name}": </span>
+                            <span style={{fontSize:13,fontWeight:900,color:"#1a6b4a"}}>{fmt(catD.totalAvail)} د.م</span>
+                          </div>
+                          {items.map(sub=>{
+                            const val=valOf(sub);
+                            const amt=catD.totalAvail*((parseFloat(val)||0)/100);
+                            const hasSub2=sub.subs&&sub.subs.length>0;
+                            const sub2List=((dist.sub2Pcts||{})[drillCat.id]||{})[sub.id];
+                            const sub2Sum=Array.isArray(sub2List)?sub2List.reduce((s,x)=>s+x.pct,0):0;
+                            return <div key={sub.id} style={{padding:"7px 0",borderBottom:"1px solid #f1f5f9"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                <span style={{flex:1,fontSize:12.5}}>{sub.name}</span>
+                                <span style={{fontSize:9.5,fontWeight:800,color:"#1a6b4a",whiteSpace:"nowrap"}}>{fmt(amt)} د.م</span>
+                                <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100" value={val} onChange={e=>setOvExp(p=>({...p,[dKey(sub)]:e.target.value}))}/>
+                                <span style={{fontSize:11,color:"#64748b"}}>%</span>
+                              </div>
+                              {hasSub2&&<div onClick={()=>setOvExp(p=>({...p,catDistDrillSub:sub.id}))} style={{fontSize:10.5,color:sub2Sum===100?"#1a6b4a":"#f59e0b",fontWeight:700,marginTop:4,cursor:"pointer",textAlign:"left"}}>{sub2Sum===100?"✅":"⚠️"} فروع فرعية ديال "{sub.name}" ({sub2Sum}%) ‹</div>}
+                            </div>;
+                          })}
+                          <div style={{textAlign:"center",fontSize:12,fontWeight:800,color:subTotal===100?"#10b981":"#ef4444",margin:"10px 0"}}>المجموع: {subTotal}% {subTotal===100?"✅":"⚠️"}</div>
+                          <button style={S.btn("#1a6b4a")} onClick={()=>{
+                            if(subTotal!==100){showErr(`⛔ المجموع ${subTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3000);return;}
+                            const newList=items.map(sub=>({subId:sub.id,pct:parseFloat(valOf(sub))||0}));
+                            const updatedYears=(budgetSettings.catDistYears||[]).map(d=>{
+                              if(d.year!==selYear)return d;
+                              const newSubPcts={...(d.subPcts||{})};
+                              newSubPcts[drillCat.id]=newList;
+                              return{...d,subPcts:newSubPcts};
+                            });
+                            const nb={...budgetSettings,catDistYears:updatedYears};
+                            setBudgetSettings(nb);_save('budgetSettings',nb);
+                            setErr(`✅ تم حفظ فروع "${drillCat.name}"`);setTimeout(()=>setErr(null),3000);
+                            setOvExp(p=>({...p,catDistDrillCat:null}));
+                          }}>💾 حفظ فروع "{drillCat.name}"</button>
+                        </div>;
+                      }
+
+                      // شاشة 1: لائحة التصنيفات (بوابة) — بعد ما التوزيع الأساسي يتصاوب
+                      if(dist){
+                        return <div style={S.card}>
+                          <div style={{background:"#e8f5ee",borderRadius:10,padding:10,marginBottom:10,textAlign:"center"}}>
+                            <div style={{fontSize:12,color:"#1a6b4a",fontWeight:700}}>✅ توزيع {selYear} مثبت</div>
+                            <div style={{fontSize:11,color:"#64748b",marginTop:2}}>ثابت طول العام — التعديل غير التحويل اليدوي بين التصنيفات</div>
+                          </div>
+                          <div style={{background:"#f0f7f2",borderRadius:10,padding:"8px 12px",marginBottom:10,textAlign:"center"}}>
+                            <span style={{fontSize:11,color:"#5c584c"}}>💰 المبلغ الكامل ديال الميزانية — {selYear}: </span>
+                            <span style={{fontSize:14,fontWeight:900,color:"#1a6b4a"}}>{fmt(yearBudgetTotals[selYear]||0)} د.م</span>
+                          </div>
+                          {expCats.map(cat=>{
+                            const hasSubs=cat.subs&&cat.subs.length>0;
+                            const d=getCatDetail(cat.id,null,selYear);
+                            const barColor=d.balance<0?"#ef4444":d.usedPct>=80?"#f59e0b":"#1a6b4a";
+                            const subList=(dist.subPcts||{})[cat.id];
+                            const subTotal=Array.isArray(subList)?subList.reduce((s,x)=>s+x.pct,0):0;
+                            const complete=!hasSubs||subTotal===100;
+                            return <div key={cat.id} onClick={()=>{if(hasSubs)setOvExp(p=>({...p,catDistDrillCat:cat.id}));}} style={{padding:"9px 0",borderBottom:"1px solid #f1f5f9",cursor:hasSubs?"pointer":"default"}}>
                               <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}>
-                                <span>{cat.icon} {cat.name}{hasSubs?<span style={{color:"#94a3b8",fontSize:11}}> {expanded?"▲":"▼"}</span>:""}</span>
+                                <span>{cat.icon} {cat.name}</span>
                                 <span style={{fontWeight:800,color:d.balance>=0?"#1a6b4a":"#ef4444"}}>{d.balance<0?"-":""}{fmt(Math.abs(d.balance))}</span>
                               </div>
                               <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>مثبت: {d.pct.toFixed(1)}% · فعليا دابا: {d.effectivePct.toFixed(1)}% من الميزانية</div>
@@ -3401,132 +3500,35 @@ function AppInner(){
                               </div>
                               <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
                                 <span>مخصص: {fmt(d.totalAvail)} · صرف: {fmt(d.spent)}</span>
-                                <span>{d.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-d.usedPct,0).toFixed(0)}%`}</span>
+                                {hasSubs?(complete?<span style={{color:"#1a6b4a",fontWeight:700}}>✅ فروع مكملة ›</span>:<span style={{color:"#f59e0b",fontWeight:700}}>⚠️ فروع ناقصة ({subTotal}%) ›</span>):<span>{d.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-d.usedPct,0).toFixed(0)}%`}</span>}
+                              </div>
+                            </div>;
+                          })}
+                          {ovExp[`confirmDelCatDist_${selYear}`]?(
+                            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+                              {selYear!==nowYear.toString()&&<div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>⚠️ حذف سنة قديمة قد يأثر على الترحيل والتحويلات المرتبطة بيها</div>}
+                              <div style={{display:"flex",gap:6}}>
+                                <button style={{...S.btn("#e8e8e4",false),color:"#475569",flex:1,padding:"9px",fontSize:12}} onClick={()=>setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:false}))}>إلغاء</button>
+                                <button style={{...S.btn("#ef4444"),flex:1,padding:"9px",fontSize:12}} onClick={()=>{
+                                  const nb={...budgetSettings,catDistYears:(budgetSettings.catDistYears||[]).filter(d=>d.year!==selYear)};
+                                  setBudgetSettings(nb);_save('budgetSettings',nb);
+                                  setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:false}));
+                                  setErr(`✅ تم حذف توزيع ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
+                                }}>تأكيد الحذف</button>
                               </div>
                             </div>
-                            {hasSubs&&expanded&&cat.subs.map((sub,si)=>{
-                              const subList=(dist.subPcts||{})[cat.id];
-                              const hasEntry=Array.isArray(subList)&&subList.some(s=>s.subId===sub.id);
-                              if(!hasEntry){
-                                const draftK=`newSubPct_${selYear}_${cat.id}_${sub.id}`;
-                                return <div key={sub.id} style={{padding:"9px 0 9px 14px",background:"#fef3c7",borderBottom:"1px solid #f1f5f9"}}>
-                                  <div style={{fontSize:11,fontWeight:700,color:"#92400e",marginBottom:6}}>⚠️ "{sub.name}" فرع جديد — ماعندوش نسبة محددة بعد لهاد السنة</div>
-                                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                    <input style={{...S.inp,width:70,textAlign:"center",padding:"6px"}} type="number" min="0" max="100" placeholder="0"
-                                      value={ovExp[draftK]||""} onChange={e=>setOvExp(p=>({...p,[draftK]:e.target.value}))}/>
-                                    <span style={{fontSize:11,color:"#78350f"}}>%</span>
-                                    <button style={{...S.btn("#f59e0b"),flex:1,padding:"8px",fontSize:11}} onClick={()=>{
-                                      const pct=parseFloat(ovExp[draftK]);
-                                      if(!pct||pct<=0){showErr("⛔ دخل نسبة صحيحة");setTimeout(()=>setErr(null),3000);return;}
-                                      const updatedYears=(budgetSettings.catDistYears||[]).map(d=>{
-                                        if(d.year!==selYear)return d;
-                                        const newSubPcts={...(d.subPcts||{})};
-                                        newSubPcts[cat.id]=[...(newSubPcts[cat.id]||[]),{subId:sub.id,pct}];
-                                        return{...d,subPcts:newSubPcts};
-                                      });
-                                      const nb={...budgetSettings,catDistYears:updatedYears};
-                                      setBudgetSettings(nb);_save('budgetSettings',nb);
-                                      setOvExp(p=>({...p,[draftK]:""}));
-                                      const newTotal=((dist.subPcts||{})[cat.id]||[]).reduce((s,x)=>s+x.pct,0)+pct;
-                                      showErr(newTotal===100?"✅ تم إضافة النسبة":`✅ تمت الإضافة — تنبيه: مجموع فروع "${cat.name}" دابا ${newTotal}% (خاصو يكون 100%)`);
-                                      setTimeout(()=>setErr(null),4000);
-                                    }}>➕ إضافة</button>
-                                  </div>
-                                </div>;
-                              }
-                              const sd=getCatDetail(cat.id,sub.id,selYear);
-                              const sBarColor=sd.balance<0?"#ef4444":sd.usedPct>=80?"#f59e0b":"#1a6b4a";
-                              const hasSub2=sub.subs&&sub.subs.length>0;
-                              const sub2Expanded=!!ovExp[`catDistExpand2_${sub.id}`];
-                              return <div key={sub.id}>
-                                <div style={{padding:"9px 0 9px 14px",borderBottom:(hasSub2&&sub2Expanded)?"none":"1px solid #f1f5f9",background:"#fafaf7",cursor:hasSub2?"pointer":"default"}} onClick={()=>{if(hasSub2)setOvExp(p=>({...p,[`catDistExpand2_${sub.id}`]:!sub2Expanded}));}}>
-                                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}>
-                                    <span>↳ {sub.name}{hasSub2?<span style={{color:"#94a3b8",fontSize:10}}> {sub2Expanded?"▲":"▼"}</span>:""}</span>
-                                    <span style={{fontWeight:800,color:sd.balance>=0?"#1a6b4a":"#ef4444"}}>{sd.balance<0?"-":""}{fmt(Math.abs(sd.balance))}</span>
-                                  </div>
-                                  <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>مثبت: {sd.pct.toFixed(1)}% · فعليا دابا: {sd.effectivePct.toFixed(1)}% من الميزانية</div>
-                                  <div style={{height:5,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
-                                    <div style={{height:"100%",width:Math.min(sd.usedPct,100)+"%",background:sBarColor,borderRadius:3}}/>
-                                  </div>
-                                  <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#94a3b8"}}>
-                                    <span>مخصص: {fmt(sd.totalAvail)} · صرف: {fmt(sd.spent)}</span>
-                                    <span>{sd.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-sd.usedPct,0).toFixed(0)}%`}</span>
-                                  </div>
-                                </div>
-                                {hasSub2&&sub2Expanded&&sub.subs.map((sub2,s2i)=>{
-                                  const sub2ListRaw=((dist.sub2Pcts||{})[cat.id]||{})[sub.id];
-                                  const has2Entry=Array.isArray(sub2ListRaw)&&sub2ListRaw.some(x=>x.sub2Id===sub2.id);
-                                  if(!has2Entry){
-                                    const draftK2=`newSub2Pct_${selYear}_${cat.id}_${sub.id}_${sub2.id}`;
-                                    return <div key={sub2.id} style={{padding:"8px 0 8px 28px",background:"#fef3c7",borderBottom:"1px solid #f1f5f9"}}>
-                                      <div style={{fontSize:10.5,fontWeight:700,color:"#92400e",marginBottom:6}}>⚠️ "{sub2.name}" فرع فرعي جديد — بلا نسبة بعد</div>
-                                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                        <input style={{...S.inp,width:64,textAlign:"center",padding:"5px"}} type="number" min="0" max="100" placeholder="0"
-                                          value={ovExp[draftK2]||""} onChange={e=>setOvExp(p=>({...p,[draftK2]:e.target.value}))}/>
-                                        <span style={{fontSize:10,color:"#78350f"}}>%</span>
-                                        <button style={{...S.btn("#f59e0b"),flex:1,padding:"7px",fontSize:10.5}} onClick={()=>{
-                                          const pct2=parseFloat(ovExp[draftK2]);
-                                          if(!pct2||pct2<=0){showErr("⛔ دخل نسبة صحيحة");setTimeout(()=>setErr(null),3000);return;}
-                                          const updatedYears=(budgetSettings.catDistYears||[]).map(d=>{
-                                            if(d.year!==selYear)return d;
-                                            const newSub2Pcts={...(d.sub2Pcts||{})};
-                                            newSub2Pcts[cat.id]={...(newSub2Pcts[cat.id]||{})};
-                                            newSub2Pcts[cat.id][sub.id]=[...((newSub2Pcts[cat.id]||{})[sub.id]||[]),{sub2Id:sub2.id,pct:pct2}];
-                                            return{...d,sub2Pcts:newSub2Pcts};
-                                          });
-                                          const nb={...budgetSettings,catDistYears:updatedYears};
-                                          setBudgetSettings(nb);_save('budgetSettings',nb);
-                                          setOvExp(p=>({...p,[draftK2]:""}));
-                                          showErr("✅ تم إضافة النسبة");setTimeout(()=>setErr(null),3000);
-                                        }}>➕ إضافة</button>
-                                      </div>
-                                    </div>;
-                                  }
-                                  const s2d=getCatDetail(cat.id,sub.id,selYear,sub2.id);
-                                  const s2BarColor=s2d.balance<0?"#ef4444":s2d.usedPct>=80?"#f59e0b":"#1a6b4a";
-                                  return <div key={sub2.id} style={{padding:"8px 0 8px 28px",borderBottom:s2i<sub.subs.length-1?"1px solid #f1f1f1":"1px solid #f1f5f9",background:"#f5f4ef"}}>
-                                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,marginBottom:2}}>
-                                      <span>⌐ {sub2.name}</span>
-                                      <span style={{fontWeight:800,color:s2d.balance>=0?"#1a6b4a":"#ef4444"}}>{s2d.balance<0?"-":""}{fmt(Math.abs(s2d.balance))}</span>
-                                    </div>
-                                    <div style={{fontSize:9.5,color:"#94a3b8",marginBottom:4}}>مثبت: {s2d.pct.toFixed(2)}% · فعليا دابا: {s2d.effectivePct.toFixed(2)}% من الميزانية</div>
-                                    <div style={{height:4,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:4}}>
-                                      <div style={{height:"100%",width:Math.min(s2d.usedPct,100)+"%",background:s2BarColor,borderRadius:3}}/>
-                                    </div>
-                                    <div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:"#94a3b8"}}>
-                                      <span>مخصص: {fmt(s2d.totalAvail)} · صرف: {fmt(s2d.spent)}</span>
-                                      <span>{s2d.balance<0?"⚠️ نافذ":`باقي ${Math.max(100-s2d.usedPct,0).toFixed(0)}%`}</span>
-                                    </div>
-                                  </div>;
-                                })}
-                              </div>;
-                            })}
-                          </div>;
-                        })}
-                        {ovExp[`confirmDelCatDist_${selYear}`]?(
-                          <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
-                            {selYear!==nowYear.toString()&&<div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>⚠️ حذف سنة قديمة قد يأثر على الترحيل والتحويلات المرتبطة بيها</div>}
-                            <div style={{display:"flex",gap:6}}>
-                              <button style={{...S.btn("#e8e8e4",false),color:"#475569",flex:1,padding:"9px",fontSize:12}} onClick={()=>setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:false}))}>إلغاء</button>
-                              <button style={{...S.btn("#ef4444"),flex:1,padding:"9px",fontSize:12}} onClick={()=>{
-                                const nb={...budgetSettings,catDistYears:(budgetSettings.catDistYears||[]).filter(d=>d.year!==selYear)};
-                                setBudgetSettings(nb);_save('budgetSettings',nb);
-                                setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:false}));
-                                setErr(`✅ تم حذف توزيع ${selYear} — تقدر تدخل من جديد`);setTimeout(()=>setErr(null),3500);
-                              }}>تأكيد الحذف</button>
-                            </div>
-                          </div>
-                        ):(
-                          <button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"9px",fontSize:12,marginTop:8}} onClick={()=>setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:true}))}>🗑️ حذف توزيع {selYear}</button>
-                        )}
-                      </div>
-                    ) : (
-                      <div style={S.card}>
+                          ):(
+                            <button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"9px",fontSize:12,marginTop:8}} onClick={()=>setOvExp(p=>({...p,[`confirmDelCatDist_${selYear}`]:true}))}>🗑️ حذف توزيع {selYear}</button>
+                          )}
+                        </div>;
+                      }
+
+                      // ماكاينش توزيع بعد — معالج التصنيفات وحدها (المستوى 1 فقط، الفروع كتدخل بعدها بالتنقل)
+                      return <div style={S.card}>
                         <div style={{background:"#fef3c7",borderRadius:10,padding:10,marginBottom:10}}>
                           <div style={{fontSize:12,color:"#92400e",fontWeight:700}}>⚠️ ماكاينش توزيع لعام {selYear} بعد</div>
                           <div style={{fontSize:11,color:"#78350f",marginTop:4}}>{selYear===nowYear.toString()?"ما تقدرش تصرف من الميزانية حتى تدخل النسب وتحفظ":"دخل التوزيع ديال هاد العام القديم باش تكمل السجل التاريخي"}</div>
                         </div>
-
                         <div style={{background:"#e5f5ee",borderRadius:10,padding:"8px 12px",marginBottom:8,textAlign:"center"}}>
                           <span style={{fontSize:11,color:"#5c584c"}}>💰 المبلغ الكامل اللي غادي تتوزع: </span>
                           <span style={{fontSize:14,fontWeight:900,color:"#1a6b4a"}}>{fmt(yearBudgetTotals[selYear]||0)} د.م</span>
@@ -3535,104 +3537,25 @@ function AppInner(){
                         {expCats.map(c=>{
                           const catPctVal=parseFloat(ovExp[catDraftKey(c)])||0;
                           const catAmt=(yearBudgetTotals[selYear]||0)*(catPctVal/100);
-                          return (
-                          <div key={c.id} style={{marginBottom:c.subs&&c.subs.length>0?4:8}}>
-                            <div style={{display:"flex",alignItems:"center",gap:10}}>
-                              <div style={{flex:1,fontSize:13}}>{c.icon} {c.name}</div>
-                              <span style={{fontSize:10.5,fontWeight:800,color:"#1a6b4a",whiteSpace:"nowrap"}}>{fmt(catAmt)} د.م</span>
-                              <input style={{...S.inp,width:64,textAlign:"center",padding:"7px"}} type="number" min="0" max="100"
-                                value={ovExp[catDraftKey(c)]!==undefined?ovExp[catDraftKey(c)]:"0"} onChange={e=>setOvExp(p=>({...p,[catDraftKey(c)]:e.target.value}))}/>
-                              <span style={{fontSize:12,color:"#64748b"}}>%</span>
-                            </div>
-                            {c.subs&&c.subs.length>0&&(()=>{
-                              const catPct=catPctVal;
-                              const subTotal=c.subs.reduce((s,sub)=>s+(parseFloat(ovExp[subDraftKey(c,sub)])||0),0);
-                              return <div style={{marginRight:20,marginTop:6,paddingRight:10,borderRight:"2px solid #e2e8f0"}}>
-                                <div style={{background:"#f0f7f2",borderRadius:8,padding:"6px 10px",marginBottom:6,textAlign:"center"}}>
-                                  <span style={{fontSize:9.5,color:"#5c584c"}}>💰 المبلغ الكامل ديال "{c.name}": </span>
-                                  <span style={{fontSize:12,fontWeight:900,color:"#1a6b4a"}}>{fmt(catAmt)} د.م</span>
-                                </div>
-                                <div style={{fontSize:10,color:"#94a3b8",marginBottom:4}}>2️⃣ وزع النسبة ديال "{c.name}" ({catPct}%) على الفروع</div>
-                                {c.subs.map(sub=>{
-                                  const subPctVal=parseFloat(ovExp[subDraftKey(c,sub)])||0;
-                                  const subAmt=catAmt*(subPctVal/100);
-                                  return (
-                                  <div key={sub.id} style={{marginBottom:6}}>
-                                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                      <div style={{flex:1,fontSize:12,color:"#475569"}}>{sub.name}</div>
-                                      <span style={{fontSize:9.5,fontWeight:800,color:"#1a6b4a",whiteSpace:"nowrap"}}>{fmt(subAmt)} د.م</span>
-                                      <input style={{...S.inp,width:56,textAlign:"center",padding:"6px"}} type="number" min="0" max="100"
-                                        value={ovExp[subDraftKey(c,sub)]!==undefined?ovExp[subDraftKey(c,sub)]:"0"} onChange={e=>setOvExp(p=>({...p,[subDraftKey(c,sub)]:e.target.value}))}/>
-                                      <span style={{fontSize:11,color:"#64748b"}}>%</span>
-                                    </div>
-                                    {sub.subs&&sub.subs.length>0&&(()=>{
-                                      const sub2Total=sub.subs.reduce((s,s2)=>s+(parseFloat(ovExp[sub2DraftKey(c,sub,s2)])||0),0);
-                                      return <div style={{marginRight:18,marginTop:5,paddingRight:10,borderRight:"2px dashed #dcd9cd"}}>
-                                        <div style={{background:"#eeedfc",borderRadius:8,padding:"5px 9px",marginBottom:5,textAlign:"center"}}>
-                                          <span style={{fontSize:9,color:"#5c584c"}}>💰 المبلغ الكامل ديال "{sub.name}": </span>
-                                          <span style={{fontSize:11,fontWeight:900,color:"#6366f1"}}>{fmt(subAmt)} د.م</span>
-                                        </div>
-                                        <div style={{fontSize:9.5,color:"#94a3b8",marginBottom:4}}>3️⃣ وزع النسبة ديال "{sub.name}" ({subPctVal}%) على الفروع الفرعية</div>
-                                        {sub.subs.map(s2=>{
-                                          const s2PctVal=parseFloat(ovExp[sub2DraftKey(c,sub,s2)])||0;
-                                          const s2Amt=subAmt*(s2PctVal/100);
-                                          return (
-                                          <div key={s2.id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
-                                            <div style={{flex:1,fontSize:11,color:"#5c584c"}}>{s2.name}</div>
-                                            <span style={{fontSize:9,fontWeight:800,color:"#6366f1",whiteSpace:"nowrap"}}>{fmt(s2Amt)} د.م</span>
-                                            <input style={{...S.inp,width:48,textAlign:"center",padding:"5px"}} type="number" min="0" max="100"
-                                              value={ovExp[sub2DraftKey(c,sub,s2)]!==undefined?ovExp[sub2DraftKey(c,sub,s2)]:"0"} onChange={e=>setOvExp(p=>({...p,[sub2DraftKey(c,sub,s2)]:e.target.value}))}/>
-                                            <span style={{fontSize:10,color:"#64748b"}}>%</span>
-                                          </div>
-                                          );
-                                        })}
-                                        <div style={{fontSize:9,fontWeight:700,color:sub2Total===100?"#10b981":"#ef4444",marginBottom:6}}>مجموع فروع "{sub.name}": {sub2Total}% {sub2Total===100?"✅":"⚠️"}</div>
-                                      </div>;
-                                    })()}
-                                  </div>
-                                  );
-                                })}
-                                <div style={{fontSize:10,fontWeight:700,color:subTotal===100?"#10b981":"#ef4444",marginBottom:8}}>مجموع فروع "{c.name}": {subTotal}% {subTotal===100?"✅":"⚠️"}</div>
-                              </div>;
-                            })()}
-                          </div>
-                          );
+                          return <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid #f8fafc"}}>
+                            <div style={{flex:1,fontSize:13}}>{c.icon} {c.name}</div>
+                            <span style={{fontSize:10.5,fontWeight:800,color:"#1a6b4a",whiteSpace:"nowrap"}}>{fmt(catAmt)} د.م</span>
+                            <input style={{...S.inp,width:64,textAlign:"center",padding:"7px"}} type="number" min="0" max="100"
+                              value={ovExp[catDraftKey(c)]!==undefined?ovExp[catDraftKey(c)]:"0"} onChange={e=>setOvExp(p=>({...p,[catDraftKey(c)]:e.target.value}))}/>
+                            <span style={{fontSize:12,color:"#64748b"}}>%</span>
+                          </div>;
                         })}
                         <div style={{textAlign:"center",fontSize:13,fontWeight:800,color:catDraftTotal===100?"#10b981":"#ef4444",margin:"10px 0"}}>مجموع كل التصنيفات: {catDraftTotal}% {catDraftTotal===100?"✅":"⚠️"}</div>
+                        <div style={{fontSize:10.5,color:"#8a8578",textAlign:"center",marginBottom:8}}>💡 بعد الحفظ، غادي تقدر تدخل لكل تصنيف بوحدو وتوزع الفروع ديالو</div>
                         <button style={S.btn("#1a6b4a")} onClick={()=>{
                           if(catDraftTotal!==100){showErr(`⛔ مجموع نسب التصنيفات ${catDraftTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
-                          for(const c of expCats){
-                            if(c.subs&&c.subs.length>0){
-                              const subTotal=c.subs.reduce((s,sub)=>s+(parseFloat(ovExp[subDraftKey(c,sub)])||0),0);
-                              if(subTotal!==100){showErr(`⛔ مجموع فروع "${c.name}" ${subTotal}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
-                              for(const sub of c.subs){
-                                if(sub.subs&&sub.subs.length>0){
-                                  const sub2Total=sub.subs.reduce((s,s2)=>s+(parseFloat(ovExp[sub2DraftKey(c,sub,s2)])||0),0);
-                                  if(sub2Total!==100){showErr(`⛔ مجموع فروع "${sub.name}" ${sub2Total}% — خاص يكون 100%`);setTimeout(()=>setErr(null),3500);return;}
-                                }
-                              }
-                            }
-                          }
                           const catPcts=expCats.map(c=>({catId:c.id,pct:parseFloat(ovExp[catDraftKey(c)])||0}));
-                          const subPcts={};
-                          const sub2Pcts={};
-                          expCats.forEach(c=>{
-                            if(c.subs&&c.subs.length>0){
-                              subPcts[c.id]=c.subs.map(sub=>({subId:sub.id,pct:parseFloat(ovExp[subDraftKey(c,sub)])||0}));
-                              c.subs.forEach(sub=>{
-                                if(sub.subs&&sub.subs.length>0){
-                                  if(!sub2Pcts[c.id])sub2Pcts[c.id]={};
-                                  sub2Pcts[c.id][sub.id]=sub.subs.map(s2=>({sub2Id:s2.id,pct:parseFloat(ovExp[sub2DraftKey(c,sub,s2)])||0}));
-                                }
-                              });
-                            }
-                          });
-                          const nb={...budgetSettings,catDistYears:[...(budgetSettings.catDistYears||[]),{year:selYear,catPcts,subPcts,sub2Pcts}]};
+                          const nb={...budgetSettings,catDistYears:[...(budgetSettings.catDistYears||[]),{year:selYear,catPcts,subPcts:{},sub2Pcts:{}}]};
                           setBudgetSettings(nb);_save('budgetSettings',nb);
-                          setErr(`✅ تم حفظ توزيع ${selYear}`);setTimeout(()=>setErr(null),3000);
-                        }}>💾 حفظ توزيع {selYear}</button>
-                      </div>
-                    )}
+                          setErr(`✅ تم حفظ التصنيفات ${selYear} — دابا دخل لكل تصنيف وزع الفروع ديالو`);setTimeout(()=>setErr(null),4000);
+                        }}>💾 حفظ ومتابعة للفروع</button>
+                      </div>;
+                    })()}
 
                     {dist && <>
                       <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"6px 2px"}}>🔄 تحويل بين التصنيفات ({selYear})</div>

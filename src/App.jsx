@@ -542,6 +542,12 @@ function AppInner(){
     const earlier=(budgetSettings.incomeGoalsByYear||[]).filter(g=>parseInt(g.year)<parseInt(y)).sort((a,b)=>b.year.localeCompare(a.year));
     return earlier[0]?earlier[0].amount:0;
   };
+  const getGoalBudgetTotal=(year)=>{
+    const monthly=getIncomeGoalForYear(year);
+    if(monthly<=0)return 0;
+    const tiers=getActiveTiers(year);
+    return getProgressiveAmount(monthly,tiers,"expenses")*12;
+  };
   const getTierForIncome=(amount,tiers)=>{
     const list=tiers||getActiveTiers();
     return list.find(t=>amount<=t.max)||list[list.length-1];
@@ -3381,7 +3387,7 @@ function AppInner(){
                       // شاشة 3: فروع فرعية لفرع محدد
                       if(dist&&drillCat&&drillSub){
                         const subD=getCatDetail(drillCat.id,drillSub.id,selYear);
-                        const subDisplayAmt=subD.totalAvail>0?subD.totalAvail:((getIncomeGoalForYear(selYear)*12)*(subD.pct/100));
+                        const subDisplayAmt=subD.totalAvail>0?subD.totalAvail:((getGoalBudgetTotal(selYear))*(subD.pct/100));
                         const items=drillSub.subs||[];
                         const existingList=((dist.sub2Pcts||{})[drillCat.id]||{})[drillSub.id]||[];
                         const dKey=s2=>`drillS2_${selYear}_${drillCat.id}_${drillSub.id}_${s2.id}`;
@@ -3426,7 +3432,7 @@ function AppInner(){
                       // شاشة 2: فروع لتصنيف محدد
                       if(dist&&drillCat){
                         const catD=getCatDetail(drillCat.id,null,selYear);
-                        const catDisplayAmt=catD.totalAvail>0?catD.totalAvail:((getIncomeGoalForYear(selYear)*12)*(catD.pct/100));
+                        const catDisplayAmt=catD.totalAvail>0?catD.totalAvail:((getGoalBudgetTotal(selYear))*(catD.pct/100));
                         const items=drillCat.subs||[];
                         const existingList=(dist.subPcts||{})[drillCat.id]||[];
                         const dKey=sub=>`drillS_${selYear}_${drillCat.id}_${sub.id}`;
@@ -3528,7 +3534,7 @@ function AppInner(){
                       // ماكاينش توزيع بعد — معالج التصنيفات وحدها (المستوى 1 فقط، الفروع كتدخل بعدها بالتنقل)
                       const realYearTotal=yearBudgetTotals[selYear]||0;
                       const goalMonthly=getIncomeGoalForYear(selYear);
-                      const goalYearTotal=goalMonthly*12;
+                      const goalYearTotal=getGoalBudgetTotal(selYear);
                       const usingGoal=realYearTotal===0&&goalYearTotal>0;
                       const displayTotal=realYearTotal>0?realYearTotal:goalYearTotal;
                       return <div style={S.card}>
@@ -3537,9 +3543,9 @@ function AppInner(){
                           <div style={{fontSize:11,color:"#78350f",marginTop:4}}>{selYear===nowYear.toString()?"ما تقدرش تصرف من الميزانية حتى تدخل النسب وتحفظ":"دخل التوزيع ديال هاد العام القديم باش تكمل السجل التاريخي"}</div>
                         </div>
                         <div style={{background:"linear-gradient(145deg,#1a6b4a,#0f4a33)",borderRadius:18,padding:20,textAlign:"center",marginBottom:12}}>
-                          <div style={{fontSize:11.5,color:"rgba(255,255,255,.75)",marginBottom:4}}>{usingGoal?"🎯 الهدف الكامل لعام":"💰 المبلغ الكامل لعام"} {selYear}</div>
+                          <div style={{fontSize:11.5,color:"rgba(255,255,255,.75)",marginBottom:4}}>{usingGoal?"🎯 هدف الميزانية الكامل لعام":"💰 المبلغ الكامل لعام"} {selYear}</div>
                           <div style={{fontSize:26,fontWeight:900,color:"#fff"}}>{fmt(displayTotal)} د.م</div>
-                          {usingGoal&&<div style={{fontSize:9.5,color:"rgba(255,255,255,.6)",marginTop:4}}>(هدف الدخل الشهري {fmt(goalMonthly)} × 12 — تقريبي للتخطيط)</div>}
+                          {usingGoal&&<div style={{fontSize:9.5,color:"rgba(255,255,255,.6)",marginTop:4}}>(حصة "الميزانية" من هدف الدخل الشهري {fmt(goalMonthly)} حسب الشرائح × 12 — تقريبي للتخطيط)</div>}
                         </div>
                         <div style={{fontSize:12,fontWeight:800,color:"#334155",marginBottom:8}}>1️⃣ وزع 100% على التصنيفات</div>
                         {expCats.map(c=>{

@@ -5546,10 +5546,15 @@ function AppInner(){
                 const rawSub=modal==="addTx"?form.subId:ei?.subId;
                 if(cat.subs?.length>0&&!rawSub)return null;
                 const sid=rawSub?parseInt(rawSub):null;
+                const sub=sid?cat.subs?.find(s=>s.id===sid):null;
+                const rawSub2=modal==="addTx"?form.sub2Id:ei?.sub2Id;
+                if(sub?.subs?.length>0&&!rawSub2)return null;
+                const s2id=rawSub2?parseInt(rawSub2):null;
                 const yr=new Date().getFullYear().toString();
                 if(!getCatDistYear(yr))return null;
-                const bal=getCatBalance(cid,sid,yr);
-                return <div style={{fontSize:12,fontWeight:700,color:bal<0?"#ef4444":"#1a6b4a",background:bal<0?"#fee2e2":"#e5f5ee",borderRadius:10,padding:"9px 12px",textAlign:"center"}}>💰 الرصيد المتاح فهاد التصنيف: {bal<0?"-":""}{fmt(Math.abs(bal))}</div>;
+                const bal=getCatBalance(cid,sid,yr,s2id);
+                const label=s2id?(sub?.subs?.find(s2=>s2.id===s2id)?.name||"الفرع الفرعي"):(sub?sub.name:cat.name);
+                return <div style={{fontSize:12,fontWeight:700,color:bal<0?"#ef4444":"#1a6b4a",background:bal<0?"#fee2e2":"#e5f5ee",borderRadius:10,padding:"9px 12px",textAlign:"center"}}>💰 الرصيد المتاح فـ"{label}": {bal<0?"-":""}{fmt(Math.abs(bal))}</div>;
               })()}
               {modal==="addTx"&&(form.pm||"نقدي")!=="كريدي"&&(form.txType||"expense")!=="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"
                 accList={form.txType==="invest"?getBucketAccs("investment"):form.txType==="retire"?getBucketAccs("retirement"):form.txType==="emergency"?getBucketAccs("emergency"):form.txType==="assets_buy"?getBucketAccs("assets"):getBucketAccs("expenses")}/>}

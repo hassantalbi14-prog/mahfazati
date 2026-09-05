@@ -879,14 +879,14 @@ function AppInner(){
     if(total>(acc.balance||0)){showErr("⛔ الرصيد غير كافي — الرصيد المتاح: "+fmt(acc.balance||0));return;}
     const bktBal=getBucketBalanceLive("expenses");
     if(bktBal-total<0){showErr(`⛔ رصيد الميزانية غير كافي — المتاح: ${fmt(Math.max(0,bktBal))} د.م`);return;}
-    const curYear=new Date().getFullYear().toString();
-    if(!getCatDistYear(curYear)){showErr("⛔ خاصك تدخل توزيع التصنيفات ديال هاد العام أولاً — من الإعدادات");return;}
+    const txYear=(form.date||new Date().toISOString().split("T")[0]).slice(0,4);
+    if(!getCatDistYear(txYear)){showErr(`⛔ خاصك تدخل توزيع التصنيفات ديال عام ${txYear} أولاً — من الإعدادات`);return;}
     // تجميع الأجزاء حسب التصنيف/الفرع باش نتحقق من الرصيد لكل واحد بمجموع أجزائه
     const grouped={};
     parts.forEach(p=>{const k=`${p.catId}_${p.subId||""}`;grouped[k]=(grouped[k]||0)+parseFloat(p.amount);});
     for(const k in grouped){
       const[cid,sid]=k.split("_");
-      const catBal=getCatBalance(parseInt(cid),sid?parseInt(sid):null,curYear);
+      const catBal=getCatBalance(parseInt(cid),sid?parseInt(sid):null,txYear);
       if(catBal-grouped[k]<0){
         const cat=gc("expense",parseInt(cid));
         showErr(`⛔ رصيد "${cat?.name}" غير كافي — المتاح: ${fmt(Math.max(0,catBal))} د.م`);return;
@@ -931,9 +931,9 @@ function AppInner(){
         }
       }
       // منع بسبب توزيع التصنيفات السنوي
-      const curYear=new Date().getFullYear().toString();
+      const curYear=(form.date||new Date().toISOString().split("T")[0]).slice(0,4);
       if(!getCatDistYear(curYear)){
-        showErr("⛔ خاصك تدخل توزيع التصنيفات ديال هاد العام أولاً — من الإعدادات");return;
+        showErr(`⛔ خاصك تدخل توزيع التصنيفات ديال عام ${curYear} أولاً — من الإعدادات`);return;
       }
       const catIdNum=parseInt(form.catId);
       const subIdNum=form.subId?parseInt(form.subId):null;
@@ -5553,11 +5553,7 @@ function AppInner(){
                 if(!getCatDistYear(yr))return null;
                 const bal=getCatBalance(cid,sid,yr,s2id);
                 const label=s2id?(sub?.subs?.find(s2=>s2.id===s2id)?.name||"الفرع الفرعي"):(sub?sub.name:cat.name);
-                const monthAr=new Date(rawDate).toLocaleDateString("ar-MA",{month:"long"});
-                return <div style={{fontSize:12,fontWeight:700,color:bal<0?"#ef4444":"#1a6b4a",background:bal<0?"#fee2e2":"#e5f5ee",borderRadius:10,padding:"9px 12px",textAlign:"center"}}>
-                  <div>💰 الرصيد المتاح فـ"{label}": {bal<0?"-":""}{fmt(Math.abs(bal))}</div>
-                  <div style={{fontSize:9.5,fontWeight:500,color:bal<0?"#b91c1c":"#5c8a72",marginTop:2}}>تراكمي من بداية {yr} لحد {monthAr} {yr}</div>
-                </div>;
+                return <div style={{fontSize:12,fontWeight:700,color:bal<0?"#ef4444":"#1a6b4a",background:bal<0?"#fee2e2":"#e5f5ee",borderRadius:10,padding:"9px 12px",textAlign:"center"}}>💰 الرصيد المتاح فـ"{label}": {bal<0?"-":""}{fmt(Math.abs(bal))}</div>;
               })()}
               {modal==="addTx"&&(form.pm||"نقدي")!=="كريدي"&&(form.txType||"expense")!=="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"
                 accList={form.txType==="invest"?getBucketAccs("investment"):form.txType==="retire"?getBucketAccs("retirement"):form.txType==="emergency"?getBucketAccs("emergency"):form.txType==="assets_buy"?getBucketAccs("assets"):getBucketAccs("expenses")}/>}

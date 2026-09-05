@@ -3381,6 +3381,7 @@ function AppInner(){
                       // شاشة 3: فروع فرعية لفرع محدد
                       if(dist&&drillCat&&drillSub){
                         const subD=getCatDetail(drillCat.id,drillSub.id,selYear);
+                        const subDisplayAmt=subD.totalAvail>0?subD.totalAvail:((getIncomeGoalForYear(selYear)*12)*(subD.pct/100));
                         const items=drillSub.subs||[];
                         const existingList=((dist.sub2Pcts||{})[drillCat.id]||{})[drillSub.id]||[];
                         const dKey=s2=>`drillS2_${selYear}_${drillCat.id}_${drillSub.id}_${s2.id}`;
@@ -3390,12 +3391,12 @@ function AppInner(){
                           <button onClick={()=>setOvExp(p=>({...p,catDistDrillSub:null}))} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:12,marginBottom:10,fontFamily:"Tajawal"}}>← رجوع لـ"{drillCat.name}"</button>
                           <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>3️⃣ فروع فرعية لـ"{drillSub.name}"</div>
                           <div style={{background:"#eeedfc",borderRadius:10,padding:"8px 12px",marginBottom:10,textAlign:"center"}}>
-                            <span style={{fontSize:11,color:"#5c584c"}}>💰 المبلغ الكامل ديال "{drillSub.name}": </span>
-                            <span style={{fontSize:13,fontWeight:900,color:"#6366f1"}}>{fmt(subD.totalAvail)} د.م</span>
+                            <span style={{fontSize:11,color:"#5c584c"}}>{subD.totalAvail>0?"💰":"🎯"} المبلغ الكامل ديال "{drillSub.name}": </span>
+                            <span style={{fontSize:13,fontWeight:900,color:"#6366f1"}}>{fmt(subDisplayAmt)} د.م</span>
                           </div>
                           {items.map(s2=>{
                             const val=valOf(s2);
-                            const amt=subD.totalAvail*((parseFloat(val)||0)/100);
+                            const amt=subDisplayAmt*((parseFloat(val)||0)/100);
                             return <div key={s2.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid #f1f5f9"}}>
                               <span style={{flex:1,fontSize:12.5}}>{s2.name}</span>
                               <span style={{fontSize:9.5,fontWeight:800,color:"#6366f1",whiteSpace:"nowrap"}}>{fmt(amt)} د.م</span>
@@ -3425,6 +3426,7 @@ function AppInner(){
                       // شاشة 2: فروع لتصنيف محدد
                       if(dist&&drillCat){
                         const catD=getCatDetail(drillCat.id,null,selYear);
+                        const catDisplayAmt=catD.totalAvail>0?catD.totalAvail:((getIncomeGoalForYear(selYear)*12)*(catD.pct/100));
                         const items=drillCat.subs||[];
                         const existingList=(dist.subPcts||{})[drillCat.id]||[];
                         const dKey=sub=>`drillS_${selYear}_${drillCat.id}_${sub.id}`;
@@ -3434,12 +3436,12 @@ function AppInner(){
                           <button onClick={()=>setOvExp(p=>({...p,catDistDrillCat:null}))} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:12,marginBottom:10,fontFamily:"Tajawal"}}>← رجوع للتصنيفات</button>
                           <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>2️⃣ فروع "{drillCat.name}"</div>
                           <div style={{background:"#f0f7f2",borderRadius:10,padding:"8px 12px",marginBottom:10,textAlign:"center"}}>
-                            <span style={{fontSize:11,color:"#5c584c"}}>💰 المبلغ الكامل ديال "{drillCat.name}": </span>
-                            <span style={{fontSize:13,fontWeight:900,color:"#1a6b4a"}}>{fmt(catD.totalAvail)} د.م</span>
+                            <span style={{fontSize:11,color:"#5c584c"}}>{catD.totalAvail>0?"💰":"🎯"} المبلغ الكامل ديال "{drillCat.name}": </span>
+                            <span style={{fontSize:13,fontWeight:900,color:"#1a6b4a"}}>{fmt(catDisplayAmt)} د.م</span>
                           </div>
                           {items.map(sub=>{
                             const val=valOf(sub);
-                            const amt=catD.totalAvail*((parseFloat(val)||0)/100);
+                            const amt=catDisplayAmt*((parseFloat(val)||0)/100);
                             const hasSub2=sub.subs&&sub.subs.length>0;
                             const sub2List=((dist.sub2Pcts||{})[drillCat.id]||{})[sub.id];
                             const sub2Sum=Array.isArray(sub2List)?sub2List.reduce((s,x)=>s+x.pct,0):0;
@@ -3524,19 +3526,25 @@ function AppInner(){
                       }
 
                       // ماكاينش توزيع بعد — معالج التصنيفات وحدها (المستوى 1 فقط، الفروع كتدخل بعدها بالتنقل)
+                      const realYearTotal=yearBudgetTotals[selYear]||0;
+                      const goalMonthly=getIncomeGoalForYear(selYear);
+                      const goalYearTotal=goalMonthly*12;
+                      const usingGoal=realYearTotal===0&&goalYearTotal>0;
+                      const displayTotal=realYearTotal>0?realYearTotal:goalYearTotal;
                       return <div style={S.card}>
                         <div style={{background:"#fef3c7",borderRadius:10,padding:10,marginBottom:10}}>
                           <div style={{fontSize:12,color:"#92400e",fontWeight:700}}>⚠️ ماكاينش توزيع لعام {selYear} بعد</div>
                           <div style={{fontSize:11,color:"#78350f",marginTop:4}}>{selYear===nowYear.toString()?"ما تقدرش تصرف من الميزانية حتى تدخل النسب وتحفظ":"دخل التوزيع ديال هاد العام القديم باش تكمل السجل التاريخي"}</div>
                         </div>
-                        <div style={{background:"#e5f5ee",borderRadius:10,padding:"8px 12px",marginBottom:8,textAlign:"center"}}>
-                          <span style={{fontSize:11,color:"#5c584c"}}>💰 المبلغ الكامل اللي غادي تتوزع: </span>
-                          <span style={{fontSize:14,fontWeight:900,color:"#1a6b4a"}}>{fmt(yearBudgetTotals[selYear]||0)} د.م</span>
+                        <div style={{background:"linear-gradient(145deg,#1a6b4a,#0f4a33)",borderRadius:18,padding:20,textAlign:"center",marginBottom:12}}>
+                          <div style={{fontSize:11.5,color:"rgba(255,255,255,.75)",marginBottom:4}}>{usingGoal?"🎯 الهدف الكامل لعام":"💰 المبلغ الكامل لعام"} {selYear}</div>
+                          <div style={{fontSize:26,fontWeight:900,color:"#fff"}}>{fmt(displayTotal)} د.م</div>
+                          {usingGoal&&<div style={{fontSize:9.5,color:"rgba(255,255,255,.6)",marginTop:4}}>(هدف الدخل الشهري {fmt(goalMonthly)} × 12 — تقريبي للتخطيط)</div>}
                         </div>
                         <div style={{fontSize:12,fontWeight:800,color:"#334155",marginBottom:8}}>1️⃣ وزع 100% على التصنيفات</div>
                         {expCats.map(c=>{
                           const catPctVal=parseFloat(ovExp[catDraftKey(c)])||0;
-                          const catAmt=(yearBudgetTotals[selYear]||0)*(catPctVal/100);
+                          const catAmt=displayTotal*(catPctVal/100);
                           return <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid #f8fafc"}}>
                             <div style={{flex:1,fontSize:13}}>{c.icon} {c.name}</div>
                             <span style={{fontSize:10.5,fontWeight:800,color:"#1a6b4a",whiteSpace:"nowrap"}}>{fmt(catAmt)} د.م</span>

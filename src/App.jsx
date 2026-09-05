@@ -5516,8 +5516,6 @@ function AppInner(){
                   <button style={S.btn("#6366f1")} onClick={addSplitTx}>حفظ الأجزاء</button>
                 </>
               ):(<>
-              <input style={S.num} placeholder="0.00" type="number" value={modal==="addTx"?form.amount||"":ei?.amount||""} onChange={e=>modal==="addTx"?F("amount",e.target.value):setEi(p=>({...p,amount:e.target.value}))}
-                onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){const formatted=v.toFixed(2);if(modal==="addTx")F("amount",formatted);else setEi(p=>({...p,amount:formatted}));}}} step="0.01"/>
               <select style={S.sel} value={modal==="addTx"?form.catId||"":ei?.catId||""} onChange={e=>{if(modal==="addTx"){F("catId",e.target.value);F("subId","");}else setEi(p=>({...p,catId:e.target.value,subId:""}));}}>
                 <option value="">اختر التصنيف</option>
                 {cats[modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense")].map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}
@@ -5550,11 +5548,16 @@ function AppInner(){
                 const rawSub2=modal==="addTx"?form.sub2Id:ei?.sub2Id;
                 if(sub?.subs?.length>0&&!rawSub2)return null;
                 const s2id=rawSub2?parseInt(rawSub2):null;
-                const yr=new Date().getFullYear().toString();
+                const rawDate=(modal==="addTx"?form.date:ei?.date)||new Date().toISOString().split("T")[0];
+                const yr=rawDate.slice(0,4);
                 if(!getCatDistYear(yr))return null;
                 const bal=getCatBalance(cid,sid,yr,s2id);
                 const label=s2id?(sub?.subs?.find(s2=>s2.id===s2id)?.name||"الفرع الفرعي"):(sub?sub.name:cat.name);
-                return <div style={{fontSize:12,fontWeight:700,color:bal<0?"#ef4444":"#1a6b4a",background:bal<0?"#fee2e2":"#e5f5ee",borderRadius:10,padding:"9px 12px",textAlign:"center"}}>💰 الرصيد المتاح فـ"{label}": {bal<0?"-":""}{fmt(Math.abs(bal))}</div>;
+                const monthAr=new Date(rawDate).toLocaleDateString("ar-MA",{month:"long"});
+                return <div style={{fontSize:12,fontWeight:700,color:bal<0?"#ef4444":"#1a6b4a",background:bal<0?"#fee2e2":"#e5f5ee",borderRadius:10,padding:"9px 12px",textAlign:"center"}}>
+                  <div>💰 الرصيد المتاح فـ"{label}": {bal<0?"-":""}{fmt(Math.abs(bal))}</div>
+                  <div style={{fontSize:9.5,fontWeight:500,color:bal<0?"#b91c1c":"#5c8a72",marginTop:2}}>تراكمي من بداية {yr} لحد {monthAr} {yr}</div>
+                </div>;
               })()}
               {modal==="addTx"&&(form.pm||"نقدي")!=="كريدي"&&(form.txType||"expense")!=="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"
                 accList={form.txType==="invest"?getBucketAccs("investment"):form.txType==="retire"?getBucketAccs("retirement"):form.txType==="emergency"?getBucketAccs("emergency"):form.txType==="assets_buy"?getBucketAccs("assets"):getBucketAccs("expenses")}/>}
@@ -5562,6 +5565,8 @@ function AppInner(){
               <input style={S.inp} placeholder="الوصف" value={modal==="addTx"?form.desc||"":ei?.desc||""} onChange={e=>modal==="addTx"?F("desc",e.target.value):setEi(p=>({...p,desc:e.target.value}))}/>
               <input style={S.inp} type="date" value={modal==="addTx"?form.date||new Date().toISOString().split("T")[0]:ei?.date||""} onChange={e=>modal==="addTx"?F("date",e.target.value):setEi(p=>({...p,date:e.target.value}))}/>
               {(modal==="addTx"?(form.txType||"expense"):ei?.type)==="expense"&&<PmBtns val={modal==="addTx"?form.pm||"نقدي":ei?.pm||"نقدي"} onChange={v=>modal==="addTx"?F("pm",v):setEi(p=>({...p,pm:v}))}/>}
+              <input style={S.num} placeholder="0.00 — المبلغ" type="number" value={modal==="addTx"?form.amount||"":ei?.amount||""} onChange={e=>modal==="addTx"?F("amount",e.target.value):setEi(p=>({...p,amount:e.target.value}))}
+                onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){const formatted=v.toFixed(2);if(modal==="addTx")F("amount",formatted);else setEi(p=>({...p,amount:formatted}));}}} step="0.01"/>
               {modal==="addTx"&&ovExp.overrunPending?(
                 <div style={{background:"#fef2f2",border:"1.5px solid #ef4444",borderRadius:14,padding:14,textAlign:"center"}}>
                   <div style={{fontSize:28,marginBottom:6}}>🚫</div>

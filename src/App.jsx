@@ -871,6 +871,8 @@ function AppInner(){
     for(const p of parts){
       const cat=gc("expense",parseInt(p.catId));
       if(cat?.subs?.length>0&&!p.subId){showErr(`⛔ الفرع إجباري لتصنيف "${cat.name}"`);return;}
+      const sub=p.subId?cat?.subs?.find(s=>s.id===parseInt(p.subId)):null;
+      if(sub?.subs?.length>0&&!p.sub2Id){showErr(`⛔ الفرع الفرعي إجباري لفرع "${sub.name}"`);return;}
     }
     if(!form.akey){showErr("⛔ اختر الحساب");return;}
     const acc=allAcc.find(a=>a.key===form.akey);
@@ -881,19 +883,19 @@ function AppInner(){
     if(bktBal-total<0){showErr(`⛔ رصيد الميزانية غير كافي — المتاح: ${fmt(Math.max(0,bktBal))} د.م`);return;}
     const txYear=(form.date||new Date().toISOString().split("T")[0]).slice(0,4);
     if(!getCatDistYear(txYear)){showErr(`⛔ خاصك تدخل توزيع التصنيفات ديال عام ${txYear} أولاً — من الإعدادات`);return;}
-    // تجميع الأجزاء حسب التصنيف/الفرع باش نتحقق من الرصيد لكل واحد بمجموع أجزائه
+    // تجميع الأجزاء حسب التصنيف/الفرع/الفرع الفرعي (المستوى الدقيق النهائي) باش نتحقق من الرصيد لكل واحد بمجموع أجزائه
     const grouped={};
-    parts.forEach(p=>{const k=`${p.catId}_${p.subId||""}`;grouped[k]=(grouped[k]||0)+parseFloat(p.amount);});
+    parts.forEach(p=>{const k=`${p.catId}_${p.subId||""}_${p.sub2Id||""}`;grouped[k]=(grouped[k]||0)+parseFloat(p.amount);});
     for(const k in grouped){
-      const[cid,sid]=k.split("_");
-      const catBal=getCatBalance(parseInt(cid),sid?parseInt(sid):null,txYear);
+      const[cid,sid,s2id]=k.split("_");
+      const catBal=getCatBalance(parseInt(cid),sid?parseInt(sid):null,txYear,s2id?parseInt(s2id):null);
       if(catBal-grouped[k]<0){
         const cat=gc("expense",parseInt(cid));
         showErr(`⛔ رصيد "${cat?.name}" غير كافي — المتاح: ${fmt(Math.max(0,catBal))} د.م`);return;
       }
     }
     const date=form.date||new Date().toISOString().split("T")[0];
-    const newTxs=parts.map(p=>({id:uid(),type:"expense",amount:parseFloat(p.amount),catId:parseInt(p.catId),subId:p.subId?parseInt(p.subId):null,desc:form.desc||"",date,pm:form.pm||"نقدي",ref:acc.ref,note:"جزء من معاملة مقسمة"}));
+    const newTxs=parts.map(p=>({id:uid(),type:"expense",amount:parseFloat(p.amount),catId:parseInt(p.catId),subId:p.subId?parseInt(p.subId):null,sub2Id:p.sub2Id?parseInt(p.sub2Id):null,desc:form.desc||"",date,pm:form.pm||"نقدي",ref:acc.ref,note:"جزء من معاملة مقسمة"}));
     setTxs(p=>[...newTxs,...p]);
     updBal(acc.ref,total,"expense","add");
     cm();
@@ -5731,11 +5733,18 @@ function AppInner(){
 
               {modal==="addTx"&&form.splitMode?(
                 <>
-                  {(form.splitParts||[{catId:"",subId:"",amount:""}]).map((part,i)=>{
+                  {(form.splitParts||[{catId:"",subId:"",sub2Id:"",amount:""}]).map((part,i)=>{
                     const partCat=gc("expense",parseInt(part.catId));
-                    const parts=form.splitParts||[{catId:"",subId:"",amount:""}];
+                    const parts=form.splitParts||[{catId:"",subId:"",sub2Id:"",amount:""}];
                     const updatePart=(k,v)=>{const np=[...parts];np[i]={...np[i],[k]:v};F("splitParts",np);};
-                    return <div key={i} style={{background:"#f8fafc",borderRadius:10,padding:10,display:"flex",flexDirection:"column",gap:6}}>
+                    const partSub=part.subId?partCat?.subs?.find(s=>s.id===parseInt(part.subId)):null;
+                    const needsSub2=partSub?.subs?.length>0;
+                    const readyForBal=part.catId&&(!partCat?.subs?.length||part.subId)&&(!needsSub2||part.sub2Id);
+                    const txYearPart=(form.date||new Date().toISOString().split("T")[0]).slice(0,4);
+                    const partBal=readyForBal?getCatBalance(parseInt(part.catId),part.subId?parseInt(part.subId):null,txYearPart,part.sub2Id?parseInt(part.sub2Id):null):null;
+                    const amtVal=parseFloat(part.amount)||0;
+                    const overrun=readyForBal&&amtVal>0&&amtVal>partBal;
+                    return <div key={i} style={{background:overrun?"#fef2f2":"#f8fafc",borderRadius:10,padding:10,display:"flex",flexDirection:"column",gap:6,border:overrun?"1.5px solid #ef4444":"1.5px solid transparent"}}>
                       <div style={{display:"flex",gap:6,alignItems:"center"}}>
                         <span style={{fontSize:11,color:"#64748b",fontWeight:700}}>جزء {i+1}</span>
                         {parts.length>1&&<button onClick={()=>F("splitParts",parts.filter((_,j)=>j!==i))} style={{marginRight:"auto",background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:12}}>حذف ✕</button>}
@@ -5744,20 +5753,44 @@ function AppInner(){
                         <option value="">اختر التصنيف</option>
                         {cats.expense.map(c=><option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
                       </select>
-                      {partCat?.subs?.length>0&&<select style={{...S.sel,padding:"8px"}} value={part.subId||""} onChange={e=>updatePart("subId",e.target.value)}>
+                      {partCat?.subs?.length>0&&<select style={{...S.sel,padding:"8px"}} value={part.subId||""} onChange={e=>{updatePart("subId",e.target.value);updatePart("sub2Id","");}}>
                         <option value="">⚠️ الفرع (إجباري)</option>
                         {partCat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
                       </select>}
+                      {needsSub2&&<select style={{...S.sel,padding:"8px"}} value={part.sub2Id||""} onChange={e=>updatePart("sub2Id",e.target.value)}>
+                        <option value="">⚠️ الفرع الفرعي (إجباري)</option>
+                        {partSub.subs.map(s2=><option key={s2.id} value={s2.id}>{s2.name}</option>)}
+                      </select>}
+                      {readyForBal&&<div style={{fontSize:10.5,fontWeight:700,textAlign:"center",padding:"6px 10px",borderRadius:8,background:overrun?"#fee2e2":"#e5f5ee",color:overrun?"#ef4444":"#1a6b4a"}}>
+                        {overrun?"⚠️":"💰"} الرصيد المتاح: {fmt(partBal)}{overrun?` — المبلغ كيتجاوزو بـ${fmt(amtVal-partBal)}`:""}
+                      </div>}
                       <input style={{...S.inp,padding:"8px"}} type="number" placeholder="مبلغ هاد الجزء" value={part.amount||""} onChange={e=>updatePart("amount",e.target.value)}
                         onBlur={e=>{const v=parseFloat(e.target.value);if(!isNaN(v))updatePart("amount",v.toFixed(2));}}/>
                     </div>;
                   })}
-                  <button style={{...S.btn("#e8e8e4",false),color:"#475569",padding:"9px"}} onClick={()=>F("splitParts",[...(form.splitParts||[{catId:"",subId:"",amount:""}]),{catId:"",subId:"",amount:""}])}>+ زيد جزء</button>
+                  <button style={{...S.btn("#e8e8e4",false),color:"#475569",padding:"9px"}} onClick={()=>F("splitParts",[...(form.splitParts||[{catId:"",subId:"",sub2Id:"",amount:""}]),{catId:"",subId:"",sub2Id:"",amount:""}])}>+ زيد جزء</button>
                   <div style={{textAlign:"center",fontSize:14,fontWeight:800,color:"#1a6b4a"}}>الإجمالي: {fmt((form.splitParts||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0))}</div>
                   <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1" accList={getBucketAccs("expenses")}/>
                   <input style={S.inp} placeholder="الوصف (اختياري)" value={form.desc||""} onChange={e=>F("desc",e.target.value)}/>
                   <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
-                  <button style={S.btn("#6366f1")} onClick={addSplitTx}>حفظ الأجزاء</button>
+                  {(()=>{
+                    const parts=form.splitParts||[];
+                    const txYearPart=(form.date||new Date().toISOString().split("T")[0]).slice(0,4);
+                    const hasOverrun=parts.some(part=>{
+                      if(!part.catId||!parseFloat(part.amount))return false;
+                      const partCat=gc("expense",parseInt(part.catId));
+                      const partSub=part.subId?partCat?.subs?.find(s=>s.id===parseInt(part.subId)):null;
+                      const needsSub2=partSub?.subs?.length>0;
+                      const ready=!partCat?.subs?.length||(part.subId&&(!needsSub2||part.sub2Id));
+                      if(!ready)return false;
+                      const bal=getCatBalance(parseInt(part.catId),part.subId?parseInt(part.subId):null,txYearPart,part.sub2Id?parseInt(part.sub2Id):null);
+                      return parseFloat(part.amount)>bal;
+                    });
+                    return hasOverrun?
+                      <button style={{...S.btn("#e8e8e4",false),color:"#94a3b8",cursor:"not-allowed"}} disabled>⛔ صحح الأجزاء المتجاوزة قبل التسجيل</button>
+                    :
+                      <button style={S.btn("#6366f1")} onClick={addSplitTx}>حفظ الأجزاء</button>;
+                  })()}
                 </>
               ):(<>
               <select style={S.sel} value={modal==="addTx"?form.catId||"":ei?.catId||""} onChange={e=>{if(modal==="addTx"){F("catId",e.target.value);F("subId","");}else setEi(p=>({...p,catId:e.target.value,subId:""}));}}>

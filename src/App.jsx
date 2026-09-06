@@ -4631,9 +4631,9 @@ function AppInner(){
                       <div style={{fontSize:20,fontWeight:900,color:pBalance>=0?"#1a6b4a":"#ef4444"}}>{fmt(pBalance)}</div>
                       <div style={{fontSize:10,color:"#8a8578"}}>{pBalance>=0?"✅ متاح":"🔴 عجز"} لهاد الفترة</div>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginTop:8}}>
-                        <StatChip l="مخصص" v={pAllocated} c="#1a6b4a"/>
-                        <StatChip l="خرج" v={pSpentTotal} c="#ef4444"/>
-                        <StatChip l="تحويل" v={0} c="#6366f1"/>
+                        <div style={{background:"#fff",borderRadius:8,padding:"7px 4px",textAlign:"center"}}><div style={{fontSize:9,color:"#8a8578"}}>مخصص</div><div style={{fontSize:11,fontWeight:900,color:"#1a6b4a"}}>{fmt(pAllocated)}</div></div>
+                        <div style={{background:"#fff",borderRadius:8,padding:"7px 4px",textAlign:"center"}}><div style={{fontSize:9,color:"#8a8578"}}>خرج</div><div style={{fontSize:11,fontWeight:900,color:"#ef4444"}}>{fmt(pSpentTotal)}</div></div>
+                        <div style={{background:"#fff",borderRadius:8,padding:"7px 4px",textAlign:"center"}}><div style={{fontSize:9,color:"#8a8578"}}>تحويل</div><div style={{fontSize:11,fontWeight:900,color:"#6366f1"}}>{fmt(0)}</div></div>
                       </div>
                     </div>
 

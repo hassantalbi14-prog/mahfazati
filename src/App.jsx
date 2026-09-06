@@ -5749,11 +5749,11 @@ function AppInner(){
                         <span style={{fontSize:11,color:"#64748b",fontWeight:700}}>جزء {i+1}</span>
                         {parts.length>1&&<button onClick={()=>F("splitParts",parts.filter((_,j)=>j!==i))} style={{marginRight:"auto",background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:12}}>حذف ✕</button>}
                       </div>
-                      <select style={{...S.sel,padding:"8px"}} value={part.catId||""} onChange={e=>updatePart("catId",e.target.value)}>
+                      <select style={{...S.sel,padding:"8px"}} value={part.catId||""} onChange={e=>{const np=[...parts];np[i]={...np[i],catId:e.target.value,subId:"",sub2Id:""};F("splitParts",np);}}>
                         <option value="">اختر التصنيف</option>
                         {cats.expense.map(c=><option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
                       </select>
-                      {partCat?.subs?.length>0&&<select style={{...S.sel,padding:"8px"}} value={part.subId||""} onChange={e=>{updatePart("subId",e.target.value);updatePart("sub2Id","");}}>
+                      {partCat?.subs?.length>0&&<select style={{...S.sel,padding:"8px"}} value={part.subId||""} onChange={e=>{const np=[...parts];np[i]={...np[i],subId:e.target.value,sub2Id:""};F("splitParts",np);}}>
                         <option value="">⚠️ الفرع (إجباري)</option>
                         {partCat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
                       </select>}

@@ -721,8 +721,8 @@ function AppInner(){
     const catBudget=yearBudgetTotal*(pct/100);
     const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)&&(sub2Id?t.sub2Id===sub2Id:true)).reduce((s,t)=>s+t.amount,0);
     const transfers=budgetSettings.catTransfers||[];
-    const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(subId==null||(tr.toSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
-    const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(subId==null||(tr.fromSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
+    const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(subId==null||(tr.toSubId||null)===subId)&&(sub2Id==null||(tr.toSub2Id||null)===sub2Id)).reduce((s,tr)=>s+tr.amount,0);
+    const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(subId==null||(tr.fromSubId||null)===subId)&&(sub2Id==null||(tr.fromSub2Id||null)===sub2Id)).reduce((s,tr)=>s+tr.amount,0);
     const carryover=getCatCarryover(catId,subId,year,sub2Id);
     const result=carryover+catBudget-spent+transfersIn-transfersOut;
     catBalanceCache.set(cacheKey,result);
@@ -734,8 +734,8 @@ function AppInner(){
     const allocated=yearBudgetTotal*(pct/100);
     const spent=txs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.date.startsWith(year)&&t.catId===catId&&(subId?t.subId===subId:true)&&(sub2Id?t.sub2Id===sub2Id:true)).reduce((s,t)=>s+t.amount,0);
     const transfers=budgetSettings.catTransfers||[];
-    const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(subId==null||(tr.toSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
-    const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(subId==null||(tr.fromSubId||null)===subId)).reduce((s,tr)=>s+tr.amount,0);
+    const transfersIn=transfers.filter(tr=>tr.year===year&&tr.toCatId===catId&&(subId==null||(tr.toSubId||null)===subId)&&(sub2Id==null||(tr.toSub2Id||null)===sub2Id)).reduce((s,tr)=>s+tr.amount,0);
+    const transfersOut=transfers.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(subId==null||(tr.fromSubId||null)===subId)&&(sub2Id==null||(tr.fromSub2Id||null)===sub2Id)).reduce((s,tr)=>s+tr.amount,0);
     const carryover=getCatCarryover(catId,subId,year,sub2Id);
     const totalAvail=carryover+allocated+transfersIn-transfersOut;
     const balance=totalAvail-spent;
@@ -3573,35 +3573,63 @@ function AppInner(){
 
                     {dist && <>
                       <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"6px 2px"}}>🔄 تحويل بين التصنيفات ({selYear})</div>
-                      <div style={S.card}>
-                        <select style={{...S.sel,marginBottom:8}} value={ovExp.trFrom||""} onChange={e=>setOvExp(p=>({...p,trFrom:e.target.value}))}>
-                          <option value="">من (تصنيف/فرع)</option>
-                          {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`} disabled={!!it.isParent}>{it.isParent?`── ${it.label} ──`:it.label+` — باقي ${fmt(b)}`}</option>;})}
-                        </select>
-                        <select style={{...S.sel,marginBottom:8}} value={ovExp.trTo||""} onChange={e=>setOvExp(p=>({...p,trTo:e.target.value}))}>
-                          <option value="">إلى (تصنيف/فرع)</option>
-                          {flatItems.map(it=>{const b=getCatBalance(it.catId,it.subId,selYear);return <option key={draftKey(it)} value={`${it.catId}_${it.subId||""}`} disabled={!!it.isParent}>{it.isParent?`── ${it.label} ──`:it.label+` — باقي ${fmt(b)}`}</option>;})}
-                        </select>
-                        <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ" value={ovExp.trAmt||""} onChange={e=>setOvExp(p=>({...p,trAmt:e.target.value}))}/>
-                        <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.trDate||new Date().toISOString().split("T")[0]} onChange={e=>setOvExp(p=>({...p,trDate:e.target.value}))}/>
-                        <button style={S.btn("#6366f1")} onClick={()=>{
-                          const amt=parseFloat(ovExp.trAmt);
-                          if(!ovExp.trFrom||!ovExp.trTo||!amt||amt<=0){showErr("⛔ عمر كل الخانات");setTimeout(()=>setErr(null),3000);return;}
-                          if(ovExp.trFrom===ovExp.trTo){showErr("⛔ اختر تصنيفين مختلفين");setTimeout(()=>setErr(null),3000);return;}
-                          const[fCat,fSub]=ovExp.trFrom.split("_");
-                          const[tCat,tSub]=ovExp.trTo.split("_");
-                          const fCatObj=expCats.find(c=>c.id===parseInt(fCat));
-                          const tCatObj=expCats.find(c=>c.id===parseInt(tCat));
-                          if(!fSub&&fCatObj?.subs?.length>0){showErr("⛔ هاد التصنيف عندو فروع — اختر فرع محدد");setTimeout(()=>setErr(null),3500);return;}
-                          if(!tSub&&tCatObj?.subs?.length>0){showErr("⛔ هاد التصنيف عندو فروع — اختر فرع محدد");setTimeout(()=>setErr(null),3500);return;}
-                          const fromBal=getCatBalance(parseInt(fCat),fSub?parseInt(fSub):null,selYear);
-                          if(amt>fromBal){showErr(`⛔ الرصيد غير كافي — المتاح: ${fmt(fromBal)}`);setTimeout(()=>setErr(null),3500);return;}
-                          const nb={...budgetSettings,catTransfers:[...(budgetSettings.catTransfers||[]),{year:selYear,fromCatId:parseInt(fCat),fromSubId:fSub?parseInt(fSub):null,toCatId:parseInt(tCat),toSubId:tSub?parseInt(tSub):null,amount:amt,date:ovExp.trDate||new Date().toISOString().split("T")[0]}]};
-                          setBudgetSettings(nb);_save('budgetSettings',nb);
-                          setOvExp(p=>({...p,trFrom:"",trTo:"",trAmt:"",trDate:""}));
-                          setErr("✅ تم التحويل");setTimeout(()=>setErr(null),3000);
-                        }}>تحويل</button>
-                      </div>
+                      {(()=>{
+                        const leafItems=[];
+                        expCats.forEach(c=>{
+                          if(c.subs&&c.subs.length>0){
+                            c.subs.forEach(s=>{
+                              if(s.subs&&s.subs.length>0){
+                                s.subs.forEach(s2=>leafItems.push({catId:c.id,subId:s.id,sub2Id:s2.id,breadcrumb:`${c.icon} ${c.name} ← ${s.name} ← ${s2.icon||"⌐"} ${s2.name}`}));
+                              } else {
+                                leafItems.push({catId:c.id,subId:s.id,sub2Id:null,breadcrumb:`${c.icon} ${c.name} ← ${s.name}`});
+                              }
+                            });
+                          } else {
+                            leafItems.push({catId:c.id,subId:null,sub2Id:null,breadcrumb:`${c.icon} ${c.name}`});
+                          }
+                        });
+                        const leafKey=it=>`${it.catId}_${it.subId||""}_${it.sub2Id||""}`;
+                        const fromIt=ovExp.trFrom?leafItems.find(it=>leafKey(it)===ovExp.trFrom):null;
+                        const toIt=ovExp.trTo?leafItems.find(it=>leafKey(it)===ovExp.trTo):null;
+                        const fromBal=fromIt?getCatBalance(fromIt.catId,fromIt.subId,selYear,fromIt.sub2Id):null;
+                        const toBal=toIt?getCatBalance(toIt.catId,toIt.subId,selYear,toIt.sub2Id):null;
+                        const amtVal=parseFloat(ovExp.trAmt)||0;
+                        return <div style={S.card}>
+                          <div style={{fontSize:11,color:"#8a8578",fontWeight:700,marginBottom:6}}>من:</div>
+                          <select style={{...S.sel,marginBottom:fromIt?4:12}} value={ovExp.trFrom||""} onChange={e=>setOvExp(p=>({...p,trFrom:e.target.value}))}>
+                            <option value="">اختار الوجهة (آخر مستوى)</option>
+                            {leafItems.map(it=><option key={leafKey(it)} value={leafKey(it)}>{it.breadcrumb}</option>)}
+                          </select>
+                          {fromIt&&<div style={{background:"#fef2f2",borderRadius:10,padding:"7px 10px",marginBottom:12,textAlign:"center",fontSize:11}}>الرصيد المتاح: <b style={{color:"#ef4444"}}>{fmt(fromBal)}</b></div>}
+
+                          <div style={{fontSize:11,color:"#8a8578",fontWeight:700,marginBottom:6}}>إلى:</div>
+                          <select style={{...S.sel,marginBottom:toIt?4:12}} value={ovExp.trTo||""} onChange={e=>setOvExp(p=>({...p,trTo:e.target.value}))}>
+                            <option value="">اختار الوجهة (آخر مستوى)</option>
+                            {leafItems.map(it=><option key={leafKey(it)} value={leafKey(it)}>{it.breadcrumb}</option>)}
+                          </select>
+                          {toIt&&<div style={{background:"#f0f7f2",borderRadius:10,padding:"7px 10px",marginBottom:12,textAlign:"center",fontSize:11}}>الرصيد المتاح: <b style={{color:"#1a6b4a"}}>{fmt(toBal)}</b></div>}
+
+                          <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ" value={ovExp.trAmt||""} onChange={e=>setOvExp(p=>({...p,trAmt:e.target.value}))}/>
+                          <input style={{...S.inp,marginBottom:8}} type="date" value={ovExp.trDate||new Date().toISOString().split("T")[0]} onChange={e=>setOvExp(p=>({...p,trDate:e.target.value}))}/>
+
+                          {fromIt&&toIt&&amtVal>0&&<div style={{background:"#f7f6f2",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+                            <div style={{fontSize:10,fontWeight:800,color:"#5c584c",marginBottom:4}}>📊 بعد التحويل:</div>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,marginBottom:2}}><span>{fromIt.breadcrumb.split("←").pop().trim()}</span><span style={{fontWeight:800,color:(fromBal-amtVal)<0?"#ef4444":"#1a1a1a"}}>{fmt(fromBal)} ← {fmt(fromBal-amtVal)}</span></div>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5}}><span>{toIt.breadcrumb.split("←").pop().trim()}</span><span style={{fontWeight:800,color:"#1a6b4a"}}>{fmt(toBal)} ← {fmt(toBal+amtVal)}</span></div>
+                          </div>}
+
+                          <button style={S.btn("#6366f1")} onClick={()=>{
+                            const amt=parseFloat(ovExp.trAmt);
+                            if(!fromIt||!toIt||!amt||amt<=0){showErr("⛔ عمر كل الخانات");setTimeout(()=>setErr(null),3000);return;}
+                            if(leafKey(fromIt)===leafKey(toIt)){showErr("⛔ اختر وجهتين مختلفتين");setTimeout(()=>setErr(null),3000);return;}
+                            if(amt>fromBal){showErr(`⛔ الرصيد غير كافي — المتاح: ${fmt(fromBal)}`);setTimeout(()=>setErr(null),3500);return;}
+                            const nb={...budgetSettings,catTransfers:[...(budgetSettings.catTransfers||[]),{year:selYear,fromCatId:fromIt.catId,fromSubId:fromIt.subId,fromSub2Id:fromIt.sub2Id,toCatId:toIt.catId,toSubId:toIt.subId,toSub2Id:toIt.sub2Id,amount:amt,date:ovExp.trDate||new Date().toISOString().split("T")[0]}]};
+                            setBudgetSettings(nb);_save('budgetSettings',nb);
+                            setOvExp(p=>({...p,trFrom:"",trTo:"",trAmt:"",trDate:""}));
+                            setErr("✅ تم التحويل");setTimeout(()=>setErr(null),3000);
+                          }}>تحويل</button>
+                        </div>;
+                      })()}
 
                       {(()=>{
                         const orphans=(budgetSettings.catTransfers||[]).map((tr,idx)=>({tr,idx})).filter(({tr})=>{

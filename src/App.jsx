@@ -4572,6 +4572,130 @@ function AppInner(){
                   </div>
                 </div>
 
+                {b.type==="expenses"&&(()=>{
+                  const pad2=n=>String(n).padStart(2,"0");
+                  const nowD2=new Date();
+                  const curM2=`${nowD2.getFullYear()}-${pad2(nowD2.getMonth()+1)}`;
+                  const bktPeriod=ovExp.bktPeriod||"month";
+                  const bktMonth=ovExp.bktMonth||curM2;
+                  const bktYear=ovExp.bktYear||nowD2.getFullYear().toString();
+                  const bktFromM=ovExp.bktFromM||curM2;
+                  const bktToM=ovExp.bktToM||curM2;
+                  let rangeFrom,rangeTo;
+                  if(bktPeriod==="month"){rangeFrom=bktMonth+"-01";const[yy,mm]=bktMonth.split("-").map(Number);rangeTo=new Date(yy,mm,0).toISOString().slice(0,10);}
+                  else if(bktPeriod==="year"){rangeFrom=bktYear+"-01-01";rangeTo=bktYear+"-12-31";}
+                  else if(bktPeriod==="range"){rangeFrom=bktFromM+"-01";const[yy,mm]=bktToM.split("-").map(Number);rangeTo=new Date(yy,mm,0).toISOString().slice(0,10);}
+                  else{rangeFrom="2000-01-01";rangeTo="2099-12-31";}
+                  const pTxs=txs.filter(t=>t.date>=rangeFrom&&t.date<=rangeTo);
+                  const pIncByMonth={};
+                  pTxs.filter(t=>t.type==="income"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).forEach(t=>{const m=t.date.slice(0,7);pIncByMonth[m]=(pIncByMonth[m]||0)+t.amount;});
+                  const pYears=[...new Set(Object.keys(pIncByMonth).map(m=>m.slice(0,4)))];
+                  const pAllocated=Object.entries(pIncByMonth).reduce((sum,[m,inc])=>{const tiersY=getActiveTiers(m.slice(0,4));return sum+getProgressiveAmount(inc,tiersY,"expenses");},0);
+                  const pSpentTotal=pTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset).reduce((s,t)=>s+t.amount,0);
+                  const pBalance=pAllocated-pSpentTotal;
+                  const getPDetail=(catId,subId,sub2Id)=>{
+                    let alloc=0;
+                    pYears.forEach(year=>{
+                      const yearMonths=Object.keys(pIncByMonth).filter(m=>m.startsWith(year));
+                      const yearBudget=yearMonths.reduce((sum,m)=>{const tiersY=getActiveTiers(year);return sum+getProgressiveAmount(pIncByMonth[m],tiersY,"expenses");},0);
+                      const pct=getCatEffectivePct(catId,subId,year,sub2Id);
+                      alloc+=yearBudget*(pct/100);
+                      const trY=budgetSettings.catTransfers||[];
+                      if(subId==null){alloc+=trY.filter(tr=>tr.year===year&&tr.toCatId===catId).reduce((s,tr)=>s+tr.amount,0);alloc-=trY.filter(tr=>tr.year===year&&tr.fromCatId===catId).reduce((s,tr)=>s+tr.amount,0);}
+                      else if(sub2Id==null){alloc+=trY.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===subId).reduce((s,tr)=>s+tr.amount,0);alloc-=trY.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===subId).reduce((s,tr)=>s+tr.amount,0);}
+                    });
+                    const sp=pTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.catId===catId&&(subId?t.subId===subId:true)&&(sub2Id?t.sub2Id===sub2Id:true)).reduce((s,t)=>s+t.amount,0);
+                    const rem=alloc-sp;
+                    return{allocated:alloc,spent:sp,remaining:rem,usedPct:alloc>0?Math.min((sp/alloc*100),999):0};
+                  };
+                  const dotC=d=>d.remaining<0?"#ef4444":d.usedPct>=80?"#f59e0b":"#10b981";
+                  const latestY=pYears.length>0?pYears.sort().slice(-1)[0]:nowD2.getFullYear().toString();
+                  const latestD=getCatDistYear(latestY);
+                  const drC=ovExp.bktDrillCat?(cats.expense||[]).find(c=>c.id===ovExp.bktDrillCat):null;
+                  const drS=(drC&&ovExp.bktDrillSub)?drC.subs?.find(s=>s.id===ovExp.bktDrillSub):null;
+
+                  return <div style={{marginTop:10,borderTop:"1px solid #f0f0f0",paddingTop:10}}>
+                    <div style={{display:"flex",gap:5,overflowX:"auto",marginBottom:8}}>
+                      {[["month","شهر"],["year","سنة"],["range","بين تاريخين"],["all","الكل"]].map(([v,l])=>(
+                        <button key={v} onClick={()=>setOvExp(p=>({...p,bktPeriod:v,bktDrillCat:null,bktDrillSub:null}))} style={{...S.btn(bktPeriod===v?"#1a6b4a":"#f1f5f9",false),flexShrink:0,padding:"7px 12px",fontSize:11,color:bktPeriod===v?"white":"#64748b"}}>{l}</button>
+                      ))}
+                    </div>
+                    {bktPeriod==="month"&&<input type="month" style={{...S.inp,marginBottom:8,fontSize:12,padding:"8px"}} value={bktMonth} onChange={e=>setOvExp(p=>({...p,bktMonth:e.target.value}))}/>}
+                    {bktPeriod==="year"&&<input type="number" style={{...S.inp,marginBottom:8,fontSize:12,padding:"8px"}} value={bktYear} onChange={e=>setOvExp(p=>({...p,bktYear:e.target.value}))}/>}
+                    {bktPeriod==="range"&&<div style={{display:"flex",gap:8,marginBottom:8}}>
+                      <div style={{flex:1}}><div style={{fontSize:9.5,color:"#8a8578",marginBottom:3}}>من:</div><input type="month" style={{...S.inp,fontSize:11,padding:"7px"}} value={bktFromM} onChange={e=>setOvExp(p=>({...p,bktFromM:e.target.value}))}/></div>
+                      <div style={{flex:1}}><div style={{fontSize:9.5,color:"#8a8578",marginBottom:3}}>إلى:</div><input type="month" style={{...S.inp,fontSize:11,padding:"7px"}} value={bktToM} onChange={e=>setOvExp(p=>({...p,bktToM:e.target.value}))}/></div>
+                    </div>}
+
+                    <div style={{background:"#f7f6f2",borderRadius:12,padding:10,marginBottom:10,textAlign:"center"}}>
+                      <div style={{fontSize:20,fontWeight:900,color:pBalance>=0?"#1a6b4a":"#ef4444"}}>{fmt(pBalance)}</div>
+                      <div style={{fontSize:10,color:"#8a8578"}}>{pBalance>=0?"✅ متاح":"🔴 عجز"} لهاد الفترة</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginTop:8}}>
+                        <StatChip l="مخصص" v={pAllocated} c="#1a6b4a"/>
+                        <StatChip l="خرج" v={pSpentTotal} c="#ef4444"/>
+                        <StatChip l="تحويل" v={0} c="#6366f1"/>
+                      </div>
+                    </div>
+
+                    {drC&&drS?(()=>{
+                      const d=getPDetail(drC.id,drS.id,null);
+                      const items=drS.subs||[];
+                      return <div>
+                        <div onClick={()=>setOvExp(p=>({...p,bktDrillSub:null}))} style={{fontSize:11,color:"#1a6b4a",fontWeight:700,cursor:"pointer",marginBottom:8}}>← رجوع لـ"{drC.name}"</div>
+                        <div style={{fontSize:12,fontWeight:800,marginBottom:6}}>{drS.name}</div>
+                        {items.length===0?<div style={{fontSize:11,color:"#94a3b8"}}>ماكاينش فروع فرعية</div>:items.map(s2=>{
+                          const s2d=getPDetail(drC.id,drS.id,s2.id);
+                          return <div key={s2.id} style={{background:"#f5f4ef",borderRadius:10,padding:10,marginBottom:8}}>
+                            <div style={{fontSize:12,fontWeight:800,marginBottom:6}}>{s2.icon||"⌐"} {s2.name}</div>
+                            <div style={{fontSize:10,color:"#5c584c",lineHeight:1.8}}>
+                              💰 المخصص: <b>{fmt(s2d.allocated)}</b><br/>
+                              💸 الخروج: <b style={{color:"#ef4444"}}>{fmt(s2d.spent)}</b><br/>
+                              🔄 التحويل: <b style={{color:"#6366f1"}}>0.00</b>
+                            </div>
+                            <div style={{fontSize:11,fontWeight:800,color:s2d.remaining>=0?"#1a6b4a":"#ef4444",marginTop:6,borderTop:"1px solid #e2e8f0",paddingTop:5}}>{s2d.remaining>=0?"✅":"⚠️"} الباقي: {fmt(s2d.remaining)}</div>
+                          </div>;
+                        })}
+                      </div>;
+                    })():drC?(()=>{
+                      const items=drC.subs||[];
+                      return <div>
+                        <div onClick={()=>setOvExp(p=>({...p,bktDrillCat:null}))} style={{fontSize:11,color:"#1a6b4a",fontWeight:700,cursor:"pointer",marginBottom:8}}>← رجوع للتصنيفات</div>
+                        <div style={{fontSize:12,fontWeight:800,marginBottom:6}}>{drC.icon} {drC.name}</div>
+                        {items.map(sub=>{
+                          const subD=getPDetail(drC.id,sub.id,null);
+                          const hasSub2=sub.subs&&sub.subs.length>0;
+                          const s2List=latestD?((latestD.sub2Pcts||{})[drC.id]||{})[sub.id]:null;
+                          const s2Sum=Array.isArray(s2List)?s2List.reduce((s,x)=>s+x.pct,0):0;
+                          return <div key={sub.id} onClick={()=>{if(hasSub2)setOvExp(p=>({...p,bktDrillSub:sub.id}));}} style={{display:"flex",alignItems:"center",gap:7,padding:"9px 0",borderBottom:"1px solid #f0efe9",cursor:hasSub2?"pointer":"default"}}>
+                            <div style={{width:8,height:8,borderRadius:"50%",background:dotC(subD),flexShrink:0}}/>
+                            <span style={{flex:1,fontSize:12}}>{sub.name}</span>
+                            {hasSub2&&<span style={{fontSize:8.5,fontWeight:800,background:s2Sum===100?"#e5f5ee":"#fef3c7",color:s2Sum===100?"#1a6b4a":"#92400e",borderRadius:7,padding:"2px 5px"}}>{s2Sum===100?"✅":"⚠️"}</span>}
+                            <span style={{fontWeight:800,fontSize:11.5,color:subD.remaining>=0?"#1a6b4a":"#ef4444"}}>{fmt(subD.remaining)}</span>
+                          </div>;
+                        })}
+                      </div>;
+                    })():(
+                      <div>
+                        <div style={{fontSize:11.5,fontWeight:800,color:"#1a1a1a",marginBottom:6}}>🏷️ حسب التصنيف — دوس لفتح الفروع</div>
+                        {(cats.expense||[]).map(cat=>{
+                          const d=getPDetail(cat.id,null,null);
+                          if(d.allocated<=0&&d.spent<=0)return null;
+                          const hasSubs=cat.subs&&cat.subs.length>0;
+                          const subList=latestD?(latestD.subPcts||{})[cat.id]:null;
+                          const subSum=Array.isArray(subList)?subList.reduce((s,x)=>s+x.pct,0):0;
+                          return <div key={cat.id} onClick={()=>{if(hasSubs)setOvExp(p=>({...p,bktDrillCat:cat.id}));}} style={{display:"flex",alignItems:"center",gap:7,padding:"9px 0",borderBottom:"1px solid #f0efe9",cursor:hasSubs?"pointer":"default"}}>
+                            <div style={{width:8,height:8,borderRadius:"50%",background:dotC(d),flexShrink:0}}/>
+                            <span style={{fontSize:14}}>{cat.icon}</span>
+                            <span style={{flex:1,fontSize:12}}>{cat.name}</span>
+                            {hasSubs&&<span style={{fontSize:8.5,fontWeight:800,background:subSum===100?"#e5f5ee":"#fef3c7",color:subSum===100?"#1a6b4a":"#92400e",borderRadius:7,padding:"2px 5px"}}>{subSum===100?"✅":"⚠️"}</span>}
+                            <span style={{fontWeight:800,fontSize:11.5,color:d.remaining>=0?"#1a6b4a":"#ef4444"}}>{fmt(d.remaining)}</span>
+                          </div>;
+                        })}
+                      </div>
+                    )}
+                  </div>;
+                })()}
+
                 {(b.type==="assets"||b.type==="investment")&&(()=>{
                   const goalsKey=b.type==="assets"?"assetGoals":"investGoals";
                   const goals=budgetSettings[goalsKey]||[];

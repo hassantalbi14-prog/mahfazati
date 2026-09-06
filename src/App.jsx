@@ -4633,6 +4633,7 @@ function AppInner(){
                       const trY=budgetSettings.catTransfers||[];
                       if(subId==null){alloc+=trY.filter(tr=>tr.year===year&&tr.toCatId===catId).reduce((s,tr)=>s+tr.amount,0);alloc-=trY.filter(tr=>tr.year===year&&tr.fromCatId===catId).reduce((s,tr)=>s+tr.amount,0);}
                       else if(sub2Id==null){alloc+=trY.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===subId).reduce((s,tr)=>s+tr.amount,0);alloc-=trY.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===subId).reduce((s,tr)=>s+tr.amount,0);}
+                      else{alloc+=trY.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===subId&&(tr.toSub2Id||null)===sub2Id).reduce((s,tr)=>s+tr.amount,0);alloc-=trY.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===subId&&(tr.fromSub2Id||null)===sub2Id).reduce((s,tr)=>s+tr.amount,0);}
                     });
                     const sp=pTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.catId===catId&&(subId?t.subId===subId:true)&&(sub2Id?t.sub2Id===sub2Id:true)).reduce((s,t)=>s+t.amount,0);
                     const rem=alloc-sp;
@@ -5401,6 +5402,9 @@ function AppInner(){
                     } else if(sub2Id==null){
                       allocated+=transfersYear.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===subId).reduce((s,tr)=>s+tr.amount,0);
                       allocated-=transfersYear.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===subId).reduce((s,tr)=>s+tr.amount,0);
+                    } else {
+                      allocated+=transfersYear.filter(tr=>tr.year===year&&tr.toCatId===catId&&(tr.toSubId||null)===subId&&(tr.toSub2Id||null)===sub2Id).reduce((s,tr)=>s+tr.amount,0);
+                      allocated-=transfersYear.filter(tr=>tr.year===year&&tr.fromCatId===catId&&(tr.fromSubId||null)===subId&&(tr.fromSub2Id||null)===sub2Id).reduce((s,tr)=>s+tr.amount,0);
                     }
                   });
                   const spent=periodTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.catId===catId&&(subId?t.subId===subId:true)&&(sub2Id?t.sub2Id===sub2Id:true)).reduce((s,t)=>s+t.amount,0);

@@ -3576,39 +3576,85 @@ function AppInner(){
                     {dist && <>
                       <div style={{fontSize:13,fontWeight:800,color:"#334155",margin:"6px 2px"}}>🔄 تحويل بين التصنيفات ({selYear})</div>
                       {(()=>{
-                        const leafItems=[];
-                        expCats.forEach(c=>{
-                          if(c.subs&&c.subs.length>0){
-                            c.subs.forEach(s=>{
-                              if(s.subs&&s.subs.length>0){
-                                s.subs.forEach(s2=>leafItems.push({catId:c.id,subId:s.id,sub2Id:s2.id,breadcrumb:`${c.icon} ${c.name} ← ${s.name} ← ${s2.icon||"⌐"} ${s2.name}`}));
-                              } else {
-                                leafItems.push({catId:c.id,subId:s.id,sub2Id:null,breadcrumb:`${c.icon} ${c.name} ← ${s.name}`});
-                              }
-                            });
-                          } else {
-                            leafItems.push({catId:c.id,subId:null,sub2Id:null,breadcrumb:`${c.icon} ${c.name}`});
-                          }
-                        });
                         const leafKey=it=>`${it.catId}_${it.subId||""}_${it.sub2Id||""}`;
-                        const fromIt=ovExp.trFrom?leafItems.find(it=>leafKey(it)===ovExp.trFrom):null;
-                        const toIt=ovExp.trTo?leafItems.find(it=>leafKey(it)===ovExp.trTo):null;
+                        const findLeaf=key=>{
+                          if(!key)return null;
+                          const[cid,sid,s2id]=key.split("_");
+                          const c=expCats.find(x=>x.id===parseInt(cid));
+                          if(!c)return null;
+                          const s=sid?c.subs?.find(x=>x.id===parseInt(sid)):null;
+                          const s2=s2id?s?.subs?.find(x=>x.id===parseInt(s2id)):null;
+                          const breadcrumb=[`${c.icon} ${c.name}`,s?s.name:null,s2?`${s2.icon||"⌐"} ${s2.name}`:null].filter(Boolean).join(" ← ");
+                          return{catId:c.id,subId:s?s.id:null,sub2Id:s2?s2.id:null,breadcrumb,leafName:s2?s2.name:(s?s.name:c.name)};
+                        };
+                        const fromIt=findLeaf(ovExp.trFrom);
+                        const toIt=findLeaf(ovExp.trTo);
                         const fromBal=fromIt?getCatBalance(fromIt.catId,fromIt.subId,selYear,fromIt.sub2Id):null;
                         const toBal=toIt?getCatBalance(toIt.catId,toIt.subId,selYear,toIt.sub2Id):null;
                         const amtVal=parseFloat(ovExp.trAmt)||0;
+
+                        // منتقي بمراحل (تصنيف ← فرع ← فرع فرعي)
+                        if(ovExp.trPickerFor){
+                          const pickCat=ovExp.trPickCat?expCats.find(c=>c.id===ovExp.trPickCat):null;
+                          const pickSub=(pickCat&&ovExp.trPickSub)?pickCat.subs?.find(s=>s.id===ovExp.trPickSub):null;
+                          const closePicker=key=>{setOvExp(p=>({...p,[ovExp.trPickerFor==="from"?"trFrom":"trTo"]:key,trPickerFor:null,trPickCat:null,trPickSub:null}));};
+                          return <div style={S.card}>
+                            <div style={{fontSize:12,fontWeight:800,marginBottom:8}}>اختار "{ovExp.trPickerFor==="from"?"من":"إلى"}"</div>
+                            {pickSub?(
+                              <div>
+                                <div style={{background:"#eeedfc",borderRadius:10,padding:"7px 10px",marginBottom:10,fontSize:10.5,color:"#4338ca",fontWeight:700,textAlign:"center"}}>{pickCat.icon} {pickCat.name} ← {pickSub.name}</div>
+                                <div onClick={()=>setOvExp(p=>({...p,trPickSub:null}))} style={{fontSize:11,color:"#1a6b4a",fontWeight:700,cursor:"pointer",marginBottom:8}}>← رجوع للفروع</div>
+                                {(pickSub.subs||[]).map(s2=>{
+                                  const bal=getCatBalance(pickCat.id,pickSub.id,selYear,s2.id);
+                                  return <div key={s2.id} onClick={()=>closePicker(`${pickCat.id}_${pickSub.id}_${s2.id}`)} style={{display:"flex",alignItems:"center",gap:8,padding:"11px 0",borderBottom:"1px solid #f0efe9",cursor:"pointer",background:"#f0f7f2",borderRadius:8,paddingRight:10,marginBottom:4}}>
+                                    <span>{s2.icon||"⌐"}</span><span style={{flex:1,fontSize:12.5,fontWeight:700}}>{s2.name}</span><span style={{fontWeight:900,color:"#1a6b4a",fontSize:12}}>{fmt(bal)}</span>
+                                  </div>;
+                                })}
+                              </div>
+                            ):pickCat?(
+                              <div>
+                                <div style={{background:"#eeedfc",borderRadius:10,padding:"7px 10px",marginBottom:10,fontSize:10.5,color:"#4338ca",fontWeight:700,textAlign:"center"}}>{pickCat.icon} {pickCat.name}</div>
+                                <div onClick={()=>setOvExp(p=>({...p,trPickCat:null}))} style={{fontSize:11,color:"#1a6b4a",fontWeight:700,cursor:"pointer",marginBottom:8}}>← رجوع للتصنيفات</div>
+                                {(pickCat.subs||[]).map(s=>{
+                                  const hasSub2=s.subs&&s.subs.length>0;
+                                  const bal=getCatBalance(pickCat.id,s.id,selYear,null);
+                                  return <div key={s.id} onClick={()=>hasSub2?setOvExp(p=>({...p,trPickSub:s.id})):closePicker(`${pickCat.id}_${s.id}_`)} style={{display:"flex",alignItems:"center",gap:8,padding:"11px 0",borderBottom:"1px solid #f0efe9",cursor:"pointer",...(hasSub2?{}:{background:"#f0f7f2",borderRadius:8,paddingRight:10})}}>
+                                    <span style={{flex:1,fontSize:13,fontWeight:700}}>{s.name}</span>
+                                    {!hasSub2&&<span style={{fontWeight:900,color:"#1a6b4a",fontSize:12}}>{fmt(bal)}</span>}
+                                    {hasSub2&&<ChevronLeft size={13} color="#c8c4b6"/>}
+                                  </div>;
+                                })}
+                              </div>
+                            ):(
+                              <div>
+                                {expCats.map(c=>{
+                                  const hasSubs=c.subs&&c.subs.length>0;
+                                  const bal=getCatBalance(c.id,null,selYear,null);
+                                  return <div key={c.id} onClick={()=>hasSubs?setOvExp(p=>({...p,trPickCat:c.id})):closePicker(`${c.id}__`)} style={{display:"flex",alignItems:"center",gap:8,padding:"11px 0",borderBottom:"1px solid #f0efe9",cursor:"pointer",...(hasSubs?{}:{background:"#f0f7f2",borderRadius:8,paddingRight:10})}}>
+                                    <span>{c.icon}</span><span style={{flex:1,fontSize:13,fontWeight:700}}>{c.name}</span>
+                                    {!hasSubs&&<span style={{fontWeight:900,color:"#1a6b4a",fontSize:12}}>{fmt(bal)}</span>}
+                                    {hasSubs&&<ChevronLeft size={13} color="#c8c4b6"/>}
+                                  </div>;
+                                })}
+                              </div>
+                            )}
+                            <button style={{...S.btn("#e8e8e4",false),color:"#475569",marginTop:8}} onClick={()=>setOvExp(p=>({...p,trPickerFor:null,trPickCat:null,trPickSub:null}))}>إلغاء</button>
+                          </div>;
+                        }
+
                         return <div style={S.card}>
                           <div style={{fontSize:11,color:"#8a8578",fontWeight:700,marginBottom:6}}>من:</div>
-                          <select style={{...S.sel,marginBottom:fromIt?4:12}} value={ovExp.trFrom||""} onChange={e=>setOvExp(p=>({...p,trFrom:e.target.value}))}>
-                            <option value="">اختار الوجهة (آخر مستوى)</option>
-                            {leafItems.map(it=><option key={leafKey(it)} value={leafKey(it)}>{it.breadcrumb}</option>)}
-                          </select>
+                          <div onClick={()=>setOvExp(p=>({...p,trPickerFor:"from"}))} style={{...S.inp,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:fromIt?4:12}}>
+                            <span style={{color:fromIt?"#1a1a1a":"#94a3b8",fontWeight:fromIt?700:400}}>{fromIt?fromIt.breadcrumb:"دوس لاختيار الوجهة"}</span>
+                            <ChevronLeft size={13} color="#c8c4b6"/>
+                          </div>
                           {fromIt&&<div style={{background:"#fef2f2",borderRadius:10,padding:"7px 10px",marginBottom:12,textAlign:"center",fontSize:11}}>الرصيد المتاح: <b style={{color:"#ef4444"}}>{fmt(fromBal)}</b></div>}
 
                           <div style={{fontSize:11,color:"#8a8578",fontWeight:700,marginBottom:6}}>إلى:</div>
-                          <select style={{...S.sel,marginBottom:toIt?4:12}} value={ovExp.trTo||""} onChange={e=>setOvExp(p=>({...p,trTo:e.target.value}))}>
-                            <option value="">اختار الوجهة (آخر مستوى)</option>
-                            {leafItems.map(it=><option key={leafKey(it)} value={leafKey(it)}>{it.breadcrumb}</option>)}
-                          </select>
+                          <div onClick={()=>setOvExp(p=>({...p,trPickerFor:"to"}))} style={{...S.inp,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:toIt?4:12}}>
+                            <span style={{color:toIt?"#1a1a1a":"#94a3b8",fontWeight:toIt?700:400}}>{toIt?toIt.breadcrumb:"دوس لاختيار الوجهة"}</span>
+                            <ChevronLeft size={13} color="#c8c4b6"/>
+                          </div>
                           {toIt&&<div style={{background:"#f0f7f2",borderRadius:10,padding:"7px 10px",marginBottom:12,textAlign:"center",fontSize:11}}>الرصيد المتاح: <b style={{color:"#1a6b4a"}}>{fmt(toBal)}</b></div>}
 
                           <input style={{...S.inp,marginBottom:8}} type="number" placeholder="المبلغ" value={ovExp.trAmt||""} onChange={e=>setOvExp(p=>({...p,trAmt:e.target.value}))}/>
@@ -3616,14 +3662,14 @@ function AppInner(){
 
                           {fromIt&&toIt&&amtVal>0&&<div style={{background:"#f7f6f2",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
                             <div style={{fontSize:10,fontWeight:800,color:"#5c584c",marginBottom:4}}>📊 بعد التحويل:</div>
-                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,marginBottom:2}}><span>{fromIt.breadcrumb.split("←").pop().trim()}</span><span style={{fontWeight:800,color:(fromBal-amtVal)<0?"#ef4444":"#1a1a1a"}}>{fmt(fromBal)} ← {fmt(fromBal-amtVal)}</span></div>
-                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5}}><span>{toIt.breadcrumb.split("←").pop().trim()}</span><span style={{fontWeight:800,color:"#1a6b4a"}}>{fmt(toBal)} ← {fmt(toBal+amtVal)}</span></div>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,marginBottom:2}}><span>{fromIt.leafName}</span><span style={{fontWeight:800,color:(fromBal-amtVal)<0?"#ef4444":"#1a1a1a"}}>{fmt(fromBal)} ← {fmt(fromBal-amtVal)}</span></div>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5}}><span>{toIt.leafName}</span><span style={{fontWeight:800,color:"#1a6b4a"}}>{fmt(toBal)} ← {fmt(toBal+amtVal)}</span></div>
                           </div>}
 
                           <button style={S.btn("#6366f1")} onClick={()=>{
                             const amt=parseFloat(ovExp.trAmt);
                             if(!fromIt||!toIt||!amt||amt<=0){showErr("⛔ عمر كل الخانات");setTimeout(()=>setErr(null),3000);return;}
-                            if(leafKey(fromIt)===leafKey(toIt)){showErr("⛔ اختر وجهتين مختلفتين");setTimeout(()=>setErr(null),3000);return;}
+                            if(ovExp.trFrom===ovExp.trTo){showErr("⛔ اختر وجهتين مختلفتين");setTimeout(()=>setErr(null),3000);return;}
                             if(amt>fromBal){showErr(`⛔ الرصيد غير كافي — المتاح: ${fmt(fromBal)}`);setTimeout(()=>setErr(null),3500);return;}
                             const nb={...budgetSettings,catTransfers:[...(budgetSettings.catTransfers||[]),{year:selYear,fromCatId:fromIt.catId,fromSubId:fromIt.subId,fromSub2Id:fromIt.sub2Id,toCatId:toIt.catId,toSubId:toIt.subId,toSub2Id:toIt.sub2Id,amount:amt,date:ovExp.trDate||new Date().toISOString().split("T")[0]}]};
                             setBudgetSettings(nb);_save('budgetSettings',nb);

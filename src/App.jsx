@@ -5467,6 +5467,100 @@ function AppInner(){
                 const drillSubId=ovExp.budgetDrillSub;
                 const drillCat=drillCatId?(cats.expense||[]).find(c=>c.id===drillCatId):null;
                 const drillSub=(drillCat&&drillSubId)?drillCat.subs?.find(s=>s.id===drillSubId):null;
+                const drillLeafId=ovExp.budgetDrillLeaf;
+                const drillLeaf=(drillSub&&drillLeafId)?drillSub.subs?.find(s2=>s2.id===drillLeafId):null;
+
+                // شاشة 4: تفاصيل الفرع الفرعي (آخر مستوى) كاملة
+                if(drillCat&&drillSub&&drillLeaf){
+                  const d=getPeriodDetail(drillCat.id,drillSub.id,drillLeaf.id);
+                  const st=statusOf(d);
+                  const leafTxs=periodTxs.filter(t=>t.type==="expense"&&!t.isTransfer&&!t.isLoan&&!t.isInvest&&!t.isAsset&&t.catId===drillCat.id&&t.subId===drillSub.id&&t.sub2Id===drillLeaf.id).sort((a,b)=>b.date.localeCompare(a.date));
+                  const allTransfers=(budgetSettings.catTransfers||[]);
+                  const inTransfers=allTransfers.filter(tr=>tr.toCatId===drillCat.id&&(tr.toSubId||null)===drillSub.id&&(tr.toSub2Id||null)===drillLeaf.id);
+                  const outTransfers=allTransfers.filter(tr=>tr.fromCatId===drillCat.id&&(tr.fromSubId||null)===drillSub.id&&(tr.fromSub2Id||null)===drillLeaf.id);
+                  const fullPathOf=(cid,sid,s2id)=>{
+                    const c=(cats.expense||[]).find(cc=>cc.id===cid);if(!c)return"—";
+                    const s=sid?c.subs?.find(ss=>ss.id===sid):null;
+                    const s2=s2id?s?.subs?.find(ss=>ss.id===s2id):null;
+                    return[c.name,s?.name,s2?.name].filter(Boolean).join(" ← ");
+                  };
+                  const catPct=getCatEffectivePct(drillCat.id,null,latestYear);
+                  const subPct=getCatEffectivePct(drillCat.id,drillSub.id,latestYear);
+                  const leafPct=getCatEffectivePct(drillCat.id,drillSub.id,latestYear,drillLeaf.id);
+                  const budgetTotalY=yearBudgetTotals[latestYear]||0;
+                  const catAmtY=budgetTotalY*(catPct/100);
+                  const subEffAmt=budgetTotalY*(subPct/100);
+                  const leafEffAmt=budgetTotalY*(leafPct/100);
+                  const carryover=getCatCarryover(drillCat.id,drillSub.id,latestYear,drillLeaf.id);
+                  return <div id="repBudget">
+                    <BackBtn title={`${drillLeaf.icon||"⌐"} ${drillLeaf.name}`}/>
+                    <div style={{...S.card,textAlign:"center",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,budgetDrillLeaf:null}))}>← رجوع لـ"{drillSub.name}"</div>
+
+                    <div style={S.card}>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                        <StatChip l="مخصص" v={d.allocated} c="#1a6b4a"/>
+                        <StatChip l="مصروف" v={d.spent} c="#ef4444"/>
+                        <StatChip l="الباقي" v={d.remaining} c={d.remaining>=0?"#1a6b4a":"#ef4444"}/>
+                        <StatChip l="نسبة الاستهلاك" v={d.usedPct.toFixed(0)+"%"} c={dotColor[st]}/>
+                      </div>
+                    </div>
+
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",margin:"12px 4px 6px"}}>🧮 تفاصيل حساب المخصص ({fmt(d.allocated)})</div>
+                    <div style={S.card}>
+                      <div style={{fontSize:11,color:"#5c584c",lineHeight:2}}>
+                        💰 مجموع الميزانية ({latestYear}): <b>{fmt(budgetTotalY)}</b><br/>
+                        🏷️ {drillCat.name} ({catPct.toFixed(1)}%): <b>{fmt(catAmtY)}</b><br/>
+                        ↳ {drillSub.name} ({(catPct>0?subPct/catPct*100:0).toFixed(1)}%): <b>{fmt(subEffAmt)}</b><br/>
+                        ⌐ {drillLeaf.name} ({(subPct>0?leafPct/subPct*100:0).toFixed(1)}%): <b style={{color:"#1a6b4a"}}>{fmt(leafEffAmt)}</b>
+                      </div>
+                      <div style={{borderTop:"1px solid #f0efe9",marginTop:8,paddingTop:8,fontSize:11,color:"#5c584c",lineHeight:2}}>
+                        ➕ ترحيل: <b style={{color:carryover>=0?"#1a6b4a":"#ef4444"}}>{fmt(carryover)}</b><br/>
+                        ➕ تحويلات داخلة: <b style={{color:"#1a6b4a"}}>+{fmt(inTransfers.reduce((s,t)=>s+t.amount,0))}</b><br/>
+                        ➖ تحويلات خارجة: <b style={{color:"#ef4444"}}>-{fmt(outTransfers.reduce((s,t)=>s+t.amount,0))}</b>
+                      </div>
+                    </div>
+
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",margin:"12px 4px 6px"}}>🎯 المبلغ المتوقع من هدف الدخل — سنويا</div>
+                    <div style={S.card}>
+                      {(budgetSettings.incomeGoalsByYear||[]).length===0?<div style={{fontSize:11,color:"#94a3b8",textAlign:"center"}}>ماكاينش هدف دخل محدد بعد</div>:
+                      (budgetSettings.incomeGoalsByYear||[]).map(g=>{
+                        const goalBudget=getGoalBudgetTotal(g.year);
+                        const leafShare=goalBudget*(getCatEffectivePct(drillCat.id,drillSub.id,g.year,drillLeaf.id)/100)/12;
+                        return <div key={g.year} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #f0efe9",fontSize:11.5}}>
+                          <span>{g.year}</span><span style={{fontWeight:800,color:"#1a6b4a"}}>{fmt(leafShare)} د.م/شهر</span>
+                        </div>;
+                      })}
+                    </div>
+
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",margin:"12px 4px 6px"}}>💸 المعاملات ({leafTxs.length})</div>
+                    {leafTxs.length===0?<div style={{...S.card,textAlign:"center",color:"#94a3b8",fontSize:11}}>ماكاينش معاملات فهاد الفترة</div>:
+                    <div style={S.card}>
+                      {leafTxs.map(t=>(
+                        <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #f0efe9",fontSize:11.5}}>
+                          <div><div style={{fontWeight:700}}>{t.desc||drillLeaf.name}</div><div style={{fontSize:9.5,color:"#8a8578"}}>{t.date} · {t.pm}</div></div>
+                          <span style={{fontWeight:800,color:"#ef4444"}}>-{fmt(t.amount)}</span>
+                        </div>
+                      ))}
+                    </div>}
+
+                    <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",margin:"12px 4px 6px"}}>🔄 التحويلات (من/إلى)</div>
+                    {(inTransfers.length+outTransfers.length)===0?<div style={{...S.card,textAlign:"center",color:"#94a3b8",fontSize:11}}>ماكاينش تحويلات</div>:
+                    <div style={S.card}>
+                      {inTransfers.map((tr,i)=>(
+                        <div key={"in"+i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #f0efe9",fontSize:11}}>
+                          <div><div style={{fontWeight:700}}>↙️ من: {fullPathOf(tr.fromCatId,tr.fromSubId,tr.fromSub2Id)}</div><div style={{fontSize:9.5,color:"#8a8578"}}>{tr.date}</div></div>
+                          <span style={{fontWeight:800,color:"#1a6b4a"}}>+{fmt(tr.amount)}</span>
+                        </div>
+                      ))}
+                      {outTransfers.map((tr,i)=>(
+                        <div key={"out"+i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #f0efe9",fontSize:11}}>
+                          <div><div style={{fontWeight:700}}>↗️ إلى: {fullPathOf(tr.toCatId,tr.toSubId,tr.toSub2Id)}</div><div style={{fontSize:9.5,color:"#8a8578"}}>{tr.date}</div></div>
+                          <span style={{fontWeight:800,color:"#ef4444"}}>-{fmt(tr.amount)}</span>
+                        </div>
+                      ))}
+                    </div>}
+                  </div>;
+                }
 
                 // شاشة 3: فروع فرعية
                 if(drillCat&&drillSub){
@@ -5487,10 +5581,11 @@ function AppInner(){
                       {items.map(s2=>{
                         const s2d=getPeriodDetail(drillCat.id,drillSub.id,s2.id);
                         const st=statusOf(s2d);
-                        return <div key={s2.id} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderBottom:"1px solid #f0efe9"}}>
+                        return <div key={s2.id} onClick={()=>setOvExp(p=>({...p,budgetDrillLeaf:s2.id}))} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 0",borderBottom:"1px solid #f0efe9",cursor:"pointer"}}>
                           <div style={{width:9,height:9,borderRadius:"50%",background:dotColor[st],flexShrink:0}}/>
                           <span style={{flex:1,fontSize:12.5}}>{s2.icon||"⌐"} {s2.name}</span>
                           <span style={{fontWeight:800,color:s2d.remaining>=0?"#1a6b4a":"#ef4444"}}>{fmt(s2d.remaining)}</span>
+                          <ChevronLeft size={13} color="#c8c4b6"/>
                         </div>;
                       })}
                     </div>}

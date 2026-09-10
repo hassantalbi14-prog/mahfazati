@@ -865,6 +865,13 @@ function AppInner(){
     const[h,m]=backupReminderTime.split(":").map(Number);
     scheduleBackupReminder(h,m);
   },[loaded]);
+  const ensureInvestIncomeCat=()=>{
+    const existing=(cats.income||[]).find(c=>c.name==="استثمارات وأرباح أخرى");
+    if(existing)return existing.id;
+    const newId=uid();
+    setCats(p=>({...p,income:[...(p.income||[]),{id:newId,name:"استثمارات وأرباح أخرى",icon:"📊",color:"#6366f1",subs:[]}]}));
+    return newId;
+  };
   const addSplitTx=()=>{
     const parts=(form.splitParts||[]).filter(p=>p.catId&&parseFloat(p.amount)>0);
     if(parts.length<2){showErr("⛔ زيد على الأقل جزئين بمبلغ وتصنيف صحيح");return;}
@@ -2568,7 +2575,7 @@ function AppInner(){
           if(ovPage==="invDetail"&&ovExp.ovInv){
             const inv=investments.find(i=>i.id===ovExp.ovInv);
             if(!inv)return null;
-            const invTxs=txs.filter(t=>t.isInvest&&(t.invId===inv.id||(t.desc||"").includes(inv.name))).sort((a,b)=>b.date.localeCompare(a.date));
+            const invTxs=txs.filter(t=>t.invId===inv.id||((t.isInvest)&&(t.desc||"").includes(inv.name))).sort((a,b)=>b.date.localeCompare(a.date));
             const net=(inv.profit||0);
             return <>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
@@ -2644,7 +2651,7 @@ function AppInner(){
                   <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 الاستثمارات ({investments.length})</div>
                   {investments.map(inv=>{
                     const net=(inv.profit||0);
-                    const invTxs=txs.filter(t=>t.isInvest&&t.invId===inv.id);
+                    const invTxs=txs.filter(t=>t.invId===inv.id);
                     return(
                       <div key={inv.id} style={{...S.card,padding:"14px 16px",cursor:"pointer"}} onClick={()=>setOvExp(p=>({...p,ovPage:"invDetail",ovInv:inv.id}))}>
                         <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -5724,7 +5731,7 @@ function AppInner(){
                   <div style={S.card}>
                     <div style={{fontSize:12,fontWeight:800,color:"#1a1a1a",marginBottom:8}}>📋 قائمة الاستثمارات — الداخل/الخارج لهاد الفترة</div>
                     {investments.length===0?<div style={{textAlign:"center",color:"#94a3b8",fontSize:12,padding:10}}>ما كاينش استثمارات مسجلة</div>:investments.map(i=>{
-                      const invTxsPeriod=periodTxs.filter(t=>t.isInvest&&t.invId===i.id);
+                      const invTxsPeriod=periodTxs.filter(t=>t.invId===i.id);
                       const inflow=invTxsPeriod.filter(t=>t.type==="expense"||(t.type==="income"&&(t.desc||"").startsWith("ربح"))).reduce((s,t)=>s+t.amount,0);
                       const outflow=invTxsPeriod.filter(t=>t.type==="income"&&(t.desc||"").startsWith("استرداد")).reduce((s,t)=>s+t.amount,0);
                       const expanded=!!ovExp[`invExpand_${i.id}`];
@@ -6309,16 +6316,16 @@ function AppInner(){
                 const acc=allAcc.find(a=>a.key===form.akey);
                 if(!acc)return;
                 const date=form.date||new Date().toISOString().split("T")[0];
-                // تحديث الأرباح فالـ record
+                const catId=ensureInvestIncomeCat();
+                // تحديث الأرباح فالـ record (للعرض/ROI بس)
                 setInvestments(p=>p.map(i=>i.id===ei.id?{...i,profit:(i.profit||0)+profit}:i));
-                // تسجيل معاملة دخل isInvest:true
-                setTxs(p=>[{id:uid(),type:"income",amount:profit,catId:null,subId:null,
-                  desc:`ربح: ${ei.name}`,date,pm:"استثمار",ref:acc.ref,
-                  isAsset:false,isInvest:true,invId:ei.id,invName:ei.name,note:form.note||""
+                // تسجيل دخل حقيقي عادي — كيتوزع على الأقسام الخمسة بحال أي دخل آخر
+                setTxs(p=>[{id:uid(),type:"income",amount:profit,catId,subId:null,
+                  desc:`ربح: ${ei.name}`,date,pm:"نقدي",ref:acc.ref,
+                  isAsset:false,isInvest:false,invId:ei.id,invName:ei.name,note:form.note||""
                 },...p]);
-                // دخول الربح للحساب
                 updBal(acc.ref,profit,"income","add");
-                cm();showErr("✅ تم تسجيل الربح وإضافته للحساب");
+                cm();showErr("✅ تم تسجيل الربح كدخل — وتوزع على الأقسام الخمسة");
               }}>تأكيد الربح 💰</button>
             </div>}
 
@@ -6335,16 +6342,16 @@ function AppInner(){
                 const acc=allAcc.find(a=>a.key===form.akey);
                 if(!acc)return;
                 const date=form.date||new Date().toISOString().split("T")[0];
-                // تسجيل معاملة دخل استرداد
-                setTxs(p=>[{id:uid(),type:"income",amount:returnAmt,catId:null,subId:null,
-                  desc:`استرداد: ${ei.name}`,date,pm:"استثمار",ref:acc.ref,
-                  isAsset:false,isInvest:true,invId:ei.id,invName:ei.name,note:""
+                const catId=ensureInvestIncomeCat();
+                // تسجيل دخل حقيقي عادي (سحب/استرداد) — كيتوزع على الأقسام الخمسة بحال أي دخل آخر
+                setTxs(p=>[{id:uid(),type:"income",amount:returnAmt,catId,subId:null,
+                  desc:`استرداد: ${ei.name}`,date,pm:"نقدي",ref:acc.ref,
+                  isAsset:false,isInvest:false,invId:ei.id,invName:ei.name,note:""
                 },...p]);
-                // دخول المبلغ للحساب
                 updBal(acc.ref,returnAmt,"income","add");
-                // تحديث رأس المال
+                // تحديث رأس المال المتبقي (للعرض بس)
                 setInvestments(p=>p.map(i=>i.id===ei.id?{...i,amount:Math.max(0,i.amount-returnAmt)}:i));
-                cm();showErr("✅ تم الاسترداد وإضافته للحساب");
+                cm();showErr("✅ تم الاسترداد كدخل — وتوزع على الأقسام الخمسة");
               }}>تأكيد الاسترداد 🏦</button>
             </div>}
 

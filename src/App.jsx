@@ -657,6 +657,21 @@ function AppInner(){
     if(type==="emergency")return emgBalance;
     return rawFor("retirement")+retirementExcess; // فائض الطوارئ (بعد الوصول للهدف) كيتحول أوتوماتيك للتقاعد
   };
+  const getBucketShortfall=(type)=>{
+    const bkt=(budgetSettings.buckets||[]).find(b=>b.type===type);
+    if(!bkt||!bkt.accountSlices)return null;
+    for(const key of(bkt.accountKeys||[])){
+      const sliceVal=bkt.accountSlices[key];
+      if(sliceVal===undefined||sliceVal===null||sliceVal==="")continue;
+      const acc=allAcc.find(a=>a.key===key);
+      if(!acc)continue;
+      const slice=parseFloat(sliceVal);
+      if((acc.balance||0)<slice){
+        return{accName:`${acc.bn} — ${acc.name}`,slice,realBalance:acc.balance||0,short:slice-(acc.balance||0)};
+      }
+    }
+    return null;
+  };
   const getBucketBalanceLive=(type)=>{
     const bkt=(budgetSettings.buckets||[]).find(b=>b.type===type);
     if(!bkt)return null;
@@ -917,6 +932,10 @@ function AppInner(){
     const _selSub=_selCat?.subs?.find(s=>s.id===parseInt(form.subId));
     if(_selSub?.subs?.length>0&&!form.sub2Id){showErr("⛔ الفرع الفرعي إجباري — اختر الفرع الفرعي");return;}
     if(form.pm!=="كريدي"&&!form.akey){showErr("⛔ اختر الحساب");return;}
+    if((form.txType||"expense")==="expense"){
+      const shortfallBlock=getBucketShortfall("expenses");
+      if(shortfallBlock){showErr(`🔒 ممنوع — حساب "${shortfallBlock.accName}" ناقص ${fmt(shortfallBlock.short)} عن الحصة المخصصة. صحح الربط من الإعدادات أولاً`);return;}
+    }
     // منع المصروف إذا الميزانية ناقصة — بتأكيد 3 خطوات بدل المنع الكامل
     if((form.txType||"expense")==="expense"&&!form.isLoan&&!form.isInvest&&!form.isAsset){
       const expBkt=(budgetSettings.buckets||[]).find(b=>b.type==="expenses");
@@ -3305,23 +3324,45 @@ function AppInner(){
                   const takenKeys=(budgetSettings.buckets||[]).filter(x=>x.id!==b.id).flatMap(x=>x.accountKeys||[]);
                   const available=allAcc.filter(ac=>!takenKeys.includes(ac.key));
                   const bal=allAcc.filter(ac=>(b.accountKeys||[]).includes(ac.key)).reduce((s,ac)=>s+(ac.balance||0),0);
+                  const expectedBal=getBucketBalanceLive(b.type);
+                  const slices=b.accountSlices||{};
+                  const slicesSum=(b.accountKeys||[]).reduce((s,k)=>s+(parseFloat(slices[k])||0),0);
                   return(
                     <div key={b.id} style={{borderRadius:12,padding:12,border:`2px solid ${b.color}33`,marginBottom:10}}>
                       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
                         <div style={{width:38,height:38,borderRadius:10,background:b.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{b.icon}</div>
                         <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{b.name}</div><div style={{fontSize:12,color:b.color,fontWeight:700}}>{fmt(bal)} د.م</div></div>
                       </div>
+                      <div style={{fontSize:10.5,color:"#64748b",marginBottom:8,textAlign:"center",background:"#f8fafc",borderRadius:8,padding:"5px 8px"}}>💡 المخصص الافتراضي لهاد القسم: <b>{fmt(expectedBal)}</b> — حدد شحال بالضبط من كل حساب</div>
                       {(b.accountKeys||[]).map(key=>{
                         const acc=allAcc.find(x=>x.key===key);
-                        return acc?(
-                          <div key={key} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:b.color+"12",borderRadius:8,marginBottom:6}}>
-                            <span style={{flex:1,fontSize:12}}>{acc.bn} — {acc.name}</span>
-                            <span style={{fontSize:12,fontWeight:700,color:b.color}}>{fmt(acc.balance)}</span>
-                            <button style={{background:"#ef444420",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:11,fontFamily:"inherit"}}
-                              onClick={()=>{const nb={...budgetSettings,buckets:(budgetSettings.buckets||[]).map(x=>x.id===b.id?{...x,accountKeys:(x.accountKeys||[]).filter(k=>k!==key)}:x)};setBudgetSettings(nb);_save('budgetSettings',nb);}}>✕</button>
+                        if(!acc)return null;
+                        const sliceVal=slices[key];
+                        const hasSlice=sliceVal!==undefined&&sliceVal!==null&&sliceVal!=="";
+                        const short=hasSlice&&(acc.balance||0)<parseFloat(sliceVal);
+                        return(
+                          <div key={key} style={{padding:"8px 10px",background:short?"#fef2f2":b.color+"12",borderRadius:8,marginBottom:6,border:short?"1px solid #ef4444":"none"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                              <span style={{flex:1,fontSize:12}}>{acc.bn} — {acc.name}</span>
+                              <span style={{fontSize:11.5,fontWeight:700,color:short?"#ef4444":"#1a1a1a"}}>الرصيد: {fmt(acc.balance)}</span>
+                              <button style={{background:"#ef444420",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#ef4444",fontSize:11,fontFamily:"inherit"}}
+                                onClick={()=>{const nb={...budgetSettings,buckets:(budgetSettings.buckets||[]).map(x=>x.id===b.id?{...x,accountKeys:(x.accountKeys||[]).filter(k=>k!==key),accountSlices:{...(x.accountSlices||{}),[key]:undefined}}:x)};setBudgetSettings(nb);_save('budgetSettings',nb);}}>✕</button>
+                            </div>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <span style={{fontSize:10.5,color:"#64748b"}}>الحصة المخصصة:</span>
+                              <input type="number" style={{...S.inp,flex:1,padding:"6px 8px",fontSize:11.5}} placeholder="بلا حصة محددة"
+                                defaultValue={sliceVal||""} onBlur={e=>{
+                                  const v=e.target.value?parseFloat(e.target.value):undefined;
+                                  const nb={...budgetSettings,buckets:(budgetSettings.buckets||[]).map(x=>x.id===b.id?{...x,accountSlices:{...(x.accountSlices||{}),[key]:v}}:x)};
+                                  setBudgetSettings(nb);_save('budgetSettings',nb);
+                                }}/>
+                            </div>
+                            {short&&<div style={{fontSize:10,color:"#ef4444",fontWeight:700,marginTop:5,textAlign:"center"}}>⚠️ ناقص {fmt(parseFloat(sliceVal)-(acc.balance||0))} عن الحصة المخصصة</div>}
+                            {hasSlice&&!short&&<div style={{fontSize:10,color:"#1a6b4a",fontWeight:700,marginTop:5,textAlign:"center"}}>✅ مطابق للحصة المخصصة</div>}
                           </div>
-                        ):null;
+                        );
                       })}
+                      {(b.accountKeys||[]).length>0&&<div style={{textAlign:"center",fontSize:10,color:"#64748b",marginBottom:6}}>مجموع الحصص المحددة: {fmt(slicesSum)} {Math.abs(slicesSum-expectedBal)>0.01&&slicesSum>0?`(المخصص ${fmt(expectedBal)})`:""}</div>}
                       <select style={{...S.sel,marginTop:4}} value="" onChange={e=>{
                         if(!e.target.value)return;
                         const nb={...budgetSettings,buckets:(budgetSettings.buckets||[]).map(x=>x.id===b.id?{...x,accountKeys:[...(x.accountKeys||[]),e.target.value]}:x)};
@@ -5984,6 +6025,22 @@ function AppInner(){
                 const label=s2id?(sub?.subs?.find(s2=>s2.id===s2id)?.name||"الفرع الفرعي"):(sub?sub.name:cat.name);
                 return <div style={{fontSize:12,fontWeight:700,color:bal<0?"#ef4444":"#1a6b4a",background:bal<0?"#fee2e2":"#e5f5ee",borderRadius:10,padding:"9px 12px",textAlign:"center"}}>💰 الرصيد المتاح فـ"{label}": {bal<0?"-":""}{fmt(Math.abs(bal))}</div>;
               })()}
+              {(()=>{
+                const type=modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense");
+                if(type!=="expense")return null;
+                const shortfall=getBucketShortfall("expenses");
+                if(!shortfall)return null;
+                return <div style={{background:"#fef2f2",border:"2px solid #ef4444",borderRadius:14,padding:14,marginTop:8,textAlign:"center"}}>
+                  <div style={{fontSize:28,marginBottom:6}}>🔒</div>
+                  <div style={{fontSize:13,fontWeight:900,color:"#ef4444",marginBottom:8}}>ممنوع — الحساب المربوط ناقص</div>
+                  <div style={{background:"#fee2e2",borderRadius:8,padding:"8px 10px",marginBottom:8,fontSize:10.5}}>
+                    <div style={{display:"flex",justifyContent:"space-between",padding:"2px 0"}}><span style={{color:"#991b1b"}}>الحصة المخصصة لـ"{shortfall.accName}"</span><b>{fmt(shortfall.slice)}</b></div>
+                    <div style={{display:"flex",justifyContent:"space-between",padding:"2px 0"}}><span style={{color:"#991b1b"}}>الرصيد الحقيقي</span><b>{fmt(shortfall.realBalance)}</b></div>
+                    <div style={{display:"flex",justifyContent:"space-between",padding:"2px 0",borderTop:"1px solid #fca5a5",marginTop:2}}><span style={{color:"#991b1b"}}>النقص</span><b style={{color:"#ef4444"}}>{fmt(shortfall.short)}</b></div>
+                  </div>
+                  <div style={{fontSize:10.5,color:"#991b1b",lineHeight:1.7}}>ماتقدرش تسجل أي مصروف جديد فقسم "الميزانية" حتى يتصحح النقص — إما بزيادة فلوس فالحساب، أو تعاود تحدد الربط من الإعدادات.</div>
+                </div>;
+              })()}
               {modal==="addTx"&&(form.pm||"نقدي")!=="كريدي"&&(form.txType||"expense")!=="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#6366f1"
                 accList={form.txType==="invest"?getBucketAccs("investment"):form.txType==="retire"?getBucketAccs("retirement"):form.txType==="emergency"?getBucketAccs("emergency"):form.txType==="assets_buy"?getBucketAccs("assets"):getBucketAccs("expenses")}/>}
               {modal==="addTx"&&(form.txType||"expense")==="income"&&<AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981"/>}
@@ -6019,9 +6076,13 @@ function AppInner(){
                     }}>{(ovExp.overrunStep||0)>=2?"✅ تأكيد نهائي، كمل":`متأكد؟ (${(ovExp.overrunStep||0)+1}/3)`}</button>
                   </div>
                 </div>
-              ):(
-                <button style={S.btn(modal==="addTx"?"#10b981":"#6366f1")} onClick={modal==="addTx"?addTx:saveTxEdit}>حفظ</button>
-              )}
+              ):(()=>{
+                const isBlocked=modal==="addTx"&&(form.txType||"expense")==="expense"&&getBucketShortfall("expenses");
+                return isBlocked?
+                  <button style={{...S.btn("#e8e8e4",false),color:"#94a3b8",cursor:"not-allowed"}} disabled>🔒 التسجيل معطل — صحح الربط أولاً</button>
+                :
+                  <button style={S.btn(modal==="addTx"?"#10b981":"#6366f1")} onClick={modal==="addTx"?addTx:saveTxEdit}>حفظ</button>;
+              })()}
               </>)}
             </div>}
 

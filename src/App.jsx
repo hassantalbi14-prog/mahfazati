@@ -2624,7 +2624,7 @@ function AppInner(){
               {inv.note&&<div style={{...S.card,fontSize:12,color:"#475569",padding:10}}>📝 {inv.note}</div>}
               <div style={{display:"flex",gap:8,marginBottom:8}}>
                 <button style={{...S.btn("#10b981"),flex:1}} onClick={()=>{setEi(inv);om("addProfit");}}>💰 + تسجيل ربح</button>
-                <button style={{...S.btn("#6366f1"),flex:1}} onClick={()=>{setEi(inv);om("returnInvest");}}>🏦 استرداد رأس المال</button>
+                <button style={{...S.btn("#6366f1"),flex:1}} onClick={()=>{setEi(inv);om("invWithdrawGate");}}>🏦 استرداد رأس المال</button>
               </div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل المعاملات ({invTxs.length})</div>
               {invTxs.map(t=>(
@@ -6319,17 +6319,24 @@ function AppInner(){
 
             {modal==="addInvest"&&<div style={S.col}>
               <div style={{padding:"10px 14px",background:"#10b98115",borderRadius:10,fontSize:13,color:"#1a6b4a",fontWeight:700,textAlign:"center"}}>📈 إضافة استثمار — لن يحسب في المصاريف</div>
-              <input style={S.inp} placeholder="اسم الاستثمار" value={form.invName||""} onChange={e=>F("invName",e.target.value)}/>
+              <input style={{...S.inp,borderColor:form.invName&&investments.some(i=>i.name===form.invName)?"#ef4444":undefined}} placeholder="اسم الاستثمار" value={form.invName||""} onChange={e=>F("invName",e.target.value)}/>
+              {form.invName&&investments.some(i=>i.name===form.invName)&&<div style={{color:"#ef4444",fontSize:11,fontWeight:700,textAlign:"center",marginTop:-4}}>⛔ "{form.invName}" موجود ديجا — اختر اسم آخر</div>}
+              <input style={S.inp} placeholder="العنوان / الموقع (اختياري)" value={form.invAddress||""} onChange={e=>F("invAddress",e.target.value)}/>
               <select style={S.sel} value={form.invType||""} onChange={e=>F("invType",e.target.value)}>
                 <option value="">نوع الاستثمار</option>
                 {["تجارة","عقار","أسهم","ذهب","شركة","عملة رقمية","أخرى"].map(t=><option key={t} value={t}>{t}</option>)}
               </select>
               <input style={S.num} placeholder="0.00" type="number" step="0.01" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
+              <div style={{background:"#eeedfc",borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:11,color:"#4338ca"}}>🔢 رقم التسجيل (تلقائي)</span>
+                <span style={{fontSize:13,fontWeight:900,color:"#4338ca"}}>INV-{String((investments.length||0)+1).padStart(4,"0")}</span>
+              </div>
               <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981"/>
               <input style={S.inp} placeholder="ملاحظة (اختياري)" value={form.note||""} onChange={e=>F("note",e.target.value)}/>
               <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
               <button style={S.btn("#10b981")} onClick={()=>{
                 if(!form.invName){showErr("⛔ خاصك تدخل اسم الاستثمار");return;}
+                if(investments.some(i=>i.name===form.invName)){showErr(`⛔ "${form.invName}" موجود ديجا — اختر اسم آخر`);return;}
                 const amt=parseFloat(form.amount);
                 if(!amt||amt<=0){showErr("⛔ خاصك تدخل المبلغ");return;}
                 if(!form.akey){showErr("⛔ خاصك تختار الحساب");return;}
@@ -6339,11 +6346,14 @@ function AppInner(){
                 const invBal=getBucketBalanceLive("investment");
                 if(invBal!==null&&amt>invBal){showErr(`⛔ قسم الاستثمار ناقص — المتاح: ${fmt(Math.max(invBal,0))}`);return;}
                 const invId=uid();
+                const regNum=`INV-${String((investments.length||0)+1).padStart(4,"0")}`;
                 const date=form.date||new Date().toISOString().split("T")[0];
                 // زيادة record مستقل للاستثمار (بحال الممتلكات)
                 setInvestments(p=>[...p,{
                   id:invId,
                   name:form.invName,
+                  address:form.invAddress||"",
+                  regNum,
                   type:form.invType||"أخرى",
                   amount:amt,
                   profit:0,
@@ -6388,6 +6398,15 @@ function AppInner(){
                 updBal(acc.ref,profit,"income","add");
                 cm();showErr("✅ تم تسجيل الربح كدخل — وتوزع على الأقسام الخمسة");
               }}>تأكيد الربح 💰</button>
+            </div>}
+
+            {modal==="invWithdrawGate"&&ei&&<div style={S.col}>
+              <div style={{fontSize:36,textAlign:"center"}}>📝</div>
+              <div style={{fontSize:14,fontWeight:900,textAlign:"center",marginBottom:6}}>خاصك تدخل الأرباح أولا</div>
+              <div style={{fontSize:11.5,color:"#5c584c",textAlign:"center",lineHeight:1.8,marginBottom:8}}>ماتقدرش تسحب رأس مال من "{ei.name}" قبل ما تسجل الأرباح المستحقة ديالو أولا — باش الحساب يبقى صحيح ومحدث.</div>
+              <button style={S.btn("#10b981")} onClick={()=>om("addProfit")}>➡️ تسجيل الأرباح الآن</button>
+              <button style={{...S.btn("#e8e8e4",false),color:"#475569"}} onClick={()=>om("returnInvest")}>سجلتهم ديجا — كمل للسحب</button>
+              <button style={{...S.btn("#f1f5f9",false),color:"#94a3b8"}} onClick={cm}>إلغاء</button>
             </div>}
 
             {modal==="returnInvest"&&ei&&<div style={S.col}>

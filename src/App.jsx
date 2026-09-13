@@ -991,10 +991,17 @@ function AppInner(){
     if((form.txType||"expense")==="expense"&&form.pm!=="كريدي"&&acc&&amt>(acc.balance||0)){
       showErr("⛔ الرصيد غير كافي — الرصيد المتاح: "+fmt(acc.balance||0));return;
     }
-    const tx={id:uid(),type:form.txType||"expense",amount:amt,catId:(isNaN(parseInt(form.catId))?form.catId:parseInt(form.catId)),subId:form.subId?(isNaN(parseInt(form.subId))?form.subId:parseInt(form.subId)):null,sub2Id:form.sub2Id?(isNaN(parseInt(form.sub2Id))?form.sub2Id:parseInt(form.sub2Id)):null,desc:form.desc||"",date:form.date||new Date().toISOString().split("T")[0],pm:form.pm||"نقدي",ref:acc?.ref||null};
+    const tx={id:uid(),type:form.txType||"expense",amount:amt,catId:(isNaN(parseInt(form.catId))?form.catId:parseInt(form.catId)),subId:form.subId?(isNaN(parseInt(form.subId))?form.subId:parseInt(form.subId)):null,sub2Id:form.sub2Id?(isNaN(parseInt(form.sub2Id))?form.sub2Id:parseInt(form.sub2Id)):null,desc:form.desc||(form.invWithdrawFlow?`ربح: ${(investments.find(i=>i.id===form.invId)||{}).name||""}`:""),date:form.date||new Date().toISOString().split("T")[0],pm:form.pm||"نقدي",ref:acc?.ref||null,invId:form.invWithdrawFlow?form.invId:undefined};
     setTxs(p=>[tx,...p]);
     if(tx.pm!=="كريدي"&&acc)updBal(acc.ref,tx.amount,tx.type,"add");
     setOvExp(p=>({...p,forceOverride:false,overrunPending:null,overrunStep:0}));
+    if(form.invWithdrawFlow){
+      const invIdSaved=form.invId;
+      const inv=investments.find(i=>i.id===invIdSaved);
+      F("invWithdrawFlow",false);F("catId","");F("amount","");
+      if(inv){setEi(inv);om("returnInvest");}else{cm();}
+      return;
+    }
     cm();
     // ملاحظة: توزيع الأقسام الخمسة أوتوماتيكي بالكامل (نسبة % من كل دخل)
     // ما خاصوش أي خطوة يدوية — الأرصدة كتتحسب مباشرة فصفحة الميزانية
@@ -2595,7 +2602,8 @@ function AppInner(){
             const inv=investments.find(i=>i.id===ovExp.ovInv);
             if(!inv)return null;
             const invTxs=txs.filter(t=>t.invId===inv.id||((t.isInvest)&&(t.desc||"").includes(inv.name))).sort((a,b)=>b.date.localeCompare(a.date));
-            const net=(inv.profit||0);
+            const computedProfit=invTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
+            const net=computedProfit;
             return <>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
                 <button style={{...S.btn("#e8e8e4",false),padding:"8px 12px",fontSize:13,color:"#475569"}} onClick={()=>setOvExp(p=>({...p,ovPage:"invest",ovInv:null}))}>← رجوع</button>
@@ -2603,28 +2611,30 @@ function AppInner(){
               </div>
               <div style={{...S.card,background:"#10b98110",border:"1px solid #10b98133",padding:14,marginBottom:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                  <span style={{fontSize:12,color:"#64748b"}}>النوع: {inv.type||"استثمار"}</span>
+                  <span style={{fontSize:12,color:"#64748b"}}>النوع: {inv.type||"استثمار"}{inv.regNum?` · ${inv.regNum}`:""}</span>
                   <span style={{fontSize:12,color:"#64748b"}}>{inv.date}</span>
                 </div>
                 <div style={{display:"flex",gap:8}}>
                   <div style={{flex:1,textAlign:"center"}}>
-                    <div style={{fontSize:10,color:"#ef4444"}}>📉 مستثمر</div>
+                    <div style={{fontSize:10,color:"#ef4444"}}>📉 مستثمر (رأس المال)</div>
                     <div style={{fontSize:16,fontWeight:900,color:"#ef4444"}}>{fmt(inv.amount)}</div>
                   </div>
                   <div style={{flex:1,textAlign:"center"}}>
-                    <div style={{fontSize:10,color:"#10b981"}}>📈 أرباح</div>
-                    <div style={{fontSize:16,fontWeight:900,color:"#10b981"}}>{fmt(inv.profit||0)}</div>
-                  </div>
-                  <div style={{flex:1,textAlign:"center"}}>
-                    <div style={{fontSize:10,color:net>=0?"#1a6b4a":"#ef4444"}}>{net>=0?"💚 ربح":"🔴 خسارة"}</div>
+                    <div style={{fontSize:10,color:net>=0?"#1a6b4a":"#ef4444"}}>{net>=0?"💚 صافي الربح":"🔴 صافي الخسارة"}</div>
                     <div style={{fontSize:16,fontWeight:900,color:net>=0?"#1a6b4a":"#ef4444"}}>{fmt(Math.abs(net))}</div>
                   </div>
                 </div>
+                <div style={{fontSize:9,color:"#5c8a72",textAlign:"center",marginTop:8,background:"#f0f7f2",borderRadius:8,padding:"5px 8px"}}>💡 صافي الربح محسوب من معاملات الدخل المرتبطة بهاد الاستثمار (من المداخل)</div>
               </div>
+              {inv.address&&<div style={{...S.card,fontSize:11.5,color:"#64748b",padding:10}}>📍 {inv.address}</div>}
               {inv.note&&<div style={{...S.card,fontSize:12,color:"#475569",padding:10}}>📝 {inv.note}</div>}
-              <div style={{display:"flex",gap:8,marginBottom:8}}>
-                <button style={{...S.btn("#10b981"),flex:1}} onClick={()=>{setEi(inv);om("addProfit");}}>💰 + تسجيل ربح</button>
-                <button style={{...S.btn("#6366f1"),flex:1}} onClick={()=>{setEi(inv);om("invWithdrawGate");}}>🏦 استرداد رأس المال</button>
+              <div style={{marginBottom:8}}>
+                <button style={S.btn("#6366f1")} onClick={()=>{
+                  const catId=ensureInvestIncomeCat();
+                  F("catId",catId.toString());F("subId","");F("sub2Id","");F("txType","income");
+                  F("invId",inv.id);F("invWithdrawFlow",true);F("amount","");
+                  om("addTx");
+                }}>⬇️ سحب (أرباح أو رأس مال)</button>
               </div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل المعاملات ({invTxs.length})</div>
               {invTxs.map(t=>(
@@ -5986,11 +5996,15 @@ function AppInner(){
                   })()}
                 </>
               ):(<>
+              {modal==="addTx"&&form.invWithdrawFlow?(
+                <div style={{background:"#eeedfc",border:"1.5px solid #6366f1",borderRadius:10,padding:"11px 14px",marginBottom:0,fontWeight:800,fontSize:13,color:"#4338ca",textAlign:"center"}}>📊 استثمارات وأرباح أخرى 🔒</div>
+              ):(
               <select style={S.sel} value={modal==="addTx"?form.catId||"":ei?.catId||""} onChange={e=>{if(modal==="addTx"){F("catId",e.target.value);F("subId","");}else setEi(p=>({...p,catId:e.target.value,subId:""}));}}>
                 <option value="">اختر التصنيف</option>
                 {cats[modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense")].map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}
               </select>
-              {(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx"){F("subId",e.target.value);F("sub2Id","");}else setEi(p=>({...p,subId:e.target.value,sub2Id:""}));}}><option value="">⚠️ الفرع (إجباري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
+              )}
+              {!form.invWithdrawFlow&&(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx"){F("subId",e.target.value);F("sub2Id","");}else setEi(p=>({...p,subId:e.target.value,sub2Id:""}));}}><option value="">⚠️ الفرع (إجباري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
               {(()=>{
                 const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);
                 const type=modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense");
@@ -6372,41 +6386,6 @@ function AppInner(){
                 updBal(acc.ref,amt,"expense","add");
                 cm();showErr("✅ تم تسجيل الاستثمار");
               }}>تأكيد الاستثمار 📈</button>
-            </div>}
-            {modal==="addProfit"&&ei&&<div style={S.col}>
-              <div style={{padding:"10px 14px",background:"#10b98115",borderRadius:10,fontSize:13,color:"#1a6b4a",fontWeight:700,textAlign:"center"}}>💰 تسجيل ربح — {ei.name}</div>
-              <div style={{fontSize:12,color:"#64748b",textAlign:"center"}}>رأس المال: {fmt(ei.amount)} | أرباح سابقة: {fmt(ei.profit||0)}</div>
-              <input style={S.num} placeholder="مبلغ الربح/العائد" type="number" step="0.01" value={form.profitAmt||""} onChange={e=>F("profitAmt",e.target.value)}/>
-              <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981"/>
-              <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
-              <input style={S.inp} placeholder="ملاحظة (اختياري)" value={form.note||""} onChange={e=>F("note",e.target.value)}/>
-              <button style={S.btn("#10b981")} onClick={()=>{
-                const profit=parseFloat(form.profitAmt);
-                if(!profit||profit<=0){showErr("⛔ أدخل مبلغ الربح");return;}
-                if(!form.akey){showErr("⛔ اختر الحساب اللي سيدخل فيه الربح");return;}
-                const acc=allAcc.find(a=>a.key===form.akey);
-                if(!acc)return;
-                const date=form.date||new Date().toISOString().split("T")[0];
-                const catId=ensureInvestIncomeCat();
-                // تحديث الأرباح فالـ record (للعرض/ROI بس)
-                setInvestments(p=>p.map(i=>i.id===ei.id?{...i,profit:(i.profit||0)+profit}:i));
-                // تسجيل دخل حقيقي عادي — كيتوزع على الأقسام الخمسة بحال أي دخل آخر
-                setTxs(p=>[{id:uid(),type:"income",amount:profit,catId,subId:null,
-                  desc:`ربح: ${ei.name}`,date,pm:"نقدي",ref:acc.ref,
-                  isAsset:false,isInvest:false,invId:ei.id,invName:ei.name,note:form.note||""
-                },...p]);
-                updBal(acc.ref,profit,"income","add");
-                cm();showErr("✅ تم تسجيل الربح كدخل — وتوزع على الأقسام الخمسة");
-              }}>تأكيد الربح 💰</button>
-            </div>}
-
-            {modal==="invWithdrawGate"&&ei&&<div style={S.col}>
-              <div style={{fontSize:36,textAlign:"center"}}>📝</div>
-              <div style={{fontSize:14,fontWeight:900,textAlign:"center",marginBottom:6}}>خاصك تدخل الأرباح أولا</div>
-              <div style={{fontSize:11.5,color:"#5c584c",textAlign:"center",lineHeight:1.8,marginBottom:8}}>ماتقدرش تسحب رأس مال من "{ei.name}" قبل ما تسجل الأرباح المستحقة ديالو أولا — باش الحساب يبقى صحيح ومحدث.</div>
-              <button style={S.btn("#10b981")} onClick={()=>om("addProfit")}>➡️ تسجيل الأرباح الآن</button>
-              <button style={{...S.btn("#e8e8e4",false),color:"#475569"}} onClick={()=>om("returnInvest")}>سجلتهم ديجا — كمل للسحب</button>
-              <button style={{...S.btn("#f1f5f9",false),color:"#94a3b8"}} onClick={cm}>إلغاء</button>
             </div>}
 
             {modal==="returnInvest"&&ei&&<div style={S.col}>

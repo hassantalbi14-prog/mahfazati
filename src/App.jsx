@@ -1489,14 +1489,16 @@ function AppInner(){
         (d.catPcts||[]).forEach(cp=>{
           const cat=(cats.expense||[]).find(c=>c.id===cp.catId);
           const subList=(d.subPcts||{})[cp.catId]||[];
-          if(subList.length>0){
-            subList.forEach(sp=>{
-              const sub=cat?.subs?.find(s=>s.id===sp.subId);
-              distRows.push({"السنة":d.year,"التصنيف":cat?.name||cp.catId,"الفرع":sub?.name||"","النسبة %":sp.pct});
+          distRows.push({"السنة":d.year,"التصنيف":cat?.name||cp.catId,"الفرع":"","الفرع الفرعي":"","النسبة %":cp.pct});
+          subList.forEach(sp=>{
+            const sub=cat?.subs?.find(s=>s.id===sp.subId);
+            distRows.push({"السنة":d.year,"التصنيف":cat?.name||cp.catId,"الفرع":sub?.name||"","الفرع الفرعي":"","النسبة %":sp.pct});
+            const sub2List=((d.sub2Pcts||{})[cp.catId]||{})[sp.subId]||[];
+            sub2List.forEach(s2p=>{
+              const sub2=sub?.subs?.find(s2=>s2.id===s2p.sub2Id);
+              distRows.push({"السنة":d.year,"التصنيف":cat?.name||cp.catId,"الفرع":sub?.name||"","الفرع الفرعي":sub2?.name||"","النسبة %":s2p.pct});
             });
-          } else {
-            distRows.push({"السنة":d.year,"التصنيف":cat?.name||cp.catId,"الفرع":"","النسبة %":cp.pct});
-          }
+          });
         });
       });
       XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(distRows),"توزيع الميزانية");
@@ -1577,25 +1579,34 @@ function AppInner(){
           const year=String(r["السنة"]||"").trim();
           const catName=String(r["التصنيف"]||"").trim();
           const subName=String(r["الفرع"]||"").trim();
+          const sub2Name=String(r["الفرع الفرعي"]||"").trim();
           const pct=parseFloat(r["النسبة %"])||0;
           if(!year||!catName||pct<=0)return;
           const cat=(cats.expense||[]).find(c=>c.name===catName);
           if(!cat)return;
-          if(!byYear[year])byYear[year]={catPcts:{},subPcts:{}};
-          if(subName){
+          if(!byYear[year])byYear[year]={catPcts:{},subPcts:{},sub2Pcts:{}};
+          if(sub2Name&&subName){
+            const sub=(cat.subs||[]).find(s=>s.name===subName);
+            if(!sub)return;
+            const sub2=(sub.subs||[]).find(s2=>s2.name===sub2Name);
+            if(!sub2)return;
+            if(!byYear[year].sub2Pcts[cat.id])byYear[year].sub2Pcts[cat.id]={};
+            if(!byYear[year].sub2Pcts[cat.id][sub.id])byYear[year].sub2Pcts[cat.id][sub.id]=[];
+            byYear[year].sub2Pcts[cat.id][sub.id].push({sub2Id:sub2.id,pct});
+          } else if(subName){
             const sub=(cat.subs||[]).find(s=>s.name===subName);
             if(!sub)return;
             if(!byYear[year].subPcts[cat.id])byYear[year].subPcts[cat.id]=[];
             byYear[year].subPcts[cat.id].push({subId:sub.id,pct});
-            byYear[year].catPcts[cat.id]=(byYear[year].catPcts[cat.id]||0)+pct;
           } else {
-            byYear[year].catPcts[cat.id]=(byYear[year].catPcts[cat.id]||0)+pct;
+            byYear[year].catPcts[cat.id]=pct;
           }
         });
         const newCatDistYears=Object.keys(byYear).sort().map(year=>({
           year,
           catPcts:Object.keys(byYear[year].catPcts).map(catId=>({catId:parseInt(catId),pct:byYear[year].catPcts[catId]})),
           subPcts:Object.keys(byYear[year].subPcts).reduce((acc,catId)=>{acc[catId]=byYear[year].subPcts[catId];return acc;},{}),
+          sub2Pcts:byYear[year].sub2Pcts,
         }));
         // ندمجو مع السنين الموجودة ديجا (نبدلو غير السنين اللي كاينين فالملف)
         const existingYears=(newBudgetSettings.catDistYears||[]).filter(d=>!byYear[d.year]);

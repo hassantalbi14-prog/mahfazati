@@ -1429,7 +1429,7 @@ function AppInner(){
       }catch(e2){
         const bin=atob(base64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
         const blob=new Blob([arr],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-        const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=fileName;a.click();URL.revokeObjectURL(u);
+        const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=fileName;a.style.display="none";document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(u),1000);
         setBkMsg("✅ تم التحميل — شوف Downloads");setTimeout(()=>setBkMsg(null),3500);
       }
     }catch(e){showErr("⛔ فشل تصدير Excel — خاصك تدير npm install xlsx");setTimeout(()=>setErr(null),4000);}
@@ -1522,7 +1522,7 @@ function AppInner(){
       }catch(e2){
         const bin=atob(base64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
         const blob=new Blob([arr],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-        const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=fileName;a.click();URL.revokeObjectURL(u);
+        const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=fileName;a.style.display="none";document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(u),1000);
         setBkMsg("✅ تم تحميل التصدير الكامل — شوف Downloads");setTimeout(()=>setBkMsg(null),4000);
       }
     }catch(e){showErr("⛔ فشل التصدير الكامل — "+(e?.message||""));setTimeout(()=>setErr(null),4000);}
@@ -3904,7 +3904,7 @@ function AppInner(){
                     ].map((it,i,arr)=>(
                       <div key={it.label} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #f0efe9":"none"}} onClick={()=>{
                         if(secPin){setSecGate({pending:{custom:it.fn,lbl:it.lbl},pinInput:"",verified:false,countdown:0,err:false});return;}
-                        it.fn();
+                        try{const r=it.fn();if(r&&r.catch)r.catch(e=>{showErr("⛔ فشلت العملية — "+(e?.message||"خطأ غير معروف"));setTimeout(()=>setErr(null),4500);});}catch(e){showErr("⛔ فشلت العملية — "+(e?.message||"خطأ غير معروف"));setTimeout(()=>setErr(null),4500);}
                       }}>
                         <div style={{width:40,height:40,borderRadius:12,background:it.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{it.icon}</div>
                         <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>{it.label}</span>
@@ -3924,7 +3924,7 @@ function AppInner(){
                     ].map((it,i,arr)=>(
                       <div key={it.label} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #f0efe9":"none"}} onClick={()=>{
                         if(secPin){setSecGate({pending:{custom:it.fn,lbl:it.lbl},pinInput:"",verified:false,countdown:0,err:false});return;}
-                        it.fn();
+                        try{const r=it.fn();if(r&&r.catch)r.catch(e=>{showErr("⛔ فشلت العملية — "+(e?.message||"خطأ غير معروف"));setTimeout(()=>setErr(null),4500);});}catch(e){showErr("⛔ فشلت العملية — "+(e?.message||"خطأ غير معروف"));setTimeout(()=>setErr(null),4500);}
                       }}>
                         <div style={{width:40,height:40,borderRadius:12,background:it.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{it.icon}</div>
                         <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>{it.label}</span>

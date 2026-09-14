@@ -998,7 +998,6 @@ function AppInner(){
     if(form.invWithdrawFlow){
       const invIdSaved=form.invId;
       const inv=investments.find(i=>i.id===invIdSaved);
-      F("invWithdrawFlow",false);F("catId","");F("amount","");
       if(inv){setEi(inv);om("returnInvest");}else{cm();}
       return;
     }
@@ -2642,9 +2641,7 @@ function AppInner(){
               <div style={{marginBottom:8}}>
                 <button style={S.btn("#6366f1")} onClick={()=>{
                   const catId=ensureInvestIncomeCat();
-                  F("catId",catId.toString());F("subId","");F("sub2Id","");F("txType","income");
-                  F("invId",inv.id);F("invWithdrawFlow",true);F("amount","");
-                  om("addTx");
+                  om("addTx",{catId:catId.toString(),subId:"",sub2Id:"",txType:"income",invId:inv.id,invWithdrawFlow:true,amount:""});
                 }}>⬇️ سحب (أرباح أو رأس مال)</button>
               </div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل المعاملات ({invTxs.length})</div>

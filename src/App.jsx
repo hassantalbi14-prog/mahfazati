@@ -276,6 +276,7 @@ function AppInner(){
   const[cash,setCash]=useState(ICS);
   const[assets,setAssets]=useState(IAS);
   const[investments,setInvestments]=useState(IINV);
+  const[investmentRegistry,setInvestmentRegistry]=useState([]);
   const[loans,setLoans]=useState(ILN);
   const[cats,setCats]=useState(IC);
   const[txs,setTxs]=useState(ITX);
@@ -305,6 +306,7 @@ function AppInner(){
       const c=await _load('cash'); if(c)setCash(c);
       const a=await _load('assets'); if(a)setAssets(a);
       const inv=await _load('investments'); if(inv)setInvestments(inv);
+      const invReg=await _load('investmentRegistry'); if(invReg)setInvestmentRegistry(invReg);
       const l=await _load('loans'); if(l)setLoans(l);
       const ct=await _load('cats'); if(ct)setCats(ct);
       const tx=await _load('txs'); if(tx){
@@ -404,6 +406,7 @@ function AppInner(){
   useEffect(()=>{if(loaded)_save('cash',cash);},[cash,loaded]);
   useEffect(()=>{if(loaded)_save('assets',assets);},[assets,loaded]);
   useEffect(()=>{if(loaded)_save('investments',investments);},[investments,loaded]);
+  useEffect(()=>{if(loaded)_save('investmentRegistry',investmentRegistry);},[investmentRegistry,loaded]);
   useEffect(()=>{if(loaded)_save('loans',loans);},[loans,loaded]);
   useEffect(()=>{if(loaded)_save('cats',cats);},[cats,loaded]);
   useEffect(()=>{if(loaded)_save('txs',txs);},[txs,loaded]);
@@ -880,12 +883,36 @@ function AppInner(){
     const[h,m]=backupReminderTime.split(":").map(Number);
     scheduleBackupReminder(h,m);
   },[loaded]);
+  const invTypeIcons={"تجارة":"🏪","عقار":"🏠","أسهم":"📊","ذهب":"🥇","شركة":"🏢","عملة رقمية":"💻","أخرى":"❓"};
+  const addRegistryEntry=(name,address,type)=>{
+    if(!name)return{ok:false,err:"⛔ خاصك تدخل اسم الاستثمار"};
+    if(investmentRegistry.some(r=>r.name===name))return{ok:false,err:`⛔ "${name}" موجود ديجا فالسجل`};
+    const regNum=`INV-${String(investmentRegistry.length+1).padStart(4,"0")}`;
+    setInvestmentRegistry(p=>[...p,{id:uid(),name,address:address||"",type:type||"أخرى",regNum}]);
+    return{ok:true,regNum};
+  };
   const ensureInvestIncomeCat=()=>{
-    const existing=(cats.income||[]).find(c=>c.name==="استثمارات وأرباح أخرى");
-    if(existing)return existing.id;
-    const newId=uid();
-    setCats(p=>({...p,income:[...(p.income||[]),{id:newId,name:"استثمارات وأرباح أخرى",icon:"📊",color:"#6366f1",subs:[]}]}));
-    return newId;
+    let catId=(cats.income||[]).find(c=>c.name==="استثمارات وأرباح أخرى")?.id;
+    if(!catId){
+      catId=uid();
+      setCats(p=>({...p,income:[...(p.income||[]),{id:catId,name:"استثمارات وأرباح أخرى",icon:"📊",color:"#6366f1",subs:[]}]}));
+    }
+    // مزامنة الفروع (حسب نوع الاستثمار) والفروع الفرعية (حسب كل استثمار مسجل) — باش الفرع/الفرع الفرعي يكونو إجباريين بمعنى حقيقي
+    setCats(p=>({...p,income:(p.income||[]).map(c=>{
+      if(c.id!==catId)return c;
+      const types=[...new Set(investmentRegistry.map(r=>r.type||"أخرى"))];
+      const newSubs=types.map(t=>{
+        const existingSub=(c.subs||[]).find(s=>s.name===t);
+        const entriesOfType=investmentRegistry.filter(r=>(r.type||"أخرى")===t);
+        const newSub2=entriesOfType.map(r=>{
+          const existingSub2=existingSub?.subs?.find(s2=>s2.name===r.name);
+          return existingSub2||{id:uid(),name:r.name,icon:"📈"};
+        });
+        return existingSub?{...existingSub,subs:newSub2}:{id:uid(),name:t,icon:invTypeIcons[t]||"📌",subs:newSub2};
+      });
+      return{...c,subs:newSubs};
+    })}));
+    return catId;
   };
   const addSplitTx=()=>{
     const parts=(form.splitParts||[]).filter(p=>p.catId&&parseFloat(p.amount)>0);
@@ -3910,6 +3937,35 @@ function AppInner(){
                     ))}
                   </div>
 
+                  <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>📋 سجل الاستثمارات<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
+                  <div style={S.card}>
+                    {investmentRegistry.length===0&&<div style={{fontSize:11.5,color:"#94a3b8",textAlign:"center",padding:"6px 0 10px"}}>ماكاين حتى استثمار مسجل بعد — سجل هنا قبل ما تدخل استثمار حقيقي</div>}
+                    {investmentRegistry.map(r=>(
+                      <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #f0efe9"}}>
+                        <span style={{fontSize:16}}>{invTypeIcons[r.type]||"❓"}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:800,fontSize:13}}>{r.name}</div>
+                          <div style={{fontSize:10,color:"#8a8578"}}>{r.regNum}{r.address?` · ${r.address}`:""}</div>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{marginTop:investmentRegistry.length>0?10:0}}>
+                      <input style={{...S.inp,marginBottom:8}} placeholder="اسم الاستثمار" value={ovExp.regName||""} onChange={e=>setOvExp(p=>({...p,regName:e.target.value}))}/>
+                      {ovExp.regName&&investmentRegistry.some(r=>r.name===ovExp.regName)&&<div style={{color:"#ef4444",fontSize:11,fontWeight:700,textAlign:"center",marginTop:-4,marginBottom:8}}>⛔ "{ovExp.regName}" موجود ديجا</div>}
+                      <input style={{...S.inp,marginBottom:8}} placeholder="العنوان / الموقع (اختياري)" value={ovExp.regAddress||""} onChange={e=>setOvExp(p=>({...p,regAddress:e.target.value}))}/>
+                      <select style={{...S.sel,marginBottom:8}} value={ovExp.regType||""} onChange={e=>setOvExp(p=>({...p,regType:e.target.value}))}>
+                        <option value="">نوع الاستثمار</option>
+                        {["تجارة","عقار","أسهم","ذهب","شركة","عملة رقمية","أخرى"].map(t=><option key={t} value={t}>{invTypeIcons[t]} {t}</option>)}
+                      </select>
+                      <button style={S.btn("#1a6b4a")} onClick={()=>{
+                        const r=addRegistryEntry(ovExp.regName,ovExp.regAddress,ovExp.regType);
+                        if(!r.ok){showErr(r.err);setTimeout(()=>setErr(null),3000);return;}
+                        setOvExp(p=>({...p,regName:"",regAddress:"",regType:""}));
+                        showErr(`✅ تم التسجيل — ${r.regNum}`);setTimeout(()=>setErr(null),3000);
+                      }}>+ إضافة للسجل</button>
+                    </div>
+                  </div>
+
                   <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>تصدير البيانات<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
                   <div style={{...S.card,padding:0}}>
                     {[
@@ -6012,7 +6068,7 @@ function AppInner(){
                 {cats[modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense")].map(c=><option key={c.id} value={c.id}>{c.ci?"📷":c.icon} {c.name}</option>)}
               </select>
               )}
-              {!form.invWithdrawFlow&&(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx"){F("subId",e.target.value);F("sub2Id","");}else setEi(p=>({...p,subId:e.target.value,sub2Id:""}));}}><option value="">⚠️ الفرع (إجباري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
+              {(()=>{const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);const cat=gc(modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense"),cid);return cat?.subs?.length>0?<select style={S.sel} value={modal==="addTx"?form.subId||"":ei?.subId||""} onChange={e=>{if(modal==="addTx"){F("subId",e.target.value);F("sub2Id","");}else setEi(p=>({...p,subId:e.target.value,sub2Id:""}));}}><option value="">⚠️ الفرع (إجباري)</option>{cat.subs.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>:null;})()}
               {(()=>{
                 const cid=parseInt(modal==="addTx"?form.catId:ei?.catId);
                 const type=modal==="addTx"?(form.txType||"expense"):(ei?.type||"expense");
@@ -6341,24 +6397,22 @@ function AppInner(){
 
             {modal==="addInvest"&&<div style={S.col}>
               <div style={{padding:"10px 14px",background:"#10b98115",borderRadius:10,fontSize:13,color:"#1a6b4a",fontWeight:700,textAlign:"center"}}>📈 إضافة استثمار — لن يحسب في المصاريف</div>
-              <input style={{...S.inp,borderColor:form.invName&&investments.some(i=>i.name===form.invName)?"#ef4444":undefined}} placeholder="اسم الاستثمار" value={form.invName||""} onChange={e=>F("invName",e.target.value)}/>
-              {form.invName&&investments.some(i=>i.name===form.invName)&&<div style={{color:"#ef4444",fontSize:11,fontWeight:700,textAlign:"center",marginTop:-4}}>⛔ "{form.invName}" موجود ديجا — اختر اسم آخر</div>}
-              <input style={S.inp} placeholder="العنوان / الموقع (اختياري)" value={form.invAddress||""} onChange={e=>F("invAddress",e.target.value)}/>
-              <select style={S.sel} value={form.invType||""} onChange={e=>F("invType",e.target.value)}>
-                <option value="">نوع الاستثمار</option>
-                {["تجارة","عقار","أسهم","ذهب","شركة","عملة رقمية","أخرى"].map(t=><option key={t} value={t}>{t}</option>)}
-              </select>
+              {investmentRegistry.length===0?(
+                <div style={{background:"#fef3c7",borderRadius:10,padding:12,textAlign:"center",fontSize:12,color:"#92400e"}}>⚠️ ماكاين حتى استثمار مسجل — سجل واحد أولا من الإعدادات ← سجل الاستثمارات</div>
+              ):(
+                <select style={S.sel} value={form.regId||""} onChange={e=>F("regId",e.target.value)}>
+                  <option value="">اختار من السجل</option>
+                  {investmentRegistry.filter(r=>!investments.some(i=>i.regId===r.id)).map(r=><option key={r.id} value={r.id}>{invTypeIcons[r.type]} {r.name} ({r.regNum})</option>)}
+                </select>
+              )}
               <input style={S.num} placeholder="0.00" type="number" step="0.01" value={form.amount||""} onChange={e=>F("amount",e.target.value)}/>
-              <div style={{background:"#eeedfc",borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span style={{fontSize:11,color:"#4338ca"}}>🔢 رقم التسجيل (تلقائي)</span>
-                <span style={{fontSize:13,fontWeight:900,color:"#4338ca"}}>INV-{String((investments.length||0)+1).padStart(4,"0")}</span>
-              </div>
               <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#10b981"/>
               <input style={S.inp} placeholder="ملاحظة (اختياري)" value={form.note||""} onChange={e=>F("note",e.target.value)}/>
               <input style={S.inp} type="date" value={form.date||new Date().toISOString().split("T")[0]} onChange={e=>F("date",e.target.value)}/>
               <button style={S.btn("#10b981")} onClick={()=>{
-                if(!form.invName){showErr("⛔ خاصك تدخل اسم الاستثمار");return;}
-                if(investments.some(i=>i.name===form.invName)){showErr(`⛔ "${form.invName}" موجود ديجا — اختر اسم آخر`);return;}
+                if(!form.regId){showErr("⛔ خاصك تختار استثمار من السجل");return;}
+                const reg=investmentRegistry.find(r=>r.id===form.regId);
+                if(!reg){showErr("⛔ الاستثمار غير موجود فالسجل");return;}
                 const amt=parseFloat(form.amount);
                 if(!amt||amt<=0){showErr("⛔ خاصك تدخل المبلغ");return;}
                 if(!form.akey){showErr("⛔ خاصك تختار الحساب");return;}
@@ -6368,15 +6422,15 @@ function AppInner(){
                 const invBal=getBucketBalanceLive("investment");
                 if(invBal!==null&&amt>invBal){showErr(`⛔ قسم الاستثمار ناقص — المتاح: ${fmt(Math.max(invBal,0))}`);return;}
                 const invId=uid();
-                const regNum=`INV-${String((investments.length||0)+1).padStart(4,"0")}`;
                 const date=form.date||new Date().toISOString().split("T")[0];
                 // زيادة record مستقل للاستثمار (بحال الممتلكات)
                 setInvestments(p=>[...p,{
                   id:invId,
-                  name:form.invName,
-                  address:form.invAddress||"",
-                  regNum,
-                  type:form.invType||"أخرى",
+                  regId:reg.id,
+                  name:reg.name,
+                  address:reg.address||"",
+                  regNum:reg.regNum,
+                  type:reg.type||"أخرى",
                   amount:amt,
                   profit:0,
                   date,

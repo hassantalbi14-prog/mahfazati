@@ -2873,6 +2873,12 @@ function AppInner(){
                 <ChevronLeft size={14} color="#c8c4b6"/>
               </div>
             ))}
+            <div style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:"1px solid #f0efe9"}} onClick={()=>setDp("invReg")}>
+              <div style={{width:40,height:40,borderRadius:12,background:"#eeedfc",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>📈</div>
+              <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>سجل الاستثمارات</span>
+              <span style={{fontSize:10.5,fontWeight:800,color:"#4338ca",background:"#eeedfc",padding:"3px 9px",borderRadius:20,marginLeft:2}}>{investmentRegistry.length} مسجل</span>
+              <ChevronLeft size={14} color="#c8c4b6"/>
+            </div>
             <div style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:"1px solid #f0efe9"}} onClick={()=>setDp("distribution")}>
               <div style={{width:40,height:40,borderRadius:12,background:"#fdeaea",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>🎯</div>
               <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>الأهداف والتوزيع</span>
@@ -3909,35 +3915,11 @@ function AppInner(){
                   ))}
                   {assets.length===0&&<div style={{textAlign:"center",padding:40,color:"#475569"}}>لا توجد ممتلكات</div>}
                 </>}
-                {dp==="expCat"&&<CatSection catType="expense"/>}
-                {dp==="incCat"&&<CatSection catType="income"/>}
-                {dp==="cloud"&&<>
+                {dp==="invReg"&&<>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>النسخ الاحتياطي</span>
+                    <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>📋 سجل الاستثمارات</span>
                     <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
                   </div>
-                  {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
-
-                  <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"4px 4px 10px",display:"flex",alignItems:"center",gap:6}}>الحفظ والاسترجاع<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
-                  <div style={{...S.card,padding:0}}>
-                    {[
-                      {icon:"📤",bg:"#e5f5ee",label:"تحميل نسخة احتياطية",fn:expData,lbl:"تحميل نسخة احتياطية"},
-                      {icon:"☁️",bg:"#e6f2fb",label:"حفظ في Google Drive",fn:openDriveAfterExport,lbl:"حفظ في Google Drive"},
-                      {icon:"⬇️",bg:"#eeedfc",label:"استرجاع من Google Drive",fn:restoreFromDrive,lbl:"استرجاع من Google Drive"},
-                      {icon:"📥",bg:"#eeedfc",label:"استيراد من ملف",fn:()=>fRef.current.click(),lbl:"استيراد/استرجاع بيانات"},
-                    ].map((it,i,arr)=>(
-                      <div key={it.label} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #f0efe9":"none"}} onClick={()=>{
-                        if(secPin){setSecGate({pending:{custom:it.fn,lbl:it.lbl},pinInput:"",verified:false,countdown:0,err:false});return;}
-                        try{const r=it.fn();if(r&&r.catch)r.catch(e=>{showErr("⛔ فشلت العملية — "+(e?.message||"خطأ غير معروف"));setTimeout(()=>setErr(null),4500);});}catch(e){showErr("⛔ فشلت العملية — "+(e?.message||"خطأ غير معروف"));setTimeout(()=>setErr(null),4500);}
-                      }}>
-                        <div style={{width:40,height:40,borderRadius:12,background:it.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{it.icon}</div>
-                        <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>{it.label}</span>
-                        <ChevronLeft size={14} color="#c8c4b6"/>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>📋 سجل الاستثمارات<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
                   <div style={S.card}>
                     {investmentRegistry.length===0&&<div style={{fontSize:11.5,color:"#94a3b8",textAlign:"center",padding:"6px 0 10px"}}>ماكاين حتى استثمار مسجل بعد — سجل هنا قبل ما تدخل استثمار حقيقي</div>}
                     {investmentRegistry.map(r=>(
@@ -3964,6 +3946,34 @@ function AppInner(){
                         showErr(`✅ تم التسجيل — ${r.regNum}`);setTimeout(()=>setErr(null),3000);
                       }}>+ إضافة للسجل</button>
                     </div>
+                  </div>
+                </>}
+                {dp==="expCat"&&<CatSection catType="expense"/>}
+                {dp==="incCat"&&<CatSection catType="income"/>}
+                {dp==="cloud"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>النسخ الاحتياطي</span>
+                    <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+                  </div>
+                  {bkMsg&&<div style={{background:"rgba(16,185,129,.2)",border:"1px solid #10b981",borderRadius:10,padding:"10px",fontSize:13,color:"#1a6b4a"}}>{bkMsg}</div>}
+
+                  <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"4px 4px 10px",display:"flex",alignItems:"center",gap:6}}>الحفظ والاسترجاع<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>
+                  <div style={{...S.card,padding:0}}>
+                    {[
+                      {icon:"📤",bg:"#e5f5ee",label:"تحميل نسخة احتياطية",fn:expData,lbl:"تحميل نسخة احتياطية"},
+                      {icon:"☁️",bg:"#e6f2fb",label:"حفظ في Google Drive",fn:openDriveAfterExport,lbl:"حفظ في Google Drive"},
+                      {icon:"⬇️",bg:"#eeedfc",label:"استرجاع من Google Drive",fn:restoreFromDrive,lbl:"استرجاع من Google Drive"},
+                      {icon:"📥",bg:"#eeedfc",label:"استيراد من ملف",fn:()=>fRef.current.click(),lbl:"استيراد/استرجاع بيانات"},
+                    ].map((it,i,arr)=>(
+                      <div key={it.label} style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:i<arr.length-1?"1px solid #f0efe9":"none"}} onClick={()=>{
+                        if(secPin){setSecGate({pending:{custom:it.fn,lbl:it.lbl},pinInput:"",verified:false,countdown:0,err:false});return;}
+                        try{const r=it.fn();if(r&&r.catch)r.catch(e=>{showErr("⛔ فشلت العملية — "+(e?.message||"خطأ غير معروف"));setTimeout(()=>setErr(null),4500);});}catch(e){showErr("⛔ فشلت العملية — "+(e?.message||"خطأ غير معروف"));setTimeout(()=>setErr(null),4500);}
+                      }}>
+                        <div style={{width:40,height:40,borderRadius:12,background:it.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>{it.icon}</div>
+                        <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>{it.label}</span>
+                        <ChevronLeft size={14} color="#c8c4b6"/>
+                      </div>
+                    ))}
                   </div>
 
                   <div style={{fontSize:12,color:"#5c8a72",fontWeight:800,letterSpacing:.5,margin:"20px 4px 10px",display:"flex",alignItems:"center",gap:6}}>تصدير البيانات<div style={{flex:1,height:1,background:"#dcd9cd"}}/></div>

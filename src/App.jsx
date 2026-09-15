@@ -197,6 +197,7 @@ function AppInner(){
   const[hideBalance,setHideBalance]=useState(false);
   const[showActions,setShowActions]=useState(false);
   const[dp,setDp]=useState(null);
+  useEffect(()=>{if(dp!==null)window.scrollTo({top:0,behavior:"smooth"});},[dp]);
   const[modal,setModal]=useState(null);
   const[form,setForm]=useState({});
   const[ei,setEi]=useState(null);

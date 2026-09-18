@@ -2640,7 +2640,7 @@ function AppInner(){
             const inv=investments.find(i=>i.id===ovExp.ovInv);
             if(!inv)return null;
             const invTxs=txs.filter(t=>t.invId===inv.id||((t.isInvest)&&(t.desc||"").includes(inv.name))).sort((a,b)=>b.date.localeCompare(a.date));
-            const computedProfit=invTxs.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
+            const computedProfit=invTxs.filter(t=>t.type==="income"&&!t.isTransfer).reduce((s,t)=>s+t.amount,0);
             const net=computedProfit;
             return <>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:4}}>
@@ -6474,16 +6474,15 @@ function AppInner(){
                 const acc=allAcc.find(a=>a.key===form.akey);
                 if(!acc)return;
                 const date=form.date||new Date().toISOString().split("T")[0];
-                const catId=ensureInvestIncomeCat();
-                // تسجيل دخل حقيقي عادي (سحب/استرداد) — كيتوزع على الأقسام الخمسة بحال أي دخل آخر
-                setTxs(p=>[{id:uid(),type:"income",amount:returnAmt,catId,subId:null,
-                  desc:`استرداد: ${ei.name}`,date,pm:"نقدي",ref:acc.ref,
-                  isAsset:false,isInvest:false,invId:ei.id,invName:ei.name,note:""
+                // رجوع رأس المال: مجرد رجوع فلوسك ديالك — ماشي دخل جديد، فماخصوش يتحسب فتوزيع الدخل
+                setTxs(p=>[{id:uid(),type:"income",amount:returnAmt,catId:null,subId:null,
+                  desc:`استرداد رأس مال: ${ei.name}`,date,pm:"نقدي",ref:acc.ref,
+                  isAsset:false,isInvest:false,isTransfer:true,invId:ei.id,invName:ei.name,note:""
                 },...p]);
                 updBal(acc.ref,returnAmt,"income","add");
                 // تحديث رأس المال المتبقي (للعرض بس)
                 setInvestments(p=>p.map(i=>i.id===ei.id?{...i,amount:Math.max(0,i.amount-returnAmt)}:i));
-                cm();showErr("✅ تم الاسترداد كدخل — وتوزع على الأقسام الخمسة");
+                cm();showErr("✅ تم استرداد رأس المال — بلا تأثير على المداخل");
               }}>تأكيد الاسترداد 🏦</button>
             </div>}
 

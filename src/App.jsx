@@ -2683,6 +2683,23 @@ function AppInner(){
                   om("addTx",{catId:catId.toString(),subId:"",sub2Id:"",txType:"income",invId:inv.id,invWithdrawFlow:true,amount:""});
                 }}>⬇️ سحب (أرباح أو رأس مال)</button>
               </div>
+              {ovExp[`confirmDelInv_${inv.id}`]?(
+                <div style={{...S.card,background:"#fef2f2",border:"1px solid #ef4444",display:"flex",flexDirection:"column",gap:8,marginBottom:8}}>
+                  <div style={{fontSize:11.5,color:"#991b1b",fontWeight:700,textAlign:"center"}}>⚠️ حذف نهائي — غادي يمسح "{inv.name}" وكل معاملاتو ({invTxs.length}) ويرجع الرصيد للحسابات</div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button style={{...S.btn("#e8e8e4",false),color:"#475569",flex:1,padding:"9px",fontSize:12}} onClick={()=>setOvExp(p=>({...p,[`confirmDelInv_${inv.id}`]:false}))}>إلغاء</button>
+                    <button style={{...S.btn("#ef4444"),flex:1,padding:"9px",fontSize:12}} onClick={()=>{
+                      invTxs.forEach(t=>{if(t.ref)updBal(t.ref,t.amount,t.type,"remove");});
+                      setTxs(p=>p.filter(t=>!(t.invId===inv.id||((t.isInvest)&&(t.desc||"").includes(inv.name)))));
+                      setInvestments(p=>p.filter(i=>i.id!==inv.id));
+                      setOvExp(p=>({...p,ovPage:"invest",ovInv:null,[`confirmDelInv_${inv.id}`]:false}));
+                      showErr("✅ تم حذف الاستثمار وكل معاملاتو");setTimeout(()=>setErr(null),3000);
+                    }}>تأكيد الحذف</button>
+                  </div>
+                </div>
+              ):(
+                <button style={{...S.btn("#fee2e2",false),color:"#ef4444",padding:"9px",fontSize:12,marginBottom:8}} onClick={()=>setOvExp(p=>({...p,[`confirmDelInv_${inv.id}`]:true}))}>🗑️ حذف الاستثمار نهائيا</button>
+              )}
               <div style={{fontWeight:700,fontSize:14,color:"#1a1a1a",marginTop:4}}>📋 سجل المعاملات ({invTxs.length})</div>
               {invTxs.map(t=>(
                 <div key={t.id} style={{...S.card,padding:"12px 16px"}}>

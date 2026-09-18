@@ -1056,20 +1056,42 @@ function AppInner(){
         setLoans(p=>p.map(l=>l.id===personMatch.id?{...l,remaining:Math.min(l.amount,l.remaining+t.amount)}:l));
       }
     }
-    setTxs(p=>p.filter(x=>x.id!==id));
+    // 🔧 إصلاح: إذا كانت هاد المعاملة هي معاملة "شراء استثمار" (رأس المال الأساسي)،
+    // خاصنا نمسحو الاستثمار المرتبط بيها + كل المعاملات الأخرى المرتبطة بيه (أرباح/سحوبات)
+    // — باش ما يبقاش "استثمار يتيم" ظاهر فصفحة الاستثمار بلا حتى معاملة فسجل المعاملات.
+    let removedInv=null;
+    let removedLinkedTxs=[];
+    if(t.isInvest&&t.type==="expense"){
+      const linkedInv=investments.find(i=>t.invId===i.id||(t.desc||"").includes(i.name));
+      if(linkedInv){
+        removedInv=linkedInv;
+        removedLinkedTxs=txs.filter(x=>x.id!==id&&(x.invId===linkedInv.id||((x.isInvest)&&(x.desc||"").includes(linkedInv.name))));
+        removedLinkedTxs.forEach(x=>{if(x.ref)updBal(x.ref,x.amount,x.type,"remove");});
+        setInvestments(p=>p.filter(i=>i.id!==linkedInv.id));
+      }
+    }
+    const removedIds=new Set([id,...removedLinkedTxs.map(x=>x.id)]);
+    setTxs(p=>p.filter(x=>!removedIds.has(x.id)));
     if(undoTimerRef.current)clearTimeout(undoTimerRef.current);
-    setLastDeleted({tx:t,loanAdjustId});
+    setLastDeleted({tx:t,loanAdjustId,removedInv,removedLinkedTxs});
     undoTimerRef.current=setTimeout(()=>setLastDeleted(null),6000);
+    if(removedInv)showErr(`✅ تم حذف المعاملة والاستثمار المرتبط بيها "${removedInv.name}"`);
   };
   const undoDelete=()=>{
     if(!lastDeleted)return;
-    const{tx:t,loanAdjustId}=lastDeleted;
+    const{tx:t,loanAdjustId,removedInv,removedLinkedTxs}=lastDeleted;
     if(undoTimerRef.current)clearTimeout(undoTimerRef.current);
     updBal(t.ref,t.amount,t.type,"add");
     if(loanAdjustId){
       setLoans(p=>p.map(l=>l.id===loanAdjustId?{...l,remaining:Math.max(0,l.remaining-t.amount)}:l));
     }
-    setTxs(p=>[t,...p]);
+    if(removedInv){
+      setInvestments(p=>[...p,removedInv]);
+    }
+    if(removedLinkedTxs&&removedLinkedTxs.length){
+      removedLinkedTxs.forEach(x=>{if(x.ref)updBal(x.ref,x.amount,x.type,"add");});
+    }
+    setTxs(p=>[t,...(removedLinkedTxs||[]),...p]);
     setLastDeleted(null);
   };
   const saveTxEdit=()=>{

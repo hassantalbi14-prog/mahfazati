@@ -276,6 +276,7 @@ function AppInner(){
   const[banks,setBanks]=useState(IBK);
   const[cash,setCash]=useState(ICS);
   const[assets,setAssets]=useState(IAS);
+  const[assetsRegistry,setAssetsRegistry]=useState([]);
   const[investments,setInvestments]=useState(IINV);
   const[investmentRegistry,setInvestmentRegistry]=useState([]);
   const[loans,setLoans]=useState(ILN);
@@ -308,6 +309,7 @@ function AppInner(){
       const a=await _load('assets'); if(a)setAssets(a);
       const inv=await _load('investments'); if(inv)setInvestments(inv);
       const invReg=await _load('investmentRegistry'); if(invReg)setInvestmentRegistry(invReg);
+      const astReg=await _load('assetsRegistry'); if(astReg)setAssetsRegistry(astReg);
       const l=await _load('loans'); if(l)setLoans(l);
       const ct=await _load('cats'); if(ct)setCats(ct);
       const tx=await _load('txs'); if(tx){
@@ -408,6 +410,7 @@ function AppInner(){
   useEffect(()=>{if(loaded)_save('assets',assets);},[assets,loaded]);
   useEffect(()=>{if(loaded)_save('investments',investments);},[investments,loaded]);
   useEffect(()=>{if(loaded)_save('investmentRegistry',investmentRegistry);},[investmentRegistry,loaded]);
+  useEffect(()=>{if(loaded)_save('assetsRegistry',assetsRegistry);},[assetsRegistry,loaded]);
   useEffect(()=>{if(loaded)_save('loans',loans);},[loans,loaded]);
   useEffect(()=>{if(loaded)_save('cats',cats);},[cats,loaded]);
   useEffect(()=>{if(loaded)_save('txs',txs);},[txs,loaded]);
@@ -890,6 +893,14 @@ function AppInner(){
     if(investmentRegistry.some(r=>r.name===name))return{ok:false,err:`⛔ "${name}" موجود ديجا فالسجل`};
     const regNum=`INV-${String(investmentRegistry.length+1).padStart(4,"0")}`;
     setInvestmentRegistry(p=>[...p,{id:uid(),name,address:address||"",type:type||"أخرى",regNum}]);
+    return{ok:true,regNum};
+  };
+  const astTypeIcons={"سيارة":"🚗","منزل":"🏠","عقار":"🏢","محل":"🏪","معدات":"🔧","أخرى":"❓"};
+  const addAssetsRegistryEntry=(name,address,type)=>{
+    if(!name)return{ok:false,err:"⛔ خاصك تدخل اسم الممتلك"};
+    if(assetsRegistry.some(r=>r.name===name))return{ok:false,err:`⛔ "${name}" موجود ديجا فالسجل`};
+    const regNum=`AST-${String(assetsRegistry.length+1).padStart(4,"0")}`;
+    setAssetsRegistry(p=>[...p,{id:uid(),name,address:address||"",type:type||"أخرى",regNum}]);
     return{ok:true,regNum};
   };
   const ensureInvestIncomeCat=()=>{
@@ -2874,6 +2885,12 @@ function AppInner(){
                 <ChevronLeft size={14} color="#c8c4b6"/>
               </div>
             ))}
+            <div style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:"1px solid #f0efe9"}} onClick={()=>setDp("astReg")}>
+              <div style={{width:40,height:40,borderRadius:12,background:"#fdeaea",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>📋</div>
+              <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>سجل الممتلكات</span>
+              <span style={{fontSize:10.5,fontWeight:800,color:"#dc2626",background:"#fdeaea",padding:"3px 9px",borderRadius:20,marginLeft:2}}>{assetsRegistry.length} مسجل</span>
+              <ChevronLeft size={14} color="#c8c4b6"/>
+            </div>
             <div style={{display:"flex",alignItems:"center",padding:"14px",cursor:"pointer",borderBottom:"1px solid #f0efe9"}} onClick={()=>setDp("invReg")}>
               <div style={{width:40,height:40,borderRadius:12,background:"#eeedfc",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,marginLeft:12,flexShrink:0}}>📈</div>
               <span style={{flex:1,fontSize:14.5,fontWeight:800,color:"#1a1a1a"}}>سجل الاستثمارات</span>
@@ -2913,7 +2930,7 @@ function AppInner(){
               <ChevronLeft size={14} color="#c8c4b6"/>
             </div>
           </div>
-          {dp&&["banks","cash","assets","expCat","incCat","cloud","profile","appearance","security","distribution","catDist","widget"].includes(dp)&&(
+          {dp&&["banks","cash","assets","invReg","astReg","expCat","incCat","cloud","profile","appearance","security","distribution","catDist","widget"].includes(dp)&&(
             <div style={{position:isDesktop?"absolute":"fixed",inset:0,background:"#f5f5f0",zIndex:100,display:"flex",flexDirection:"column"}}>
               <style>{`@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');`}</style>
               <div dir="rtl" style={{flex:1,minHeight:0,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"20px 20px 160px",fontFamily:"Tajawal",color:"#1a1a1a",display:"flex",flexDirection:"column",gap:14}}>
@@ -3944,6 +3961,39 @@ function AppInner(){
                         const r=addRegistryEntry(ovExp.regName,ovExp.regAddress,ovExp.regType);
                         if(!r.ok){showErr(r.err);setTimeout(()=>setErr(null),3000);return;}
                         setOvExp(p=>({...p,regName:"",regAddress:"",regType:""}));
+                        showErr(`✅ تم التسجيل — ${r.regNum}`);setTimeout(()=>setErr(null),3000);
+                      }}>+ إضافة للسجل</button>
+                    </div>
+                  </div>
+                </>}
+                {dp==="astReg"&&<>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:800,fontSize:18,color:"#1a1a1a"}}>📋 سجل الممتلكات</span>
+                    <button onClick={()=>setDp(null)} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",color:"#1a1a1a",cursor:"pointer",fontFamily:"Tajawal",fontSize:12}}>← رجوع</button>
+                  </div>
+                  <div style={S.card}>
+                    {assetsRegistry.length===0&&<div style={{fontSize:11.5,color:"#94a3b8",textAlign:"center",padding:"6px 0 10px"}}>ماكاين حتى ممتلك مسجل بعد — سجل هنا قبل ما تدخل ممتلك حقيقي</div>}
+                    {assetsRegistry.map(r=>(
+                      <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #f0efe9"}}>
+                        <span style={{fontSize:16}}>{astTypeIcons[r.type]||"❓"}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:800,fontSize:13}}>{r.name}</div>
+                          <div style={{fontSize:10,color:"#8a8578"}}>{r.regNum}{r.address?` · ${r.address}`:""}</div>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{marginTop:assetsRegistry.length>0?10:0}}>
+                      <input style={{...S.inp,marginBottom:8}} placeholder="اسم الممتلك" value={ovExp.astRegName||""} onChange={e=>setOvExp(p=>({...p,astRegName:e.target.value}))}/>
+                      {ovExp.astRegName&&assetsRegistry.some(r=>r.name===ovExp.astRegName)&&<div style={{color:"#ef4444",fontSize:11,fontWeight:700,textAlign:"center",marginTop:-4,marginBottom:8}}>⛔ "{ovExp.astRegName}" موجود ديجا</div>}
+                      <input style={{...S.inp,marginBottom:8}} placeholder="العنوان / الموقع (اختياري)" value={ovExp.astRegAddress||""} onChange={e=>setOvExp(p=>({...p,astRegAddress:e.target.value}))}/>
+                      <select style={{...S.sel,marginBottom:8}} value={ovExp.astRegType||""} onChange={e=>setOvExp(p=>({...p,astRegType:e.target.value}))}>
+                        <option value="">نوع الممتلك</option>
+                        {["سيارة","منزل","عقار","محل","معدات","أخرى"].map(t=><option key={t} value={t}>{astTypeIcons[t]} {t}</option>)}
+                      </select>
+                      <button style={S.btn("#dc2626")} onClick={()=>{
+                        const r=addAssetsRegistryEntry(ovExp.astRegName,ovExp.astRegAddress,ovExp.astRegType);
+                        if(!r.ok){showErr(r.err);setTimeout(()=>setErr(null),3000);return;}
+                        setOvExp(p=>({...p,astRegName:"",astRegAddress:"",astRegType:""}));
                         showErr(`✅ تم التسجيل — ${r.regNum}`);setTimeout(()=>setErr(null),3000);
                       }}>+ إضافة للسجل</button>
                     </div>
@@ -6385,14 +6435,23 @@ function AppInner(){
 
             {modal==="buyAsset"&&<div style={S.col}>
               <div style={{padding:"10px 14px",background:"#14b8a615",borderRadius:10,fontSize:13,color:"#14b8a6",fontWeight:700,textAlign:"center"}}>🏠 شراء ممتلك — لن يحسب في المصاريف</div>
-              <input style={S.inp} placeholder="اسم الممتلك" value={form.astName||""} onChange={e=>F("astName",e.target.value)}/>
-              <select style={S.sel} value={form.astType||""} onChange={e=>F("astType",e.target.value)}><option value="">نوع الممتلك</option>{["عقار","سيارة","ذهب","أرض","معدات","أخرى"].map(t=><option key={t} value={t}>{t}</option>)}</select>
+              {assetsRegistry.length===0?(
+                <div style={{background:"#fef3c7",borderRadius:10,padding:12,textAlign:"center",fontSize:12,color:"#92400e"}}>⚠️ ماكاين حتى ممتلك مسجل — سجل واحد أولا من الإعدادات ← سجل الممتلكات</div>
+              ):(
+                <select style={S.sel} value={form.astRegId||""} onChange={e=>F("astRegId",e.target.value)}>
+                  <option value="">اختار من السجل</option>
+                  {assetsRegistry.filter(r=>!assets.some(a=>a.regId===r.id)).map(r=><option key={r.id} value={r.id}>{astTypeIcons[r.type]} {r.name} ({r.regNum})</option>)}
+                </select>
+              )}
               <input style={S.num} placeholder="0.00" type="number" step="0.01" value={form.astAmt||""} onChange={e=>F("astAmt",e.target.value)}/>
               <AccPicker value={form.akey} onChange={v=>F("akey",v)} border="#14b8a6"/>
               <input style={S.inp} placeholder="ملاحظة" value={form.astNote||""} onChange={e=>F("astNote",e.target.value)}/>
               <input style={S.inp} type="date" value={form.astDate||new Date().toISOString().split("T")[0]} onChange={e=>F("astDate",e.target.value)}/>
               <button style={S.btn("#14b8a6")} onClick={()=>{
-                if(!form.astName||!form.astAmt||!form.akey){showErr("⛔ أكمل البيانات");return;}
+                if(!form.astRegId){showErr("⛔ خاصك تختار ممتلك من السجل");return;}
+                const reg=assetsRegistry.find(r=>r.id===form.astRegId);
+                if(!reg){showErr("⛔ الممتلك غير موجود فالسجل");return;}
+                if(!form.astAmt||!form.akey){showErr("⛔ أكمل البيانات");return;}
                 const amt=parseFloat(form.astAmt);
                 const acc=allAcc.find(a=>a.key===form.akey);
                 if(!acc){showErr("⛔ اختر الحساب");return;}
@@ -6400,8 +6459,8 @@ function AppInner(){
                 const astBal=getBucketBalanceLive("assets");
                 if(astBal!==null&&amt>astBal){showErr(`⛔ قسم الممتلكات ناقص — المتاح: ${fmt(Math.max(astBal,0))}`);return;}
                 updBal(acc.ref,amt,"expense","add");
-                setAssets(p=>[...p,{id:uid(),type:form.astType||"أخرى",name:form.astName,value:amt,note:form.astNote||"",color:"#14b8a6"}]);
-                setTxs(p=>[{id:uid(),type:"expense",amount:amt,catId:null,subId:null,desc:`شراء ممتلك: ${form.astName}`,date:new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref,isAsset:true},...p]);
+                setAssets(p=>[...p,{id:uid(),regId:reg.id,type:reg.type||"أخرى",name:reg.name,address:reg.address||"",regNum:reg.regNum,value:amt,note:form.astNote||"",color:"#14b8a6"}]);
+                setTxs(p=>[{id:uid(),type:"expense",amount:amt,catId:null,subId:null,desc:`شراء ممتلك: ${reg.name}`,date:new Date().toISOString().split("T")[0],pm:"نقدي",ref:acc.ref,isAsset:true},...p]);
                 cm();
               }}>تأكيد الشراء 🏠</button>
             </div>}
